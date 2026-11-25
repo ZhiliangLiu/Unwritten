@@ -319,6 +319,7 @@ W8   T17 真实模型走查与收口
 | `src/store/meta.ts` | JSON 列的 Zod schema 与类型（版本 meta、回合动作、场景、预览任务的输入和结果） | T04 |
 | `src/store/migrations/` | drizzle-kit 生成的迁移 | T04 |
 | `src/events/bus.ts` | 进程内事件总线 | T04 |
+| `src/text/turn-text.ts` | 共享文本工具：`normalizeProse`、`parseJsonLines`、`parseOptionLines`、`ParseResult` | T04 |
 | `src/llm/types.ts` | `LlmTool`、`LlmRunInput`、`ResolvedModel`、`LlmRunError` 等类型 | T04 |
 | `src/test-support/scripted-llm.ts` | 单元测试用的假 `LlmService` | T04 |
 | `src/test-support/temp-dir.ts` | 建、删临时数据目录 | T04 |
@@ -401,7 +402,7 @@ W8   T17 真实模型走查与收口
 
 **依赖。** 维护者确认 §1.4。维护者改选了其他做法时，按维护者的选择改写下面的步骤，并同步修改本文受影响的任务。
 
-**拥有的文件。** `docs/tech-stack.md`、`docs/llm-endpoints.md`、`docs/author-workstation.md`、`docs/architecture.md`。
+**拥有的文件。** `docs/tech-stack.md`、`docs/llm-endpoints.md`、`docs/author-workstation.md`、`docs/architecture.md`、`apps/client/AGENTS.md`、`tasks/milestone-1.md`。
 
 **先读。** [docs/AGENTS.md](../docs/AGENTS.md) 全文，尤其是 §2 写作原则和 §3 审计。
 
@@ -429,6 +430,10 @@ W8   T17 真实模型走查与收口
   ```
 - [ ] 10. 运行 `node scripts/check-doc-links.mjs`，必须通过。
 - [ ] 11. 按 [docs/AGENTS.md §3](../docs/AGENTS.md#3-审计) 对本次新增的行跑三遍扫描，逐条判断命中。
+- [ ] 12. `docs/llm-endpoints.md` §2 的自定义端点 id 改成“6 位十六进制，取自创建请求 id 的哈希”；§5 的 OpenCode Go 请求头改成由 `llm` 模块补充；§8 的 `run` 入参改成 `LlmRunInput` 的字段。
+- [ ] 13. `apps/client/AGENTS.md` §6 的令牌规则改成“启动地址的 hash 是唯一例外”。
+- [ ] 14. 同步修正本文 T01、T04、T07、T08、T10、T12、T16 中与本次决定冲突的步骤。
+- [ ] 15. 再运行一次 `node scripts/check-doc-links.mjs`，必须通过。
 
 **注意事项。**
 
@@ -439,7 +444,7 @@ W8   T17 真实模型走查与收口
 **完成判据。**
 
 - `node scripts/check-doc-links.mjs` 输出“链接检查通过”。
-- `git diff docs/` 只包含上面 9 处改动。
+- `git diff docs/` 只包含本任务列出的改动。
 - 三遍扫描的命中都已逐条判断，汇报里列出命中和判断结论。
 
 ### T01 仓库脚手架与工具链
@@ -1125,7 +1130,7 @@ W8   T17 真实模型走查与收口
 **完成判据。**
 
 - `pnpm install` 成功，`pnpm-lock.yaml` 已生成。
-- `pnpm turbo run typecheck lint test build` 全部通过，类型检查用的是 `typescript@7`（`pnpm exec tsc -v` 输出 7.x）。
+- `pnpm typecheck && pnpm lint && pnpm test && pnpm build` 全部通过，类型检查用的是 `typescript@7`（`pnpm exec tsc -v` 输出 7.x）。
 - `node packages/core/src/main.ts` 打印 `contract keys: 0`。这证明 Node 能直接运行 core 的 TypeScript 源码，并能从 workspace 导入 contracts 的源码。打印失败时停下来汇报原始报错，不要改用别的运行方式。
 - 用 `turbo run build --filter=@unwritten/client --dry=json` 比较修改 token 文件前后的任务哈希。只改 token 的取值也必须触发 client 重建。
 - `apps/client/dist/` 里有 `index.html` 和 `boot.inline.js`；`packages/core/dist/main.js` 存在，`node packages/core/dist/main.js` 同样打印 `contract keys: 0`。
@@ -1803,7 +1808,7 @@ W8   T17 真实模型走查与收口
 
 **依赖。** T02。
 
-**拥有的文件。** `packages/core/drizzle.diagnostics.config.ts`，以及 `packages/core/src/` 下的 `cli.ts`、`errors.ts`、`services.ts`、`log/*`、`store/*`（含生成的迁移）、`events/*`、`llm/types.ts`、`test-support/scripted-llm.ts`、`test-support/temp-dir.ts` 和对应测试。
+**拥有的文件。** `packages/core/drizzle.diagnostics.config.ts`，以及 `packages/core/src/` 下的 `cli.ts`、`errors.ts`、`services.ts`、`log/*`、`store/*`（含生成的迁移）、`events/*`、`text/*`、`llm/types.ts`、`test-support/scripted-llm.ts`、`test-support/temp-dir.ts` 和对应测试。
 
 **先读。** [数据模型](../docs/data-model.md) §2、§3、§8；[回合循环 §2](../docs/turn-loop.md#2-回合请求)；[创作工作站 §13](../docs/author-workstation.md#13-数据表) 的 `jobs`；[LLM 端点 §9](../docs/llm-endpoints.md#9-调用记录)；[运行诊断与性能记录](../docs/diagnostics.md)和本文 §2.5。Drizzle 1.0 的 `node-sqlite` 驱动用法以 `node_modules/drizzle-orm/node-sqlite/*.d.ts` 为准。
 
@@ -2113,8 +2118,8 @@ W8   T17 真实模型走查与收口
 
   按这个顺序做：
   1. `new DatabaseSync(file)`（`node:sqlite`）。
-  2. `exec("PRAGMA locking_mode = EXCLUSIVE")`、`exec("PRAGMA journal_mode = WAL")`、`exec("PRAGMA foreign_keys = ON")`、`exec("PRAGMA busy_timeout = 0")`。
-  3. `exec("BEGIN IMMEDIATE")` 再 `exec("COMMIT")`：这一步取得并一直持有独占锁。失败（`SQLITE_BUSY`）时关闭连接，抛 `DataDirLockedError`。独占锁随进程退出由操作系统释放，所以 core 崩溃后不会留下死锁文件。
+  2. `exec("PRAGMA busy_timeout = 0")`、`exec("PRAGMA locking_mode = EXCLUSIVE")`、`exec("PRAGMA journal_mode = WAL")`、`exec("PRAGMA foreign_keys = ON")`。
+  3. `exec("BEGIN IMMEDIATE")` 再 `exec("COMMIT")`：这一步取得并一直持有独占锁。把第 2 步的几条 PRAGMA 和第 3 步一起放进同一个 `try`：任何一步抛出 SQLite 的忙锁错误（`SQLITE_BUSY`、`errcode 5`，或信息里含 `database is locked`）时，关闭连接、抛 `DataDirLockedError`。另一个进程可能先在第 2 步的 `PRAGMA journal_mode = WAL` 上就失败，不能只把 `BEGIN IMMEDIATE` 当作失败点。独占锁随进程退出由操作系统释放，所以 core 崩溃后不会留下死锁文件。
   4. 用驱动创建 Drizzle 实例（`drizzle({ client, schema })` 或驱动实际要求的写法），`schema` 是 `import * as schema from "./schema.ts"`。
   5. 执行迁移：`migrate(db, { migrationsFolder: fileURLToPath(new URL("./migrations/", import.meta.url)) })`。打包后这段代码在 `dist/main.js` 里，`new URL` 解析到 `dist/migrations/`，正好是 T01 配置的复制目标。
   6. 导出 `export type Database = ...`：驱动返回的数据库类型。
@@ -2124,7 +2129,7 @@ W8   T17 真实模型走查与收口
   - 打开临时目录里的库，迁移后 `sqlite_master` 里有 `works`、`work_versions`、`playthroughs`、`turns`、`routes`、`turn_requests`、`jobs`、`llm_calls` 八张表。
   - `PRAGMA foreign_keys` 读出来是 1；删除一个 `works` 行，它的 `work_versions` 行随之删除。
   - 部分唯一索引：同一 `route_id` 插两条 `status='running'` 的请求，第二条失败；一条 `running` 加一条 `failed` 可以共存。
-  - 独占锁：用 `child_process.fork` 起一个子进程，子进程对同一个库文件调用 `openDatabase`，必须以 `DataDirLockedError` 失败（子进程把结果通过 `process.send` 发回来）。必须用子进程测：同一进程里的两个连接不能代表另一个 core 进程的行为。子进程脚本放在 `src/store/test-fixtures/open-db-child.ts`，用 `node` 直接运行 TypeScript 源码。
+  - 独占锁：用 `child_process.fork` 起一个子进程，子进程对同一个库文件调用 `openDatabase`，必须以 `DataDirLockedError` 失败（子进程把结果通过 `process.send` 发回来）。必须用子进程测：同一进程里的两个连接不能代表另一个 core 进程的行为。子进程脚本放在 `src/store/test-fixtures/open-db-child.ts`，用 `node` 直接运行 TypeScript 源码。断言收到的错误是 `DataDirLockedError`，不是原始 `ERR_SQLITE_ERROR`。
 - [ ] 8. `src/log/scrub.ts`：
 
   ```ts
@@ -2141,7 +2146,7 @@ W8   T17 真实模型走查与收口
   ```
 
   测试：已知 key 被替换；`sk-` 开头的长串被替换；`Bearer xxx` 被替换；不相关的文字不变。
-- [ ] 9. `src/log/schema.ts`、`migrations/`、`logger.ts`：按[诊断契约](../docs/diagnostics.md)为 `diagnostics.db` 生成两张表和独立迁移。用时间索引分批清理，两表分别为运行、请求、任务、调用 ID 和时间的组合建立查询索引，性能样本按版本和时间建立分析索引。迁移目录相对于模块定位，源码读取 `src/log/migrations/`，构建产物读取 `dist/diagnostic-migrations/`。
+- [ ] 9. `src/log/schema.ts`、`migrations/`、`logger.ts`：按[诊断契约](../docs/diagnostics.md)为 `diagnostics.db` 生成两张表和独立迁移。用时间索引分批清理，两表分别为运行、请求、任务、调用 ID 和时间的组合建立查询索引，性能样本按版本和时间建立分析索引。迁移目录相对于模块定位。源码运行时读取 `src/log/migrations/`，打包产物读取 `dist/diagnostic-migrations/`；用 `import.meta.url` 是否以 `.ts` 结尾判断：是就取 `./migrations/`，否则取 `./diagnostic-migrations/`。加一条测试，直接运行构建产物，确认它找到的是复制后的迁移目录。
   - `createLogger({ dataDir, level, appVersion })` 返回 `Logger`，提供 `record(event)`、`sample(sample)`、`flush()`、`close()`。事件名、事件字段及指标数据按 §2.5 和诊断契约校验。写入端赋值记录 ID、运行 ID、时间和版本。模块按约定提供关联 ID。
   - 用 `pnpm --filter @unwritten/core exec drizzle-kit generate --config drizzle.diagnostics.config.ts` 生成诊断库迁移。连接使用 WAL、普通锁模式和 `busy_timeout = 0`。同一写入端用准备好的语句分批提交，每批结束后把控制权交回事件循环。保留裁剪、队列溢出和诊断库失效处理按诊断契约实现。导出供测试使用的时钟注入，正式调用用 `Date.now()` 记录发生时间、`performance.now()` 计算耗时。
   - 单测覆盖落库、重启读取、保留期、溢出与故障计数、级别筛选和字段白名单。用第二个连接持有读事务时检查写入仍成功，再持有写事务触发争用走故障分支。用注入的调度验证单轮批次上限以及余下记录会在后续轮次提交。诊断库不可用时校验正常业务可继续。用虚构的凭据和作品内容验证库里没有这些字段或原文，并检查数据目录中没有日志文件。
@@ -2302,6 +2307,7 @@ W8   T17 真实模型走查与收口
     resolve(purpose: Purpose): ResolvedModel | null;
     estimateTokens(text: string): number;
     run(input: LlmRunInput): Promise<LlmRunResult>;
+    pruneCalls(): number;
   }
 
   export interface LibraryService {
@@ -2323,6 +2329,7 @@ W8   T17 真实模型走查与收口
     submitAction(input: SubmitActionInput): TurnRequestView;
     retry(input: RetryInput): TurnRequestView;
     recoverInterrupted(): number;
+    pruneOldRequestLogs(): number;
     whenIdle(): Promise<void>;
   }
 
@@ -2374,6 +2381,24 @@ W8   T17 真实模型走查与收口
   - `run(input)`：把 `input` 记进 `runs`；然后依次取队列里的步骤：遇到 `fail` 就抛 `new LlmRunError(step.fail, step.detail ?? null)`；遇到 `args` 就找到 `input.tools` 里名为 `input.requiredToolName` 的工具调用 `execute(step.args)`——抛错就继续取下一步（模拟模型修正），返回 `terminate: true` 就结束并返回 `{ requiredToolTerminated: true }`。队列取空仍未结束，抛 `LlmRunError("invalid_output")`。
   - 设置相关的方法（`listProviders` 等）直接抛 `Error("not scripted")`。
   - 自测：`scripted-llm.test.ts` 覆盖上面三种走向。
+- [ ] 15. `src/text/turn-text.ts`：共享文本工具，T09 和 T10 都用这一份，不各写一份。
+
+  ```ts
+  export type ParseResult<T> = { ok: true; value: T } | { ok: false; errors: string[] };
+  export type JsonLine = { line: number; value: unknown };
+
+  export function normalizeProse(text: string): string;
+  export function parseJsonLines(text: string, label: string): ParseResult<JsonLine[]>;
+  export function parseOptionLines(
+    text: string,
+    limits: { min: number; max: number; textMax: number },
+  ): ParseResult<StoredOption[]>;
+  ```
+
+  - `normalizeProse`：把 CRLF 统一成 LF，去掉每行首尾空白和行尾空白，连续空行压成一个空行，去掉首尾空行；段落之间用一个空行分隔。
+  - `parseJsonLines`：按行解析，跳过空行；每行必须是 JSON 对象；不是 JSON 时错误写 `第 N 行 <label>：不是合法的 JSON`，不是对象时写 `第 N 行 <label>：必须是对象`。返回每行的原始行号，供 T09/T10 写更具体的字段错误。
+  - `parseOptionLines`：用 `parseJsonLines` 解析；每项必须有非空字符串 `text`，不能有 `hint`，`text` 去掉首尾空白后不超过 `limits.textMax`；条数在 `limits.min` 到 `limits.max` 之间；错误说明写明第几行、哪个字段。
+  - 测试 `turn-text.test.ts`：CRLF、连续空行、首尾空行；JSON 行号错误；不是对象；选项的 `hint`、空 `text`、超长、条数上下限。
 
 **注意事项。**
 
@@ -2384,9 +2409,9 @@ W8   T17 真实模型走查与收口
 
 **完成判据。**
 
-- `pnpm --filter @unwritten/core typecheck`、`test` 通过。
+- `pnpm --filter @unwritten/core typecheck`、`test` 通过；新增的 `turn-text.test.ts` 覆盖共享解析规则。
 - 生成的迁移 SQL 里能看到两个带 `WHERE` 的唯一索引。
-- 突变：把 `openDatabase` 里的 `BEGIN IMMEDIATE` / `COMMIT` 两行删掉，独占锁用例必须失败；恢复。把 `PRAGMA foreign_keys = ON` 删掉，级联删除用例必须失败；恢复。
+- 突变：把 `openDatabase` 里的 `PRAGMA locking_mode = EXCLUSIVE` 删掉，独占锁用例必须失败；恢复。把 `PRAGMA foreign_keys = ON` 删掉，级联删除用例必须失败；恢复。
 
 ### T05 测试用伪 OpenAI 服务
 
@@ -2704,7 +2729,7 @@ W8   T17 真实模型走查与收口
   3. 测量 `core.library_open`，包含 `openDatabase(path.join(dataDir, "library.db"))` 的加锁与迁移。抛 `DataDirLockedError` 时记 `store.locked`，原样抛出。成功后记 `store.migrated`。
   4. 创建事件总线和关闭用的 `AbortController`，把 `shutdown` 信号和 `dataDir`、`db`、`bus`、`logger` 注入服务。
   5. 依次创建 `llm`、`library`、`authoring`（传入 `llm`）、`play`（传入 `llm`）。
-  6. 恢复：`turnRequests = play.recoverInterrupted()`、`jobs = authoring.recoverInterrupted()`，记录 `core.recover` 和 `recovery.interrupted`。必须在 HTTP 开始监听之前做，这样任何页面都读不到“运行中却已经没人在跑”的请求。
+  6. 恢复：`turnRequests = play.recoverInterrupted()`、`jobs = authoring.recoverInterrupted()`，记录 `core.recover` 和 `recovery.interrupted`。随后调用 `llm.pruneCalls()` 和 `play.pruneOldRequestLogs()` 清理过期留存，返回值不写日志。必须在 HTTP 开始监听之前做，这样任何页面都读不到“运行中却已经没人在跑”的请求。
   7. `token = randomBytes(32).toString("base64url")`。
   8. `assets = loadClientAssets(options.clientDir)`；为 `null` 时记一条 warn（`event: "client.assets.missing"`）。
   9. `app = createHttpApp(...)`；用 `@hono/node-server` 的 `serve` 在 `127.0.0.1`、`options.port` 上监听，等到真正开始监听后读出实际端口。
@@ -3161,6 +3186,7 @@ W8   T17 真实模型走查与收口
   - **`resolve(purpose)`**：`load()`；状态不是 `ok` → `null`。取 `purposes[purpose] ?? purposes.default`；找不到端点、端点的 `api` 不是 `openai-completions`、端点下没有这个模型、或者 `purpose` 是 `narrator` / `author_chat` 而模型的 `tools === false` → `null`。否则返回 `{ endpointId, modelId, contextWindow: contextWindow ?? DEFAULT_CONTEXT_WINDOW, maxOutputTokens: maxTokens ?? defaultMaxTokens(contextWindow) }`。
   - `targetFor(purpose)` 是 `resolve` 的内部版本，多带 `endpointName`、`baseUrl`、解析后的 `apiKey`，只给 `run.ts` 用，不出 `llm` 模块。
   - `estimateTokens` 直接用 `budget.ts` 的。`run` 用 `createRunner`，`testConnection` 用 `createConnectionTester`。
+  - `pruneCalls()`：删除 `LLM_CALL_RETENTION_DAYS = 90` 天以前的 `llm_calls` 行，返回删除行数。T07 在启动时调用。
   - 修改配置后从下一次 `resolve` 开始生效；已经在跑的 `run` 继续用它开始时拿到的 `target`（[LLM 端点 §7](../docs/llm-endpoints.md#7-用途分配)）。
 - [ ] 13. 测试。单元测试放在各自文件旁边；用到伪服务的放进 `service.test.ts`、`run.test.ts`、`test-connection.test.ts`。每个测试都用临时数据目录。
   - `providers-file.test.ts`：缺文件 → `missing`；`{"version": 1,\n  oops\n}` → `syntax`，行号 2；`{"version":1,"endpoints":[{"id":1}]}` → `schema`，`path` 以 `endpoints.0` 开头；`{"version":2}` → `too_new`；写入后目录里只剩 `providers.json`，没有残留临时文件；非 Windows 上文件权限是 `0o600`；用户手写的未知顶层字段写回后仍在。
@@ -3184,6 +3210,7 @@ W8   T17 真实模型走查与收口
     - 每次尝试都写了一行 `llm_calls`，包括 SDK 直接抛错和已开始的调用被中止。诊断事件按 `callId` 关联。首输出前失败的调用没有首输出样本，自动重试得到的新调用 ID 与应用层尝试号分别核对。
     - `opencodeHeaders`：`https://opencode.ai/inference/go/openai/v1` 返回两个头，其他主机返回空对象。
   - `fetch-guard.test.ts`：`installGlobalFetchGuard()` 之后，对返回 302 的伪服务调用全局 `fetch` 会抛 `RedirectBlockedError`，跳转目标收不到请求。
+  - `pruneCalls()` 删掉 90 天以前的 `llm_calls`，保留较新的行。
 
 **注意事项。**
 
@@ -3508,6 +3535,7 @@ W8   T17 真实模型走查与收口
   - **失败**：`UPDATE turn_requests SET status = 'failed', error = ?, log = 足迹, updated_at = now WHERE id = ? AND status = 'running'`；发布 `turn_request.updated`；记 `turn.request.failed`。路线一律不动，所以上一个完整决定点保持原样。
   - **`recoverInterrupted()`**：把 `running` 的请求标成 `failed` / `interrupted`，取回这次更新的请求 ID 与尝试号。旧足迹按[回合循环 §2](../docs/turn-loop.md#2-回合请求)清理。事务结束后为每个中断请求记 `turn.request.failed`，并返回恢复行数。
   - **`whenIdle()`**：`queue.onIdle()`。关闭后，尚未开始的尝试结束总计时，结果为 `interrupted`，保留请求记录供恢复。已经开始的尝试响应关闭信号，在数据库关闭前结束。
+  - **`pruneOldRequestLogs()`**：把 90 天以前的 `turn_requests.log` 置空，返回改动行数。T07 在启动时调用。
 - [ ] 6. 测试（临时数据目录、真实的库和事件总线、`createScriptedLlm`）。在测试文件里写一个 `seedPlayableWork(db, { background, publicSetting, openingProse, options })`，直接插入一部已发布作品、开局、根回合和路线（不依赖 T09 的代码），返回各个 id。内容全部虚构。
   - `propose-turn-tool.test.ts`：合格参数通过；`changes` 为空时场景沿用父回合；每条规则一条不通过的用例；`ending: "true"` 被拒；`present` 的中英文逗号和顿号都能切开。
   - 诊断验收：续写总耗时和发生过的各阶段都保留 `requestId` 与尝试号。失败后重试生成独立样本，提交回滚要留下失败的提交样本。排队时关闭只记中断的总耗时。进程意外退出没有终点时只记恢复事件。
@@ -3526,7 +3554,7 @@ W8   T17 真实模型走查与收口
     - 对 `done` 的请求重试 → `request_not_retryable`；对 `running` 的请求重试 → 返回 `running` 的视图。
     - 运行期间把路线 head 直接改到另一个回合（模拟另一个标签页推进了路线）→ 请求变成 `superseded`，没有插入新回合。
     - 用 SQLite 触发器 `CREATE TRIGGER fail_insert BEFORE INSERT ON turns BEGIN SELECT RAISE(ABORT, 'boom'); END;` 让提交失败 → 请求 `failed` / `save`，路线不变。
-    - `recoverInterrupted()` 把 `running` 改成 `failed` / `interrupted`，留下原请求和尝试号。再执行恢复不增加事件，之后 `retry` 能成功。
+    - `recoverInterrupted()` 把 `running` 改成 `failed` / `interrupted`，留下原请求和尝试号。再执行恢复不增加事件，之后 `retry` 能成功。`pruneOldRequestLogs()` 清空 90 天以前的 `log`，保留原请求行。
     - 上下文承接：第一回合自由输入一句虚构的行动，第二回合时 `llm.runs[1].prompt` 里能找到第一回合的行动原话和正文。
     - 作品隔离：建两部作品各走一回合，第二部作品的 `prompt` 里找不到第一部作品的背景和正文。
     - 预算不足：`setResolved({ …, contextWindow: 200, maxOutputTokens: 100 })` → `failed` / `context_too_small`。
@@ -3585,7 +3613,7 @@ W8   T17 真实模型走查与收口
 **步骤。**
 
 - [ ] 1. 用 `llm.providers.list` 显示端点、模型 ID、凭据状态和默认模型。配置缺失时展示新增表单。无效或版本过高时显示服务返回的出错位置与恢复文案，禁止写操作。
-- [ ] 2. 新建表单支持名称、兼容地址、模型 ID、可选 API key 和设为默认。测试走 `llm.test`，区分网络、凭据、协议和无工具调用；测试结果只对应当次表单值，修改后清除。保存调用 `llm.endpoints.create`，同一待确认的提交复用 `requestId`，并携带最近读取的 `baseRevision`。
+- [ ] 2. 新建表单支持名称、兼容地址、模型 ID、可选 API key 和设为默认。测试走 `llm.test`，区分网络、凭据、协议和无工具调用；测试结果只对应当次表单值，修改后清除。保存调用 `llm.endpoints.create`，同一待确认的提交复用 `requestId`，并携带最近读取的 `baseRevision`。地址是 `http` 且主机不是本机回环地址、而这次会带 key 时，表单显示警告但不阻止测试或保存（[LLM 端点 §3](../docs/llm-endpoints.md#3-key-的来源与保护)）。
 - [ ] 3. 修改表单固定端点地址。key 留空发 `keep`，输入新值发 `set`，明确选中移除发 `remove`。测试分别映射到 `keep`、`set`、`none`。单独切换默认模型调用 `llm.purposes.set`。只在提交完成后清空本地 key，重新读配置后仍只显示状态。
 - [ ] 4. 收到 `config_conflict` 时重新查询并保留表单输入，请用户核对后重新提交。用可读通知与 LiveRegion 区分测试中、测试结果、保存成功及失败。
 - [ ] 5. 测试新增与默认切换、测试工具调用失败、保留或移除 key、冲突时保留输入、坏文件禁止写入，以及键盘填写和焦点。
@@ -3673,7 +3701,7 @@ W8   T17 真实模型走查与收口
 - [ ] 1. 每个测试创建临时数据目录、脚本化伪服务和独立 core 进程。用启动 stdout 读取地址，保留在测试夹具内。等待明确的就绪行，进程提前退出时显示脱敏诊断；测试完成终止进程与伪服务并删除目录。等待界面或请求状态，避免固定延时。
 - [ ] 2. 从空库设置模型，测试工具调用并设为默认，写背景，生成预览，改背景再生成并采用。点推荐行动、自由输入并完成第三回合。重启 core，打开新地址继续游玩；断言历史、行动原话、当前决定点以及伪服务收到的后续上下文都正确。
 - [ ] 3. 模拟错误 key、没有调用工具、无效配置文件、无效预览或回合、进程生成中断。确认已有库和阅读仍可访问；失败后原行动保留，重试只提交一次。单独测试切换作品不会串上下文。
-- [ ] 4. 验证生产 HTML 与接口边界、无令牌时的说明和零 API 请求。用键盘走主路径，检查可见焦点；用浏览器组合事件模拟组字回车。跑关键页面的 axe 检查，真实输入法与播报留给 T17。
+- [ ] 4. 验证生产 HTML 与接口边界、无令牌时的说明和零 API 请求。用键盘走主路径，检查可见焦点；用浏览器组合事件模拟组字回车。每个页面在浅色和深色主题下各跑一次 `@axe-core/playwright` 检查，真实输入法与播报留给 T17。
 - [ ] 5. 用读取诊断库的数据验收持久化，界面路径仍按角色、名称和可见状态验收。正常退出后重开诊断库，按任务、请求和调用 ID 核对 core、client 样本，区分失败、重试和成功。正常退出后检查数据目录只含契约列出的数据库及其 SQLite 伴随文件、模型配置及允许的备份。stdout 只含启动地址，运行事件和性能样本仅从诊断库读到。
 
 **完成判据。** `pnpm build`、`pnpm e2e` 通过；主路径和失败恢复用例各连续运行两遍，临时进程和数据目录均已清理。

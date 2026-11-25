@@ -45,7 +45,7 @@
 - **文件写坏了怎么办。** core 读取时按 schema 校验。文件无法解析时，设置页显示出错的行和列，并**拒绝从界面保存**，以免覆盖掉用户手写的内容。只有用户明确选择“用界面里的配置覆盖文件”时才会写入。
 - **启动时文件就是坏的。** core 照常启动，作品库、创作和阅读都能用；需要调用模型的功能停用，并提示“模型配置文件有误”。设置页照样能打开，显示出错位置，用户可以手动修好文件，或选择用界面配置覆盖。
 - **文件版本与迁移。** `version` 低于当前版本时，core 读取时在内存里升级；第一次从界面保存时写回新格式，旧文件另存为同目录的 `providers.json.bak`。它同样含有 key，权限和原文件相同。`version` 高于当前版本（被更新的应用写过）时，只读，拒绝从界面保存，提示升级应用。
-- **自定义端点的 id** 格式是 `custom-<名称简写>-<6 位随机十六进制>`，做法同 thinkrail 的 `newEndpointId`。
+- **自定义端点的 id** 格式是 `custom-<名称简写>-<6 位十六进制>`；这 6 位取自创建请求 id 的哈希，同一个创建请求重发时得到同一个端点 id，做法同 thinkrail 的 `newEndpointId`。
 
 ## 3. key 的来源与保护
 
@@ -66,7 +66,7 @@
 - **key 不出 core。** 列表接口只返回 `hasKey` 和 `keySource`（文件 / 某个环境变量 / 无），永远不返回 key 本身。
 - **编辑时 key 输入框留空，就保留原来的 key。** 要去掉 key 必须点“移除 key”（同 thinkrail 的 `hasSavedKey` / `removeKey`）。
 - **日志和调用记录里不出现 key。** 服务商返回的错误信息里如果带着 key，先抹掉再记录。
-- **经 `llm` 模块出去的请求一律不跟随重定向**（`redirect: "error"`），包括探测、测试连接和实际的模型调用，以免 key 被转发到另一台主机。thinkrail 只对带 key 的请求这样做；这里不判断请求带不带 key，因为 pi-ai 会自己读取标准环境变量里的 key，core 列不全所有可能发出去的 key，按 key 比对总会漏掉一类。模型接口的请求本来就不该经过重定向；端点返回重定向时报 `redirected`，提示用户改用跳转后的最终地址，作为新端点添加（修改端点时不能改地址，见下一条）。`llm` 模块是 core 所有外发请求的唯一出口，全部经过同一个 `fetch` 封装，由它强制这个选项，不依赖各家 SDK 自己的设置。pi-ai 和各家 SDK 能传入 `fetch` 的，显式传入这个封装；不能传入的，靠替换全局 `fetch`。替换写在一个单独的模块里，由 core 入口第一个导入，早于 pi-ai 和任何 SDK 的加载：ESM 会先执行被导入的模块，替换如果写在 `llm` 模块内部，SDK 可能已经在加载时拿走了原始的 `fetch`。SDK 绕开 `fetch` 直接发请求的情况，由验收里的重定向用例按协议逐一检出。Anthropic 协议的 key 放在 `x-api-key` 头里，Fetch 标准的“跨源重定向时去掉 `Authorization`”保护不到它，所以这条规则不能省。
+- **经 `llm` 模块出去的请求一律不跟随重定向**（统一的 `fetch` 封装以 `redirect: "manual"` 发请求，收到 301、302、303、307、308 时丢弃响应体，以 `redirected` 失败），包括探测、测试连接和实际的模型调用，以免 key 被转发到另一台主机。thinkrail 只对带 key 的请求这样做；这里不判断请求带不带 key，因为 pi-ai 会自己读取标准环境变量里的 key，core 列不全所有可能发出去的 key，按 key 比对总会漏掉一类。模型接口的请求本来就不该经过重定向；端点返回重定向时报 `redirected`，提示用户改用跳转后的最终地址，作为新端点添加（修改端点时不能改地址，见下一条）。`llm` 模块是 core 所有外发请求的唯一出口，全部经过同一个 `fetch` 封装，由它强制这个选项，不依赖各家 SDK 自己的设置。pi-ai 和各家 SDK 能传入 `fetch` 的，显式传入这个封装；不能传入的，靠替换全局 `fetch`。替换写在一个单独的模块里，由 core 入口第一个导入，早于 pi-ai 和任何 SDK 的加载：ESM 会先执行被导入的模块，替换如果写在 `llm` 模块内部，SDK 可能已经在加载时拿走了原始的 `fetch`。SDK 绕开 `fetch` 直接发请求的情况，由验收里的重定向用例按协议逐一检出。Anthropic 协议的 key 放在 `x-api-key` 头里，Fetch 标准的“跨源重定向时去掉 `Authorization`”保护不到它，所以这条规则不能省。
 - **已保存的端点不修改调用地址。** 同源路径变更也通过新增端点完成。协议、主机、端口任何一项变了，都要作为新端点添加，否则已保存的 key 会被悄悄发给新的主机（同 thinkrail 的“A server keeps its address”）。修改端点时只能改名称、key、模型列表和能力字段（§10）。
 - **带 key 通过明文 http 访问非本机地址时**，界面给出警告，但不阻止（局域网里的模型服务很常见）。
 
@@ -87,8 +87,8 @@ OpenCode Go 是可选的服务商。创作与游玩可以使用其他满足用�
 
 | Go 的要求 | Unwritten 的做法 |
 | --- | --- |
-| 用自己的 User-Agent 标明身份 | pi-ai `identity.userAgent` 设为 `{ custom: "unwritten/<版本>" }`；`identity.attribution` 的 `name` 设为 `unwritten`，pi-ai 会据此发出 `x-opencode-client: unwritten` |
-| 每个对话发送固定的会话标识 | pi-ai 的 `sessionId` 参数：游玩时用路线 id（回合和摘要都用这个）；开场和每局生成人物时还没有路线，用开局 id；工作站对话用线程 id，生成任务用作品 id |
+| 用自己的 User-Agent 标明身份 | pi-ai `identity.userAgent` 设为 `{ custom: "unwritten/<版本>" }`；`llm` 模块对主机是 `opencode.ai` 的请求加 `x-opencode-client: unwritten` |
+| 每个对话发送固定的会话标识 | pi-ai 的 `sessionId` 参数：游玩时用路线 id（回合和摘要都用这个）；开场和每局生成人物时还没有路线，用开局 id；工作站对话用线程 id，生成任务用作品 id。`llm` 模块在发给 `opencode.ai` 的请求上带 `x-opencode-session: <会话标识>` |
 | 发送“典型的编程 agent 流量” | Unwritten 发送文字冒险请求。设置页说明 Go 面向编程 agent，文字冒险用途的可用性由服务商决定。 |
 
 **用量上限。** Go 的用量有三层限制：每 5 小时、每周、每月。触发限制时按 `quota` 类错误处理（§8），提示“OpenCode Go 用量已达上限，稍后再试，或在 Console 开启 Extra Usage”，不自动重试。
@@ -97,7 +97,7 @@ OpenCode Go 是可选的服务商。创作与游玩可以使用其他满足用�
 
 - 地址：`https://opencode.ai/inference/go/openai/v1`（选 `openai-completions` 协议），或 `https://opencode.ai/inference/go/anthropic/v1`（选 `anthropic-messages` 协议）。Go 会在不同协议之间转换，所以每个文本模型在两种协议下都能用。
 - Go 的模型列表在 `https://opencode.ai/inference/go/v1/models`，不在 `/openai/v1` 下面，用通用的“地址后面拼 `/models`”的办法探测不到。所以自定义端点的预设里有一项“OpenCode Go”，模型列表地址是写死的。
-- 主机是 `opencode.ai` 的自定义端点，由 `llm` 模块自动加上 `x-opencode-session` 请求头和上面说的 User-Agent。
+- 主机是 `opencode.ai` 的自定义端点，由 `llm` 模块自动加上 `x-opencode-client`、`x-opencode-session` 请求头和上面说的 User-Agent。
 
 **另一个选择。** OpenCode 的按量付费接口是 `https://opencode.ai/inference`，对应 pi-ai 的 `opencode`（Zen）服务商，接口形式和 Go 相同，使用条款以 OpenCode 官方为准。
 
@@ -184,7 +184,7 @@ OpenCode Go 是可选的服务商。创作与游玩可以使用其他满足用�
 
 ## 8. 调用、预算与错误
 
-- **调用入口只有一个。** `llm` 模块对外只提供 `run(purpose, {system, messages, tools, sessionId, signal, onEvent})`。它先找到这个用途对应的 pi-ai 模型：需要工具的调用跑 pi-agent-core 的循环，不需要工具的调用直接做一次请求。
+- **调用入口只有一个。** `llm` 模块对业务模块只提供 `run(input)`；`input` 包含 `purpose`、`system`、`prompt`、`tools`、`requiredToolName`、`sessionId`、`ref` 和 `signal`。它先找到这个用途对应的 pi-ai 模型：需要工具的调用跑 pi-agent-core 的循环，不需要工具的调用直接做一次请求。
 - **预算数字**来自模型元数据中的上下文窗口和输出上限。不知道上下文窗口时按 32,768 处理，并在设置页提醒补填；不知道输出上限时按 §6 的默认规则计算。
 - **调用前的长度估算**按字符数保守计算：中日韩文字按每字 2 个 token，其他文字按每 3 个字符 1 个 token。很多分词器里一个汉字要占 1 到 3 个 token，按一字一个 token 算会低估。这两个系数可配置。超出预算时按[回合循环 §3](./turn-loop.md#3-上下文哪些直接给哪些让模型查)的顺序裁剪。
 - **时间上限：** 一次调用 120 秒内没有任何输出、或者流式输出中途停顿 60 秒，都按超时处理。两个上限都可配置。

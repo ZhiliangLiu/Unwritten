@@ -67,4 +67,4 @@
 
 - AI 输出、作品内容、作者设定、玩家输入和模型返回的错误信息，一律作为纯文本渲染。不用 `dangerouslySetInnerHTML`，也不用 `innerHTML`，理由见[架构总览 §2.1](../../docs/architecture.md#21-本机接口的安全)。
 - 不用 `eval`、`new Function`，也不写内联事件处理器，否则会和内容安全策略冲突。
-- 令牌只保存在内存里，不写进 `localStorage`、`sessionStorage` 或 URL。
+- 令牌只保存在内存里，不写进 `localStorage`、`sessionStorage`；启动地址的 hash 是唯一例外，读取后按[架构总览 §2.1](../../docs/architecture.md#21-本机接口的安全)处理。
