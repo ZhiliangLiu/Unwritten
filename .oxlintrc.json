@@ -1,0 +1,60 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "jsx-a11y", "import", "unicorn"],
+  "jsPlugins": ["eslint-plugin-i18next", "./scripts/lint/oxlint-plugin-unwritten.mjs"],
+  "categories": { "correctness": "error" },
+  "rules": {
+    "no-console": "error",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "error"
+  },
+  "overrides": [
+    {
+      "files": ["apps/client/src/**/*.tsx"],
+      "rules": {
+        "i18next/no-literal-string": [
+          "error",
+          { "mode": "jsx-only", "jsx-attributes": { "include": ["aria-label", "placeholder", "title", "alt"] } }
+        ],
+        "unwritten/style-custom-properties-only": "error",
+        "react/no-danger": "error"
+      }
+    },
+    {
+      "files": ["apps/client/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              { "name": "@unwritten/core", "message": "client 不导入 core，只通过 contracts 通信" },
+              { "name": "@unwritten/contracts/desktop", "message": "client 不导入 desktop 的进程消息类型" }
+            ],
+            "patterns": [{ "group": ["@unwritten/core/*"], "message": "client 不导入 core" }]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/core/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["@earendil-works/*"],
+                "message": "只有 packages/core/src/llm/pi.ts 可以导入 pi-ai 和 pi-agent-core"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    { "files": ["packages/core/src/llm/pi.ts"], "rules": { "no-restricted-imports": "off" } },
+    { "files": ["packages/core/src/main.ts", "scripts/**", "e2e/**"], "rules": { "no-console": "off" } },
+    { "files": ["scripts/check-tokens.mjs"], "rules": { "typescript/restrict-template-expressions": "off" } },
+    { "files": ["**/*.test.ts", "**/*.test.tsx", "e2e/**"], "rules": { "i18next/no-literal-string": "off" } }
+  ],
+  "ignorePatterns": ["**/dist/**", "**/routeTree.gen.ts", "**/migrations/**", "**/node_modules/**"]
+}

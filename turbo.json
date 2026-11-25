@@ -1,0 +1,26 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "tasks": {
+    "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
+    "@unwritten/client#build": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/tokens/tokens.json",
+        "$TURBO_ROOT$/packages/tokens/build-css.mjs"
+      ],
+      "outputs": ["dist/**"]
+    },
+    "typecheck": {},
+    "test": {},
+    "@unwritten/client#test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/tokens/tokens.json",
+        "$TURBO_ROOT$/packages/tokens/build-css.mjs"
+      ]
+    },
+    "//#lint": {},
+    "dev": { "cache": false, "persistent": true }
+  }
+}
