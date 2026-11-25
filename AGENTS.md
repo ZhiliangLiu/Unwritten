@@ -107,7 +107,7 @@
 - **文档随改动当场改。** 设计一变，就直接把 `docs/` 改到位，写法遵循 [docs/AGENTS.md](docs/AGENTS.md)，不留“稍后补文档”的尾巴。改了标题或章节编号，运行 `node scripts/check-doc-links.mjs`。
 - **测试和示例里的故事内容一律虚构。** 用户的作品库里可能有第三方作品或未公开的作品，它们的文字、人物名、设定都不得进入已跟踪文件。测试只借用长度、分段、标点这类结构，内容另行编写。
 - **测试数据。** 手动验证时造的数据留在 `.data/`，供维护者使用。自动化测试使用临时数据目录，跑完删除。
-- **key 不进仓库。** `providers.json`、`.env`、`.data/` 都已列入 `.gitignore`。待提交内容里出现 key 时，停下来告诉维护者。`.gitignore` 忽略所有位置的 `providers.json`，所以测试夹具不能叫这个名字，要改用 `providers.fixture.json` 这类名字，否则夹具会被悄悄漏掉，不进仓库。
+- **key 不进仓库。** `providers.json`、`.env`、`.data/` 都已列入 `.gitignore`。待提交内容里出现 key 时，停下来告诉维护者。`.gitignore` 忽略所有位置以 `providers.json` 开头的文件，包括迁移时留下的 `providers.json.bak` 和写入时的临时文件，因为它们同样含有 key。所以测试夹具不能叫这个名字，也不能以它开头，要改用 `providers.fixture.json` 这类名字，否则夹具会被悄悄漏掉，不进仓库。
 - **提案工具的参数一律用字符串。** 部分模型填不好对象、数组或数值类型的参数。结构化内容用约定的文本格式（例如每行一个 JSON）承载，由 core 在执行边界转回目标类型。见 [回合循环 §5](docs/turn-loop.md#5-提交一回合propose_turn-与-ask_clarification)。
 
 ## 8. 不写注释

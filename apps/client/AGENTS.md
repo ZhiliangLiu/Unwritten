@@ -22,7 +22,7 @@
 - 视觉属性只能用 `--uw-*` token（属性清单见[主题与 token §10](../../docs/theme.md#10-组件怎样使用-token)）。允许的字面量只有：`0`、`none`、`auto`、`inherit`、`initial`、`currentColor`、`transparent`，以及纯结构性的布局值（`100%`、`1fr`、`min-content`、`flex: 1`）。
 - 颜色字面量（十六进制、`rgb()`、`hsl()`、颜色名）只能出现在 `src/theme/themes/*.css` 里。
 - 组件不写主题选择器，例如 `[data-uw-theme='dark']`，也不在 TypeScript 里读主题名。
-- 功能层（顶部工具行、工作站面板）和浮层的背景，一律通过 `--uw-material-*` 取得，包括 `backdrop-filter: var(--uw-material-*-backdrop)`。哪怕现在的值是不透明色和 `none`，也要这样写：这是留给将来主题的扩展点。内容表面（正文、卡片、输入框）直接用颜色 token，永远不透明。
+- 功能层（顶部工具行、工作站面板）和浮层的背景，一律通过 `--uw-material-*` 取得，包括 `backdrop-filter: var(--uw-material-*-backdrop)`。哪怕现在的值是不透明色和 `none`，也要这样写：这是留给将来主题的扩展点。内容表面（正文、卡片、输入框）直接用颜色 token，永远不透明。通知和错误提示的背景同样直接用颜色 token，只借用浮层的描边和投影（[主题与 token §6](../../docs/theme.md#6-材质预留给将来的主题)）。
 - 内联 `style` 只能设置 CSS 自定义属性，用来传递运行时才知道的几何量。
 - 方向一律用逻辑属性（[i18n §8](../../docs/i18n.md#8-布局方向)）。
 - 断点用 `@custom-media --uw-compact` 和 `--uw-wide`，不在媒体查询里写死数值。

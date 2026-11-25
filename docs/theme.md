@@ -174,15 +174,16 @@ token 的名字表达角色，不表达取值：写 `--uw-color-text-muted`，�
 
 ## 6. 材质：预留给将来的主题
 
-界面上的大面积表面分三类。前两类的背景一律通过材质 token 取得：
+界面上的大面积表面分四类。功能层和浮层的背景一律通过材质 token 取得；内容和通知的背景直接用颜色 token，永远不透明：
 
 | 材质角色 | 用在哪里 | token | 浅色和深色主题的取值 |
 | --- | --- | --- | --- |
 | 功能层 `chrome` | 顶部工具行、工作站面板 | `--uw-material-chrome-bg`、`--uw-material-chrome-backdrop` | `var(--uw-color-surface)`、`none` |
 | 浮层 `overlay` | 菜单、下拉、气泡、对话框 | `--uw-material-overlay-bg`、`--uw-material-overlay-backdrop`、`--uw-material-overlay-border`、`--uw-material-overlay-elevation` | `var(--uw-color-surface-raised)`、`none`、`var(--uw-color-border)`、`var(--uw-elevation-overlay)` |
-| 内容 | 正文纸、卡片、输入框、表格、通知、错误提示 | 直接用颜色 token | 永远不透明，不经过材质 token |
+| 内容 | 正文纸、卡片、输入框、表格 | 直接用颜色 token | 永远不透明，不经过材质 token |
+| 通知 `toast` | 通知、错误提示 | 背景直接用 `--uw-color-surface-raised`；描边和投影借用 `--uw-material-overlay-border`、`--uw-material-overlay-elevation` | 背景永远不透明；描边和投影跟着浮层的取值走 |
 
-通知和错误提示也浮在页面上方，所以沿用浮层的描边和投影（`--uw-material-overlay-border`、`--uw-material-overlay-elevation`），但背景直接用 `--uw-color-surface-raised`。它们承载必须立刻读清的状态，任何主题下都不半透明。
+通知和错误提示和浮层一样浮在页面上方，所以借用浮层的描边和投影，和菜单、对话框处在同一高度。但它们承载必须立刻读清的状态，背景不借用浮层材质，任何主题下都不半透明。
 
 组件这样写：
 
@@ -200,7 +201,7 @@ token 的名字表达角色，不表达取值：写 `--uw-color-text-muted`，�
 **将来的半透明主题（例如仿 Apple 液态玻璃的主题）必须遵守的约束。** 这些约束现在就写下来，让组件的写法从一开始就不挡路：
 
 1. **只改材质 token 的值。** 组件不读主题名，也不为某个主题写分支。
-2. **只有功能层和浮层可以半透明。** 内容表面——正文、卡片、输入框、通知、错误提示——永远不透明。
+2. **只有功能层和浮层可以半透明。** 内容和通知——正文、卡片、输入框、通知、错误提示——永远不透明。
 3. **同屏同时生效的 `backdrop-filter` 不超过一块**，否则滚动和动画时开销太大。
 4. **四种情况一律回落成不透明：** 用户在设置里关闭透明效果、`prefers-reduced-transparency: reduce`、`prefers-contrast: more`、环境不支持 `backdrop-filter`。四种情况翻的是同一组材质 token。
 5. **不对 `filter`、`backdrop-filter` 做动画。** 面板改尺寸这类结构动效进行期间，材质降一档（[动效 §7](./motion.md#7-性能)）。

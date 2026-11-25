@@ -20,8 +20,8 @@ playwright-report/
 *.db
 *.db-wal
 *.db-shm
-# 任何位置的 providers.json 都可能含 key；测试夹具改用 providers.fixture.json 这类名字
-providers.json
+# 任何位置的 providers.json 及其备份、写入时的临时文件都可能含 key；测试夹具改用 providers.fixture.json 这类名字
+providers.json*
 
 # 环境变量
 .env

@@ -28,10 +28,10 @@
 | --- | --- | --- |
 | **client** | 所有界面：作品库、创作向导、工作站面板、游玩阅读页、设置。它是一个纯 web 应用 | 不访问数据库、文件或模型服务；不写桌面专属的代码分支 |
 | **core** | 全部业务逻辑：作品与版本、回合循环、创作工作站、故事事实与可见性、LLM 调用、配置文件。对外提供 HTTP 接口（调用与事件流），同时把 client 的构建产物发给浏览器 | 不依赖 Electron。和 desktop 之间只有一条进程消息通道（§2.3），没有 desktop 也能独立运行 |
-| **contracts** | client 和 core 之间的接口类型与校验 schema，两边共用 | 不含业务逻辑 |
+| **contracts** | client、core、desktop 之间共用的契约：client 与 core 之间的接口类型与校验 schema，以及 core 与 desktop 之间的进程消息类型（§2.3） | 不含业务逻辑 |
 | **desktop** | Electron 外壳：单实例、窗口、菜单、外部链接、更新；负责启动并看护 core | 不含业务逻辑；和 core 之间只用 §2.3 的进程消息通道 |
 
-依赖方向是 client → contracts ← core。desktop 只负责启动 core，并打开 core 提供的地址。client 不导入 core 的任何代码。
+依赖方向是 client → contracts ← core，desktop 也只依赖 contracts 里的进程消息类型。desktop 只负责启动 core，并打开 core 提供的地址。client 和 desktop 都不导入 core 的任何代码。
 
 **为什么这样分。** 以后可能会有 web 客户端。只要 client 是纯 web 应用、只通过 contracts 和 core 通信，做 web 版时就只需把 core 当作普通服务运行，再把同一份 client 发给浏览器，不必另做一套界面或接口。这个分法参照了 thinkrail：它的 `apps/web`、`packages/server`、`packages/contracts`、`apps/desktop` 分别对应这里的 client、core、contracts、desktop，桌面外壳只承载同一份 web 客户端（thinkrail `apps/desktop/SPEC.md`）。
 
@@ -70,6 +70,7 @@ thinkrail 用的是 Electrobun：主进程是 Bun，core 直接嵌在主进程�
 core 只监听回环地址。不过本机的其他程序，以及浏览器里打开的任何网页，都能尝试访问这个端口，所以要加以下防护：
 
 - **令牌。** 每个 `/api` 请求都必须带 `Authorization: Bearer <令牌>`，事件流也是普通的 HTTP 请求，用同一个请求头鉴权。client 在页面加载时从地址的 `#token=` 读出令牌，只保存在内存里，然后用 `history.replaceState` 从地址栏抹掉。令牌放在 hash 里，是因为 hash 不会随请求发给服务器，也就不会出现在日志里。静态文件（HTML、JS、CSS）不需要令牌，它们不含任何秘密。
+- **带令牌的地址是唯一入口。** 令牌不写进任何浏览器存储，所以刷新页面、从地址栏复制地址再打开，都拿不到令牌。页面加载时地址里没有令牌，client 不发任何 `/api` 请求，只显示一页固定说明：独立运行时请从 core 打印的地址重新打开，桌面版请重启应用。desktop 需要重新加载窗口时（例如渲染进程崩溃后），一律用带令牌的地址重新打开，菜单里也不提供原地刷新。
 - **Host 与 Origin 检查。** `Host` 只接受 `127.0.0.1:<端口>` 或 `localhost:<端口>`，以挡住 DNS 重绑定攻击。带 `Origin` 的请求，`Origin` 必须和页面同源。core 不返回任何 CORS 头。
 - **窗口。** 开启 `contextIsolation` 和 `sandbox`，关闭 `nodeIntegration`，不使用 preload 脚本。窗口不能跳转到其他地址，外部链接一律交给系统浏览器打开。
 - **内容安全策略。** core 返回 `index.html` 时带上 `Content-Security-Policy` 响应头，nonce 每次请求重新生成：
@@ -89,7 +90,7 @@ core 只监听回环地址。不过本机的其他程序，以及浏览器里打
 
 `node packages/core/dist/main.js --data-dir <目录> [--port <端口>]` 会启动 core，并打印出带令牌的地址，用浏览器打开即可使用。这个模式有两个用途：开发调试，以及将来 web 客户端的基础。部署成多人使用的服务需要真正的账号鉴权，这不在本设计范围内。
 
-**一个 core 可以同时被多个页面连接。** 桌面版只有一个窗口；但独立运行时，同一个地址可以在多个浏览器标签页里打开，将来的 web 客户端也一样。这些页面共用本次启动的令牌。并发写入不靠“只有一个页面”来保证，而是靠幂等键和比较再更新（§3、[回合循环 §2](./turn-loop.md#2-回合请求)）；事件流把每一处变化推给所有连着的页面。
+**一个 core 可以同时被多个页面连接。** 桌面版只有一个窗口；但独立运行时，同一个地址可以在多个浏览器标签页里打开，将来的 web 客户端也一样。每个标签页都从 core 打印的带令牌地址打开，共用本次启动的令牌（§2.1）。并发写入不靠“只有一个页面”来保证，而是靠幂等键和比较再更新（§3、[回合循环 §2](./turn-loop.md#2-回合请求)）；事件流把每一处变化推给所有连着的页面。
 
 ### 2.3 core 与 desktop 的进程消息通道
 
@@ -101,7 +102,7 @@ desktop 用 `utilityProcess.fork` 启动 core 时，两者之间有一条 Electr
 | core → desktop | `ready`：实际监听的端口 | desktop 据此打开窗口 |
 | core → desktop | `appearance-changed`：新的外观偏好 | desktop 同步 `nativeTheme.themeSource`（[主题与 token §9](./theme.md#9-外观偏好与切换)） |
 
-core 独立运行时没有这条通道：启动参数改从命令行读取，另外两类消息直接不发。消息的类型定义放在 contracts 里，和 client 的契约分开。
+core 独立运行时没有这条通道：启动参数改从命令行读取，另外两类消息直接不发。消息的类型定义放在 contracts 的 `desktop.ts` 里，和 client 的契约分开（[技术选型 §6](./tech-stack.md#6-contracts)）。
 
 
 ## 3. client 与 core 的通信
@@ -151,7 +152,7 @@ core 使用 desktop 传进来的数据目录，桌面版的数据目录是 Elect
 
 完整的目录结构见[技术选型 §11](./tech-stack.md#11-目录结构)。
 
-开发时，core 用 `node --watch` 独立运行；client 用 Vite 开发服务器，把 `/api` 代理到 core。desktop 在开发模式下加载 Vite 的地址，令牌照样放在地址的 hash 里传给 client。开发时的数据目录是仓库下的 `.data/`，它已列入 `.gitignore`，因为里面的 providers.json 含有 key。
+开发时，core 用 `node --watch` 独立运行；client 用 Vite 开发服务器，把 `/api` 代理到 core。代理转发时把 `Host` 和 `Origin` 都改写成 core 的地址：Vite 代理的 `changeOrigin` 只改写 `Host`，`Origin` 要另外设置。core 的 Host 与 Origin 检查（§2.1）不为开发模式开例外，这样开发和生产走同一套检查，不会有只在开发时放行的分支。令牌在请求头里，代理原样转发。desktop 在开发模式下加载 Vite 的地址，令牌照样放在地址的 hash 里传给 client。开发时的数据目录是仓库下的 `.data/`，它已列入 `.gitignore`，因为里面的 providers.json 含有 key。
 
 ## 8. 不做的事
 
@@ -166,4 +167,6 @@ core 使用 desktop 传进来的数据目录，桌面版的数据目录是 Elect
 | core 独立运行 | 用浏览器打开 core 打印出的地址，走一遍创作和游玩 | 和桌面窗口的行为完全一致，client 代码里搜不到桌面专属分支 |
 | 游玩中正在生成 | 强制结束 core 进程 | 窗口显示错误页，可以重启；重启后已保存的路线完整，刚才的请求显示为“本段未完成”，可以重试 |
 | core 正在运行 | 用另一个网页向它的端口发请求，分别不带令牌、伪造 Host | 请求全部被拒绝 |
-| 生产构建，core 独立运行 | 在两个浏览器标签页里打开同一个地址，一边提交行动，一边看事件 | 两个标签页都收到回合已提交的事件；页面上没有被内容安全策略拦下的脚本或样式 |
+| 页面已经打开 | 刷新页面；或者打开去掉 `#token=` 的同一个地址 | 不发出任何 `/api` 请求，页面显示从带令牌的地址重新打开的说明 |
+| 开发模式，Vite 代理到 core | 在 Vite 提供的页面里调用任意接口 | 调用成功；core 的 Host 与 Origin 检查没有开发模式的例外 |
+| 生产构建，core 独立运行 | 在两个浏览器标签页里分别打开 core 打印出的带令牌地址，一边提交行动，一边看事件 | 两个标签页都收到回合已提交的事件；页面上没有被内容安全策略拦下的脚本或样式 |

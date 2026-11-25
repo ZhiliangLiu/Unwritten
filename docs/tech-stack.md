@@ -77,7 +77,7 @@ desktop 的主进程代码只有几百行：开窗口、启动和看护 core、�
 | 技术 | 用途 | 理由 |
 | --- | --- | --- |
 | **Zod 4** | 所有接口数据的 schema；core 在信任边界上做校验；client 用来校验表单 | 同类里使用最广。4.x 能直接导出 JSON Schema（`z.toJSONSchema`），pi 的工具参数用的正是 JSON Schema，所以回合循环的工具定义也复用 Zod |
-| **oRPC contract 1**（`@orpc/contract`） | 定义 client 与 core 之间的每一个调用：输入、输出、错误、事件流 | 契约先行：契约写在 contracts 里，core 用 `implement(contract)` 实现，client 直接从契约生成客户端。tRPC 更流行，但它的类型必须从服务端代码推导，client 就得导入 core，违反架构约束 |
+| **oRPC contract 1**（`@orpc/contract`） | 定义 client 与 core 之间的每一个调用：输入、输出、错误、事件流。core 与 desktop 之间的进程消息不是 oRPC 调用，只用 Zod schema 定义（[架构总览 §2.3](./architecture.md#23-core-与-desktop-的进程消息通道)） | 契约先行：契约写在 contracts 里，core 用 `implement(contract)` 实现，client 直接从契约生成客户端。tRPC 更流行，但它的类型必须从服务端代码推导，client 就得导入 core，违反架构约束 |
 
 ## 7. core
 
@@ -170,13 +170,14 @@ unwritten/
 │     ├─ AGENTS.md
 │     └─ package.json
 ├─ packages/
-│  ├─ contracts/                  client 与 core 之间的接口契约，直接导出源码
+│  ├─ contracts/                  client、core、desktop 之间共用的契约，直接导出源码
 │  │  ├─ src/
 │  │  │  ├─ index.ts              导出整份契约
 │  │  │  ├─ schemas/              Zod schema：作品、版本、回合、路线、设置……
 │  │  │  ├─ procedures/           oRPC 契约，按领域分文件
 │  │  │  ├─ events.ts             事件流的事件类型
-│  │  │  └─ errors.ts             错误码
+│  │  │  ├─ errors.ts             错误码
+│  │  │  └─ desktop.ts            core 与 desktop 之间的进程消息类型
 │  │  └─ package.json
 │  └─ core/
 │     ├─ src/
@@ -214,7 +215,7 @@ unwritten/
 
 - `apps/client` 只依赖 `packages/contracts`；
 - `packages/core` 依赖 `packages/contracts`；
-- `apps/desktop` 只负责启动 core 的构建产物，不导入 core 的代码。
+- `apps/desktop` 只依赖 `packages/contracts` 里的进程消息类型，负责启动 core 的构建产物，不导入 core 的代码。
 
 这条规则由 oxlint 的 import 规则检查。
 
