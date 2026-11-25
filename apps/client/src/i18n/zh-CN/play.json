@@ -1,1 +1,16 @@
-{}
+{
+  "turn": { "opening": "开场", "heading": "第 {{count}} 回合" },
+  "input": {
+    "label": "你的行动",
+    "placeholder": "写下你想做的事，或想说的话",
+    "help": "Enter 发送，Shift+Enter 换行",
+    "submit": "发送行动"
+  },
+  "pending": {
+    "running": "正在写下一段",
+    "complete": "新的一段已写好",
+    "failed": "本段未完成",
+    "retry": "重试这次行动"
+  },
+  "history": { "latest": "回到最新" }
+}

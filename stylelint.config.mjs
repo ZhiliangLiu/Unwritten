@@ -36,6 +36,7 @@ const ALLOWED_LITERALS = [
   "currentColor",
   "transparent",
   "100%",
+  "100vh",
   "1fr",
   "min-content",
   "max-content",

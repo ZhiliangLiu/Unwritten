@@ -1,1 +1,17 @@
-{}
+{
+  "page": { "heading": "写背景" },
+  "background": {
+    "label": "故事背景",
+    "help": "玩家是谁？身在何处？眼前发生了什么？",
+    "save": "保存背景",
+    "unsaved": "有尚未保存的背景"
+  },
+  "preview": {
+    "generate": "生成开场预览",
+    "running": "正在写开场",
+    "heading": "预览开场",
+    "setting": "公开设定",
+    "adopt": "采用开场并存入作品库"
+  },
+  "published": { "heading": "已存入作品库", "play": "开始故事", "back": "返回作品库" }
+}
