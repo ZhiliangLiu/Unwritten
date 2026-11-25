@@ -77,7 +77,7 @@
 | --- | --- | --- |
 | 主题 token、首屏外观脚本 | 验收要在生产构建里检查内容安全策略，而唯一的内联脚本就是首屏外观脚本（[主题与 token §9](../docs/theme.md#9-外观偏好与切换)）。界面“沿用 token 规则”也要求 token 先存在。外观只跟随系统，设置界面推迟 | T03、T07 |
 | i18n 基础设施与文案键检查 | “界面沿用文案规则”；core 只返回错误码，client 必须有 `errors:<code>` 才能显示失败原因 | T06 |
-| 日志 | 真实模型走查时要靠日志排查；key 和令牌必须在日志里脱敏 | T04、T07、T08、T10 |
+| 运行诊断与性能样本 | 走查时能在 SQLite 里按请求复查失败、重试和各阶段耗时 | T02、T04、T07–T11、T13–T17 |
 | 模型调用记录 `llm_calls` | 真实模型走查时用来看 token 量、耗时和错误类别。只写记录，不做用量界面 | T04、T08 |
 | 同一数据目录只允许一个 core | 架构硬规则；验收反复重启 core，两个进程同时写库会损坏进度（[架构总览 §2](../docs/architecture.md#2-进程模型)） | T04 |
 | 测试用的伪 OpenAI 服务 | 验收要求端到端测试“从界面配置模型开始”，配置走的是真实 HTTP，pi-ai 的进程内伪服务商接不进去 | T05 |
@@ -102,7 +102,7 @@
 | 删除端点、“用界面配置覆盖坏文件”、查找模型、能力字段的手填 | 里程碑只要求新增、修改、测试、设默认；上下文窗口未知时按 32,768 处理（[LLM 端点 §8](../docs/llm-endpoints.md#8-调用预算与错误)） |
 | 后台摘要、全文索引、故事事实表、只读工具 | 里程碑已推迟 |
 | 长剧情虚拟化 | 验收只有几回合；整条路线一次加载 |
-| 用量汇总界面、`logs/llm/` 调试开关 | 只写 `llm_calls` 记录 |
+| 模型用量和诊断查看界面 | 样本和事件可直接查询 SQLite。首个里程碑的验收需要数据和分析口径 |
 | husky、lint-staged、GitHub Actions | 提交前由编排者在本机跑全量检查；CI 在桌面交付时一起做 |
 | `contracts/desktop.ts` 与 desktop 进程消息 | 本里程碑没有 desktop |
 | 包内 README | 根目录 [AGENTS.md §9](../AGENTS.md#9-源码目录的-readme) 规定了写法，但不是必需；等包的边界稳定后再写 |
@@ -156,40 +156,36 @@ D1–D4 由 T00 在维护者确认后落入设计文档。T01 在确认 D1、D2�
 - 作品标题、背景、正文、选项、玩家输入、端点名、模型 id、模型返回的错误原文都是数据，原样显示，不过 `t()`。
 - core 给模型的提示词是内部实现，写在 core 里的常量中，不走 i18n。
 
-### 2.5 日志
+### 2.5 运行诊断与性能记录
 
-| 项 | 约定 |
+持久化位置、保留期、字段边界和计时起止点以[运行诊断与性能记录](../docs/diagnostics.md)为准。T04 实现唯一的 SQLite 写入入口。T02 规定 client 允许上报的字段，T07 接入，T11 提供 client 记录和计时入口，各页面在对应操作的完成点交样本。`--log-level` 只过滤运行事件。
+
+| event | module | 级别 | 专用字段或关联 ID | 谁写 |
+| --- | --- | --- | --- | --- |
+| `core.started` / `core.stopped` | core | info | 启动事件带 `port` | T07 |
+| `core.start_failed` | core | error | `stage`（`data_dir`、`library`、`services`、`recover`、`assets`、`listen`）和稳定错误码 | T07 |
+| `store.migrated` / `store.locked` | core | info / error | 无 | T07 |
+| `client.assets.missing` | core | warn | 无 | T07 |
+| `http.rejected` | api | warn | `reason`（`host` / `origin` / `token`） | T07 |
+| `rpc.failed` / `rpc.crashed` | api | warn / error | 已注册的 `procedure`、`code` | T07 |
+| `client.error` | client | error | `area`、`code` | T07、T11 |
+| `llm.config.loaded` / `llm.config.written` | llm | info | 配置状态、修订号前缀 | T08 |
+| `llm.call` | llm | info | `callId`、请求或任务 ID、`status`、`code` | T08 |
+| `llm.test` | llm | info | `ok`、`code` | T08 |
+| `preview.job.started` / `.done` / `.failed` | authoring | info / info / warn | `workId`、`jobId`、`code` | T09 |
+| `work.adopted` | authoring | info | `workId`、`jobId`、`routeId` | T09 |
+| `turn.request.submitted` | play | info | `requestId`、`routeId`、`attempt` | T10 |
+| `turn.request.done` / `.failed` / `.superseded` | play | info / warn / info | `requestId`、`attempt`、`turnId`（成功）、`code`（失败） | T10 |
+| `recovery.interrupted` | core | info | `turnRequests`、`jobs` | T07 |
+| `diagnostics.dropped` | core | warn | 丢弃条数 `count` | T04 |
+
+| 性能样本 | 归属 |
 | --- | --- |
-| 库 | pino 10。文件滚动用 `pino-roll`，以流的形式接进 `pino.multistream`，不用 worker 线程的 transport |
-| 位置 | `<数据目录>/logs/core.<日期>.log`，按天滚动，保留 14 个文件。同时输出到 stdout |
-| 级别 | 默认 `info`，`--log-level debug` 可调 |
-| 每条日志的字段 | `module`（`core`、`api`、`llm`、`library`、`authoring`、`play`、`client`）、`event`（点号分隔的事件名，例如 `turn.request.failed`），其余是事件自己的字段 |
-| 脱敏 | pino 的 `redact` 抹掉 `apiKey`、`key`、`token`、`authorization`、`headers.authorization`、`headers["x-api-key"]` 及其一层嵌套；模型服务的错误原文先过 `scrubSecrets()` 再记录 |
-| 永远不记 | 背景、开场、正文、选项、玩家行动、提示词、模型回复、key、令牌、带令牌的地址。只记 id、长度、计数、错误码、耗时 |
-| client 日志 | client 调 `log.client` 过程，core 用 `module: "client"` 写进同一套日志。client 只上报错误信息和错误码，不上报用户内容 |
-
-必须有的日志事件（各任务按这张表实现，名字照抄）：
-
-| event | 级别 | 字段 | 谁写 |
-| --- | --- | --- | --- |
-| `core.started` | info | `port`、`version` | T07 |
-| `core.stopped` | info | 无 | T07 |
-| `store.migrated` | info | 无 | T04 |
-| `store.locked` | error | `dataDir` | T04 |
-| `http.rejected` | warn | `reason`（`host` / `origin` / `token`）、`path` | T07 |
-| `rpc.failed` | warn | `procedure`、`code` | T07 |
-| `rpc.crashed` | error | `procedure`、`err` | T07 |
-| `llm.config.loaded` | info | `status`、`revision`（前 8 位） | T08 |
-| `llm.config.written` | info | `revision`（前 8 位） | T08 |
-| `llm.call` | info | `purpose`、`endpointId`、`modelId`、`refKind`、`refId`、`status`、`error`、`inputTokens`、`outputTokens`、`durationMs`、`attempt` | T08 |
-| `llm.test` | info | `ok`、`code` | T08 |
-| `preview.job.started` / `.done` / `.failed` | info / info / warn | `workId`、`jobId`、`code` | T09 |
-| `work.adopted` | info | `workId`、`jobId`、`routeId` | T09 |
-| `turn.request.submitted` | info | `requestId`、`routeId` | T10 |
-| `turn.request.done` | info | `requestId`、`turnId`、`attempts` | T10 |
-| `turn.request.failed` | warn | `requestId`、`code` | T10 |
-| `turn.request.superseded` | info | `requestId` | T10 |
-| `recovery.interrupted` | info | `turnRequests`、`jobs` | T15 |
+| `core.startup`、`core.library_open`、`core.recover` | T07 |
+| `llm.connection_test`、`llm.first_output` | T08 |
+| `preview.total`、`preview.queue`、`preview.validate`、`preview.commit` | T09 |
+| `turn.total`、`turn.queue`、`turn.context`、`turn.validate`、`turn.commit` | T10 |
+| `client.library_ready`、`client.preview_visible`、`client.turn_visible` | T11 提供计时和上报入口，T13–T14 在页面接入 |
 
 ### 2.6 安全
 
@@ -316,7 +312,7 @@ W8   T17 真实模型走查与收口
 | `src/cli.ts` | 解析命令行参数 | T04 |
 | `src/errors.ts` | `appError()`：构造带我们错误码的 `ORPCError`；错误码到 HTTP 状态的映射 | T04 |
 | `src/services.ts` | 各模块服务的接口与工厂类型（只有类型） | T04 |
-| `src/log/logger.ts` | 创建 pino 日志器：文件滚动、stdout、脱敏 | T04 |
+| `src/log/logger.ts`、`src/log/schema.ts`、`src/log/migrations/`、`drizzle.diagnostics.config.ts` | 打开独立诊断库、生成迁移、校验并批量写入运行事件和性能样本 | T04 |
 | `src/log/scrub.ts` | `scrubSecrets()`：从文本里抹掉 key | T04 |
 | `src/store/db.ts` | 打开 SQLite、设置 pragma、独占锁、执行迁移、导出 `Database` 类型 | T04 |
 | `src/store/schema.ts` | 全部表的 Drizzle 定义 | T04 |
@@ -377,7 +373,7 @@ W8   T17 真实模型走查与收口
 | `src/shared/api/*` | 令牌、oRPC 客户端、查询客户端、事件流分发、错误显示 | T11 |
 | `src/shared/ui/*` | 共享组件：Button、TextField、TextArea、Page、Toolbar、BackLink、PageHeading、LiveRegion、VisuallyHidden、Notice、Badge、GeneratingMarker | T11 |
 | `src/shared/hooks/useEnterToSubmit.ts` | 输入框 Enter 发送、Shift+Enter 换行、组字时不发送 | T11 |
-| `src/shared/lib/log.ts`、`format.ts` | 向 core 上报错误；相对时间格式化 | T11 |
+| `src/shared/lib/log.ts`、`format.ts` | 向 core 上报结构化错误和耗时；相对时间格式化 | T11 |
 | `src/features/library/*` | 作品库页 | T11 → T13 |
 | `src/features/authoring/*` | 创作页：背景、预览、采用 | T11 → T13 |
 | `src/features/play/*` | 阅读页 | T11 → T14 |
@@ -502,8 +498,6 @@ W8   T17 真实模型走查与收口
     oxlint: 1.95.0
     oxlint-tsgolint: 7.0.2008
     p-queue: 10.0.0
-    pino: 10.4.0
-    pino-roll: 4.0.0
     playwright: 1.65.1
     prettier: 3.10.1
     react: 19.3.1
@@ -660,8 +654,6 @@ W8   T17 真实模型走查与收口
         "drizzle-orm": "catalog:",
         "hono": "catalog:",
         "p-queue": "catalog:",
-        "pino": "catalog:",
-        "pino-roll": "catalog:",
         "zod": "catalog:"
       },
       "devDependencies": {
@@ -690,11 +682,14 @@ W8   T17 真实模型走查与收口
       clean: true,
       fixedExtension: false,
       noExternal: ["@unwritten/contracts"],
-      copy: [{ from: "src/store/migrations", to: "dist/migrations" }],
+      copy: [
+        { from: "src/store/migrations", to: "dist/migrations" },
+        { from: "src/log/migrations", to: "dist/diagnostic-migrations" },
+      ],
     });
     ```
 
-    `noExternal` 让 contracts 的源码打进 core 的产物，因为 contracts 只导出 TypeScript 源码。`fixedExtension: false` 让产物叫 `main.js` 而不是 `main.mjs`，和架构文档里的启动命令一致。`copy` 的写法以 tsdown 的类型声明为准；`src/store/migrations` 在 T04 之前还不存在，这一步先建一个空目录并放一个 `.gitkeep`。
+    `noExternal` 让 contracts 的源码打进 core 的产物，因为 contracts 只导出 TypeScript 源码。`fixedExtension: false` 让产物叫 `main.js` 而不是 `main.mjs`，和架构文档里的启动命令一致。`copy` 的写法以 tsdown 的类型声明为准；`src/store/migrations` 和 `src/log/migrations` 先各放一个 `.gitkeep`。T04 生成两套独立迁移。
   - `vitest.config.ts`：
 
     ```ts
@@ -1500,6 +1495,7 @@ W8   T17 真实模型走查与收口
 
   export const TurnViewSchema = z.object({
     id: UuidSchema,
+    originRequest: z.object({ id: UuidSchema, attempt: z.number().int().positive() }).nullable(),
     depth: z.number().int().nonnegative(),
     action: ActionViewSchema.nullable(),
     prose: z.string(),
@@ -1559,25 +1555,18 @@ W8   T17 真实模型走查与收口
   export type RetryInput = z.infer<typeof RetryInputSchema>;
   ```
 
-  - `turns` 按 `depth` 从开场到 head 排列。
+  - `turns` 按 `depth` 从开场到 head 排列。`originRequest` 来自产生该回合的请求与尝试号，没有对应请求时为空。它用于定位生成结果，回查丢失事件时也能恢复关联。
   - `pending` 是这条路线上 `expected_head_turn_id` 等于当前 head、状态为 `running` 或 `failed` 的最新一个请求；没有就是 `null`。`done`、`superseded` 的请求不出现在这里。
   - 输入用 `PlayerActionInputSchema`（带 trim 和长度限制），输出用 `ActionViewSchema`（只描述形状）。不要把带变换的 schema 用在输出上。
 
-- [ ] 7. `src/schemas/log.ts`：
+- [ ] 7. `src/schemas/log.ts`：`ClientLogInputSchema` 是按 `kind` 区分的严格对象联合，导出对应的 `ClientLogInput` 类型。客户端上报不接收自由文本、格式化错误、URL、堆栈或任意上下文字段。
 
-  ```ts
-  import { z } from "zod";
+  | kind | 字段 |
+  | --- | --- |
+  | `event` | `area` 为 `library\|authoring\|play\|settings\|app`，`code` 取 `ErrorCodeSchema` |
+  | `sample` | `metric` 为 §2.5 的三个 client 样本名，`durationMs` 为有限非负数，`outcome` 为 `ok\|error\|interrupted`。预览样本带 `jobId`，游玩样本带 `requestId`，两者可附 `workId`。续写样本带正整数 `attempt`，若命令在新尝试登记前被拒绝或取代则可省略 |
 
-  export const ClientLogInputSchema = z.object({
-    level: z.enum(["info", "warn", "error"]),
-    message: z.string().max(2_000),
-    context: z
-      .record(z.string().max(64), z.union([z.string().max(500), z.number(), z.boolean()]))
-      .refine((value) => Object.keys(value).length <= 20)
-      .optional(),
-  });
-  export type ClientLogInput = z.infer<typeof ClientLogInputSchema>;
-  ```
+  用严格对象及按 `metric` 划分的样本联合钉住各指标允许的 ID，ID 用 `UuidSchema`。测试拒绝额外字段、未知名、错误的关联 ID、非有限或负耗时。
 
 - [ ] 8. `src/events.ts`：
 
@@ -1814,9 +1803,9 @@ W8   T17 真实模型走查与收口
 
 **依赖。** T02。
 
-**拥有的文件。** `packages/core/src/` 下的 `cli.ts`、`errors.ts`、`services.ts`、`log/*`、`store/*`（含生成的迁移）、`events/*`、`llm/types.ts`、`test-support/scripted-llm.ts`、`test-support/temp-dir.ts`，以及它们的测试。
+**拥有的文件。** `packages/core/drizzle.diagnostics.config.ts`，以及 `packages/core/src/` 下的 `cli.ts`、`errors.ts`、`services.ts`、`log/*`、`store/*`（含生成的迁移）、`events/*`、`llm/types.ts`、`test-support/scripted-llm.ts`、`test-support/temp-dir.ts` 和对应测试。
 
-**先读。** [数据模型](../docs/data-model.md) §2、§3、§8；[回合循环 §2](../docs/turn-loop.md#2-回合请求)；[创作工作站 §13](../docs/author-workstation.md#13-数据表) 的 `jobs`；[LLM 端点 §9](../docs/llm-endpoints.md#9-调用记录)；本文 §2.5 日志表。Drizzle 1.0 的 `node-sqlite` 驱动用法以 `node_modules/drizzle-orm/node-sqlite/*.d.ts` 为准。
+**先读。** [数据模型](../docs/data-model.md) §2、§3、§8；[回合循环 §2](../docs/turn-loop.md#2-回合请求)；[创作工作站 §13](../docs/author-workstation.md#13-数据表) 的 `jobs`；[LLM 端点 §9](../docs/llm-endpoints.md#9-调用记录)；[运行诊断与性能记录](../docs/diagnostics.md)和本文 §2.5。Drizzle 1.0 的 `node-sqlite` 驱动用法以 `node_modules/drizzle-orm/node-sqlite/*.d.ts` 为准。
 
 **步骤。**
 
@@ -2058,6 +2047,7 @@ W8   T17 真实模型走查与收口
         .on(table.playthroughId)
         .where(sql`kind = 'opening' and status in ('running', 'needs_clarification')`),
       index("turn_requests_route_idx").on(table.routeId, table.createdAt),
+      uniqueIndex("turn_requests_result_idx").on(table.resultTurnId),
     ],
   );
 
@@ -2151,12 +2141,10 @@ W8   T17 真实模型走查与收口
   ```
 
   测试：已知 key 被替换；`sk-` 开头的长串被替换；`Bearer xxx` 被替换；不相关的文字不变。
-- [ ] 9. `src/log/logger.ts`：`export async function createLogger(options: { dataDir: string; level: CliOptions["logLevel"]; stdout: boolean }): Promise<Logger>`。
-  - 文件流：`await pinoRoll({ file: path.join(dataDir, "logs", "core"), extension: ".log", frequency: "daily", dateFormat: "yyyy-MM-dd", mkdir: true, limit: { count: 14 } })`。选项名以 `pino-roll` 的类型声明为准。
-  - `pino({ level, base: { module: "core" }, redact: { paths: REDACT_PATHS, censor: "[redacted]" } }, pino.multistream(streams))`，`streams` 是文件流，`stdout` 为真时再加 `process.stdout`。
-  - `REDACT_PATHS = ["apiKey", "*.apiKey", "key", "*.key", "token", "*.token", "authorization", "*.authorization", "headers.authorization", 'headers["x-api-key"]']`。
-  - 导出 `Logger` 类型（pino 的 `Logger`）。各模块用 `logger.child({ module: "llm" })` 取子日志器。
-  - 测试：写一条 `{ apiKey: "sk-secret-value-123", event: "x" }`，读日志文件，找不到 `sk-secret-value-123`，能找到 `[redacted]`。读文件前要等流写完：调用 `logger.flush()` 后再读，必要时轮询文件内容。
+- [ ] 9. `src/log/schema.ts`、`migrations/`、`logger.ts`：按[诊断契约](../docs/diagnostics.md)为 `diagnostics.db` 生成两张表和独立迁移。用时间索引分批清理，两表分别为运行、请求、任务、调用 ID 和时间的组合建立查询索引，性能样本按版本和时间建立分析索引。迁移目录相对于模块定位，源码读取 `src/log/migrations/`，构建产物读取 `dist/diagnostic-migrations/`。
+  - `createLogger({ dataDir, level, appVersion })` 返回 `Logger`，提供 `record(event)`、`sample(sample)`、`flush()`、`close()`。事件名、事件字段及指标数据按 §2.5 和诊断契约校验。写入端赋值记录 ID、运行 ID、时间和版本。模块按约定提供关联 ID。
+  - 用 `pnpm --filter @unwritten/core exec drizzle-kit generate --config drizzle.diagnostics.config.ts` 生成诊断库迁移。连接使用 WAL、普通锁模式和 `busy_timeout = 0`。同一写入端用准备好的语句分批提交，每批结束后把控制权交回事件循环。保留裁剪、队列溢出和诊断库失效处理按诊断契约实现。导出供测试使用的时钟注入，正式调用用 `Date.now()` 记录发生时间、`performance.now()` 计算耗时。
+  - 单测覆盖落库、重启读取、保留期、溢出与故障计数、级别筛选和字段白名单。用第二个连接持有读事务时检查写入仍成功，再持有写事务触发争用走故障分支。用注入的调度验证单轮批次上限以及余下记录会在后续轮次提交。诊断库不可用时校验正常业务可继续。用虚构的凭据和作品内容验证库里没有这些字段或原文，并检查数据目录中没有日志文件。
 - [ ] 10. `src/events/bus.ts`：
 
   ```ts
@@ -2231,6 +2219,7 @@ W8   T17 真实模型走查与收口
   export interface LlmRunRef {
     kind: "turn_request" | "job";
     id: string;
+    attempt: number;
     workId: string | null;
   }
 
@@ -2619,7 +2608,7 @@ W8   T17 真实模型走查与收口
   - `hostGuard`：`Host` 请求头必须正好是 `127.0.0.1:<端口>` 或 `localhost:<端口>`，端口是实际监听的端口（`getPort()`，因为监听 0 端口时启动后才知道）。否则返回 403，记 `http.rejected`（`reason: "host"`）。
   - `originGuard`：请求带 `Origin` 头时，它必须等于 `http://<Host 头的值>`。否则 403，`reason: "origin"`。不带 `Origin` 的请求放行。
   - `tokenGuard`：只挂在 `/api/*`。`Authorization` 必须是 `Bearer <令牌>`，用 `crypto.timingSafeEqual` 比较（两边长度不同时直接判不等，不调用它）。否则 401，`reason: "token"`。
-  - 日志里只记 `reason` 和 `path`（`c.req.path`，不含查询串），不记请求头的值。
+  - 拒绝原因按 §2.5 记录为枚举。
   - 三个中间件都不设置任何 `Access-Control-*` 响应头。
 - [ ] 2. `api/client-assets.ts`：
 
@@ -2664,12 +2653,12 @@ W8   T17 真实模型走查与收口
   | `play.submitAction` | `play.submitAction(input)` |
   | `play.retry` | `play.retry(input)` |
   | `events.subscribe` | 异步生成器：`for await (const event of context.services.bus.subscribe(signal)) yield event;` |
-  | `log.client` | `logger.child({ module: "client" })[input.level]({ event: "client.log", ...input.context }, input.message)`，返回 `{}` |
+  | `log.client` | 校验通过后，把结构化错误交给 `logger.record`，计时结果交给 `logger.sample`。由 core 设置来源和落库字段，返回 `{}` |
 
   给全部过程加一个统一的错误中间件（`os.use(...)` 或 oRPC 实际提供的等价写法）：
   - 捕获到 `ORPCError` 且 `code` 在 `ERROR_CODES` 里：记 `rpc.failed`（warn，`procedure` 是过程路径，`code`），原样抛出。
   - 捕获到 `ORPCError` 且 `code` 是 `BAD_REQUEST`（输入校验失败）：转成 `appError("invalid_input", error.message)` 抛出。
-  - 其他错误：记 `rpc.crashed`（error，带 `err`），抛 `appError("internal", "unexpected error")`。不把原始错误信息透出给 client。
+  - 其他错误：记 `rpc.crashed`（error，过程名与 `internal`），抛 `appError("internal", "unexpected error")`。不把原始错误信息透出给 client。
 
   如果 oRPC 的输入校验发生在中间件之外、捕获不到，就在 `RPCHandler` 的错误拦截器里做同样的转换；两处都做不到时，汇报，client（T11）对 `BAD_REQUEST` 另有回落。
 - [ ] 4. `api/http-app.ts`：
@@ -2711,17 +2700,17 @@ W8   T17 真实模型走查与收口
 
   按顺序：
   1. `fs.mkdirSync(options.dataDir, { recursive: true })`。
-  2. `logger = await createLogger({ dataDir, level: options.logLevel, stdout: true })`。
-  3. `openDatabase(path.join(dataDir, "library.db"))`。抛 `DataDirLockedError` 时记 `store.locked`，原样抛出。成功后记 `store.migrated`。
-  4. `bus = createEventBus()`；`deps = { dataDir, db, bus, logger }`。
+  2. 用 core 包的版本和 `options.logLevel` 创建 `logger`，打开并迁移诊断库。用单调时钟保留步骤 1 前的启动起点。
+  3. 测量 `core.library_open`，包含 `openDatabase(path.join(dataDir, "library.db"))` 的加锁与迁移。抛 `DataDirLockedError` 时记 `store.locked`，原样抛出。成功后记 `store.migrated`。
+  4. 创建事件总线和关闭用的 `AbortController`，把 `shutdown` 信号和 `dataDir`、`db`、`bus`、`logger` 注入服务。
   5. 依次创建 `llm`、`library`、`authoring`（传入 `llm`）、`play`（传入 `llm`）。
-  6. 恢复：`turnRequests = play.recoverInterrupted()`、`jobs = authoring.recoverInterrupted()`，记 `recovery.interrupted`。必须在 HTTP 开始监听之前做，这样任何页面都读不到“运行中却已经没人在跑”的请求。
+  6. 恢复：`turnRequests = play.recoverInterrupted()`、`jobs = authoring.recoverInterrupted()`，记录 `core.recover` 和 `recovery.interrupted`。必须在 HTTP 开始监听之前做，这样任何页面都读不到“运行中却已经没人在跑”的请求。
   7. `token = randomBytes(32).toString("base64url")`。
   8. `assets = loadClientAssets(options.clientDir)`；为 `null` 时记一条 warn（`event: "client.assets.missing"`）。
   9. `app = createHttpApp(...)`；用 `@hono/node-server` 的 `serve` 在 `127.0.0.1`、`options.port` 上监听，等到真正开始监听后读出实际端口。
   10. `origin = "http://127.0.0.1:" + port`；`url = (options.clientOrigin ?? origin) + "/#token=" + token`。
-  11. 记 `core.started`（`port`、`version`；`version` 从 core 的 `package.json` 读，`import packageJson from "../package.json" with { type: "json" }`）。日志里不记 `url` 和 `token`。
-  12. `close()`：关闭 HTTP 服务（先 `closeAllConnections()`，否则事件流的长连接会让关闭一直等下去），关闭数据库，记 `core.stopped`，`logger.flush()`。
+  11. 记 `core.started` 和 `core.startup`。启动失败时记 `core.start_failed` 和已结束的计时，清理已经打开的业务资源，提交队列并关闭诊断连接，再把失败交给入口处理。启动地址留给 T15 输出。
+  12. `close()`：复用同一个关闭 Promise。停止接受连接，发出关闭信号并断开长连接。等 HTTP 请求结束后排空创作和游玩队列，再关闭作品库。写入 `core.stopped`，提交队列，最后关闭诊断库。
 - [ ] 6. `api/http-app.test.ts`：用假的 `Services`（每个方法用 `vi.fn` 返回固定值）和 `app.request()`：
   - 不带令牌请求 `/api/works/list` → 401；错误令牌 → 401；正确令牌 → 200。
   - `Host: evil.example:1234` → 403，即使令牌正确。
@@ -2731,6 +2720,7 @@ W8   T17 真实模型走查与收口
   - 静态资源路径校验以解析后仍命中 `/assets/*` 的请求为验收对象。对资源目录外文件的解析结果拒绝读取，未知资源返回 404。浏览器解析后已经变成站内页面路径的请求走单页应用回落。
   - 用 oRPC 客户端（`@orpc/client` 的 `createORPCClient` + `RPCLink`，`fetch` 指向 `app.fetch`）调用 `works.list`，拿到假服务返回的值；让假服务抛 `appError("stale_head", …)`，客户端收到的错误 `code` 是 `stale_head`；让假服务抛普通 `Error`，客户端收到 `internal`，错误信息里不含原始信息。
   - 事件流：订阅 `events.subscribe`，往假的事件总线发布一个事件，客户端收到它。
+  - `log.client`：有效的事件与样本分别入库。未知字段及非法计时不会写入客户端提交的记录。RPC 拒绝事件只允许记录过程名和固定错误码。
   - 静态文件的测试用临时目录造一份假的 `index.html`、`boot.inline.js`、`assets/app.js`。
 - [ ] 7. `app.test.ts`：用假的 `ServiceFactories` 和临时数据目录调用 `startCore`：返回的 `url` 形如 `http://127.0.0.1:<端口>/#token=<令牌>`；用 `fetch` 访问 `origin + "/api/works/list"`（带令牌）成功；`close()` 后端口不再接受连接；恢复函数在监听前被调用（假服务里记录调用顺序）。另让假 HTTP handler 和假后台任务分别在收到关闭信号后写库再结束，断言两者结束前数据库仍可用，结束后同一个数据目录能重新打开。
 
@@ -3125,16 +3115,17 @@ W8   T17 真实模型走查与收口
      - 包一层工具：名为 `input.requiredToolName` 的工具被调用时记 `state.requiredCalled = true`，它返回 `terminate: true` 时记 `state.terminated = true`。
      - 计时：开始时设首次输出计时器（`firstOutputMs`）；第一次 `onActivity("output")` 时清掉它、开始停顿计时器（`stallMs`），以后每次输出都重置停顿计时器。任一计时器到点：`state.timedOut = true`，`session.abort()`。
      - `onActivity("turn_end")`：`state.rounds += 1`；超过 `MAX_TOOL_ROUNDS` 时 `state.tooManyRounds = true`，`session.abort()`。
+     - 进入模型调用前生成 `callId`，记下起点。第一次 `onActivity("output")` 记录首输出终点。
      - `outcome = await session.prompt(input.prompt)`。之后只要 `outcome.stopReason` 不是 `"error"` / `"aborted"`、`state.terminated` 为假、补发次数小于 `MAX_NUDGES`，就 `outcome = await session.prompt(提醒)`，提醒文字是 `` `请调用 ${input.requiredToolName} 提交结果，不要直接回复文字。` ``。
-     - 清掉计时器，写一行 `llm_calls`（见下），记 `llm.call` 日志。
-     - 判定这次尝试的结果：
+     - 统一处理成功返回、SDK 抛错和中止，判定这次尝试的结果：
        - `state.tooManyRounds` → 失败 `invalid_output`；
-       - `stopReason` 是 `"error"` 或 `"aborted"` → 失败，类别 = `classifyFailure({ httpStatus: recorder.lastStatus, redirected: recorder.redirected, timedOut: state.timedOut, aborted: input.signal?.aborted || shutdown.aborted, errorMessage })`，`detail = scrubSecrets(errorMessage, [target.apiKey]).slice(0, 500)`；
+       - SDK 抛错，或 `stopReason` 是 `"error"` 或 `"aborted"` → 失败，类别 = `classifyFailure({ httpStatus: recorder.lastStatus, redirected: recorder.redirected, timedOut: state.timedOut, aborted: input.signal?.aborted || shutdown.aborted, errorMessage })`，`detail = scrubSecrets(errorMessage, [target.apiKey]).slice(0, 500)`；
        - `state.terminated` 为假 → 失败 `invalid_output`；
-       - 否则成功，返回 `{ requiredToolTerminated: true }`。
+       - 否则判为成功。
+     - 清理计时器，记录 `llm.call` 和已有终点的 `llm.first_output`，写入 `llm_calls`。三处沿用同一个 `callId`。模型样本带 `input.ref.attempt`，按该次调用的最终结果归组。成功时返回 `{ requiredToolTerminated: true }`。
   3. 失败时：类别在 `RETRYABLE` 里、这次尝试没有收到任何输出（没有过 `onActivity("output")`）、是第一次尝试、`input.signal` 没有中止——满足全部条件才重试；`rate_limited` 先等 `RATE_LIMIT_RETRY_DELAY_MS`。否则抛 `LlmRunError(类别, detail)`。
 
-  `llm_calls` 的一行：`id` 新 uuid；`purpose`；`workId` 取 `input.ref.workId`；`provider` 是端点 id；`model`；`refKind`、`refId` 取 `input.ref`；三个 token 数和 `cost`、`costFromProvider`（转成 0/1）取自用量；`durationMs`；`status` 是 `ok` / `error` / `aborted`；`error` 是类别或 `null`；`createdAt`。
+  `llm_calls` 的一行：`id` 使用当次 `callId`；`purpose`；`workId` 取 `input.ref.workId`；`provider` 是端点 id；`model`；`refKind`、`refId` 取 `input.ref`；三个 token 数和 `cost`、`costFromProvider`（转成 0/1）取自用量；`durationMs`；`status` 是 `ok` / `error` / `aborted`；`error` 是类别或 `null`；`createdAt`。
 - [ ] 11. `test-connection.ts`：`export function createConnectionTester(deps): (input: TestConnectionInput) => Promise<TestConnectionResult>`。
   1. `baseUrl = normalizeBaseUrl(input.baseUrl)`；为 `null` 时返回 `{ ok: false, code: "invalid_url", detail: null, savedToolsCapability: false }`。
   2. key：`set` → 原值；`keep` → 找到对应端点（找不到抛 `appError("endpoint_not_found", …)`），取它的 `apiKey`；`none` → 无。再经 `resolveApiKey` 解析 `$VAR`。
@@ -3143,7 +3134,7 @@ W8   T17 真实模型走查与收口
      - `stopReason` 是 `"error"` / `"aborted"`：类别按 `classifyFailure` 判；判成 `network` 且 `recorder.lastStatus` 为 `null`（一个响应都没收到）时改成 `unreachable`；判成 `interrupted` 时（超时信号触发）改成 `timeout`。`detail` 脱敏后截到 500 字。
      - 调用了 `ping`：`ok: true`。如果 key 是 `keep`、端点的 `baseUrl` 和这次一样、端点下有这个模型，就排队把这个模型的 `tools` 写成 `true`（文件状态不是 `ok` 时跳过）；写成了或者本来就是 `true`，`savedToolsCapability` 为真。
      - 其他：`{ ok: false, code: "no_tool_call" }`。
-  5. 记 `llm.test` 日志（`ok`、`code`）。测试连接不写 `llm_calls`：它不属于任何作品，也不属于任何用途。
+  5. 每条返回路径记录 `llm.test` 和 `llm.connection_test`。连接测试不计入作品用量。
 - [ ] 12. `service.ts`：`export function createLlmService(deps: CoreDeps, options?: { env?: NodeJS.ProcessEnv; timeouts?: Partial<LlmTimeouts> }): LlmService`。
   - `store = createProvidersStore(path.join(dataDir, "providers.json"), onRevisionChange)`；`onRevisionChange` 发布 `{ type: "llm.config_changed" }`，记 `llm.config.loaded`（第一次加载只记日志，不发布事件）。
   - **`listProviders()`**：`load()` 后转成 `LlmConfigView`：
@@ -3190,13 +3181,13 @@ W8   T17 真实模型走查与收口
     - 401 → `unauthorized`，只收到 1 个请求。
     - `drop_mid_stream` → `network`，只收到 1 个请求（已经收到过输出，不重试）。
     - `hang` → `timeout`。
-    - 每次尝试都写了一行 `llm_calls`，状态和错误类别对得上。
+    - 每次尝试都写了一行 `llm_calls`，包括 SDK 直接抛错和已开始的调用被中止。诊断事件按 `callId` 关联。首输出前失败的调用没有首输出样本，自动重试得到的新调用 ID 与应用层尝试号分别核对。
     - `opencodeHeaders`：`https://opencode.ai/inference/go/openai/v1` 返回两个头，其他主机返回空对象。
   - `fetch-guard.test.ts`：`installGlobalFetchGuard()` 之后，对返回 302 的伪服务调用全局 `fetch` 会抛 `RedirectBlockedError`，跳转目标收不到请求。
 
 **注意事项。**
 
-- **key 不出 core。** 视图、日志、错误详情、`llm_calls` 里都不能出现 key。错误信息先过 `scrubSecrets`。
+- **key 不出 core。** 诊断只记录白名单字段。返回给 client 的错误详情经 `scrubSecrets` 脱敏，诊断库记录错误码。
 - **pi-ai 的 API 名字可能和本文写的有出入。** 以 `node_modules/@earendil-works/pi-ai/dist/*.d.ts` 为准；行为差别大到要改设计时（例如无法传入自定义 `fetch`），停下来汇报。
 - **不要依赖 SDK 抛出的错误文本判断重定向。** 重定向只看 `recorder.redirected`。
 - 本里程碑不做内置服务商、模型发现、Anthropic 协议的调用。文件里如果有 `anthropic-messages` 端点，照常列出，但 `resolve` 不会选中它。
@@ -3295,16 +3286,17 @@ W8   T17 真实模型走查与收口
     5. 这部作品已有 `running` 的预览任务 → `job_running`。
     6. `llm.resolve("narrator")` 为 `null` → `llm_not_configured`。
     7. 插入任务：`kind = 'preview'`、`status = 'running'`、`input = { contentRev, background }`（背景在这一刻冻结，[创作工作站 §9](../docs/author-workstation.md#9-生成任务)）。
-    事务外：发布 `job.updated`，记 `preview.job.started`，`queue.add(() => runPreviewJob(jobId))`，返回视图。
+    事务外：只有新登记任务才发布 `job.updated`、记录 `preview.job.started` 并执行 `queue.add(() => runPreviewJob(jobId))`，返回视图。幂等重发直接返回已有视图。
   - **`runPreviewJob(jobId)`**（不导出）：
     1. 读任务，不是 `running` 就返回。
     2. 建工具：`execute(args)` 调 `parsePreviewArgs`。通过 → 记下结果，返回 `{ text: "已收到。", terminate: true }`。不通过 → 失败次数加一；超过 `MAX_CORRECTIONS` → 返回 `{ text: 错误说明, terminate: true }`（结束循环，不记结果）；否则 `throw new Error(错误说明)`（交还模型修正）。错误说明是 `errors.join("\n")`。
-    3. `await llm.run({ purpose: "narrator", system: PREVIEW_SYSTEM_PROMPT, prompt: buildPreviewPrompt(input.background), tools: [tool], requiredToolName: PREVIEW_TOOL_NAME, sessionId: workId, ref: { kind: "job", id: jobId, workId } })`。会话标识用作品 id（[LLM 端点 §5](../docs/llm-endpoints.md#5-opencode-go)）。
-    4. 抛 `LlmRunError` → 任务失败，原因是它的 `code`；抛别的错误 → 原因 `internal`，并记 error 日志。
+    3. `await llm.run({ purpose: "narrator", system: PREVIEW_SYSTEM_PROMPT, prompt: buildPreviewPrompt(input.background), tools: [tool], requiredToolName: PREVIEW_TOOL_NAME, sessionId: workId, ref: { kind: "job", id: jobId, attempt: 1, workId } })`。会话标识用作品 id（[LLM 端点 §5](../docs/llm-endpoints.md#5-opencode-go)）。
+    4. 抛 `LlmRunError` → 任务失败，原因是它的 `code`；抛别的错误 → 原因 `internal`。
     5. 没有记下结果 → 失败，原因 `invalid_output`。
-    6. 成功 → `UPDATE jobs SET status = 'done', result = { preview, adoption: null } WHERE id = ? AND status = 'running'`。
+    6. 成功 → `UPDATE jobs SET status = 'done', result = { preview, adoption: null } WHERE id = ? AND status = 'running'`。写入抛错时记录失败的 `preview.commit`，任务按 `save` 失败处理。
     7. 失败 → `UPDATE jobs SET status = 'failed', error = ? WHERE id = ? AND status = 'running'`。
     8. 发布 `job.updated`，记 `preview.job.done` 或 `preview.job.failed`。
+  - **计时。** 任务登记成功后记录尝试的起点，进入后台处理时结束排队计时。每次解析与校验提案、提交生成结果都有独立区间。任务完成、失败或可处理地中断时结束总计时。各样本沿用 `workId`、`jobId`。
   - **`adoptPreview({ workId, jobId })`**：一个事务完成全部写入：
     1. 任务不存在，或任务不属于这部作品 → `not_found`。
     2. 任务的 `result.adoption` 已有值 → 直接返回 `{ routeId: adoption.routeId }`（重发）。
@@ -3331,10 +3323,11 @@ W8   T17 真实模型走查与收口
        - 插入路线：`headTurnId = 根回合 id`。
        - 更新任务：`result = { preview, adoption: { versionId, routeId } }`。
     事务外：发布 `works.changed`，记 `work.adopted`，返回 `{ routeId }`。
-  - **`recoverInterrupted()`**：`UPDATE jobs SET status = 'failed', error = 'interrupted', updated_at = now WHERE status = 'running'`，返回改动行数。
-  - **`whenIdle()`**：`queue.onIdle()`。关闭后，尚未开始的任务不再调用模型，保留等待恢复的记录。已经开始的任务响应关闭信号，在数据库关闭前结束。
+  - **`recoverInterrupted()`**：把 `running` 的任务标为 `failed` / `interrupted`，取回本次更新的 `jobId`、`workId`。事务结束后逐条记 `preview.job.failed`，返回改动行数。
+  - **`whenIdle()`**：`queue.onIdle()`。关闭后，尚未开始的任务结束总计时，结果为 `interrupted`，保留任务记录供恢复。已经开始的任务响应关闭信号，在数据库关闭前结束。
 - [ ] 6. 测试（临时数据目录 + `openDatabase` + `createScriptedLlm` + 真实的事件总线）：
   - `library/service.test.ts`：`create` 重发不重复建；`list` 按更新时间倒序，并区分草稿、仅有开场及已有回合的作品；`workLabel` 的三种情况和 40 字截断；`saveBackground` 的相同内容不加修订号、过期修订号 → `stale_revision`、成功后加一；`get` 不存在 → `not_found`。
+  - 诊断验收：成功、校验失败、模型失败和提交失败分别记录 §2.5 的预览样本。排队时关闭只记中断的总耗时。`preview.total` 在该次尝试结束时只写一条，所有样本用 `jobId` 关联。
   - `authoring/preview-tool.test.ts`：合格参数通过；每条规则各一条不通过的用例，断言错误说明里提到了对应参数名；`options` 第 2 行不是 JSON 时错误说明里有“第 2 行”。
   - `authoring/service.test.ts`：
     - 生成预览成功：任务先是 `running`，`whenIdle()` 后是 `done`；`llm.runs[0]` 的 `sessionId` 是作品 id，`prompt` 里有背景原文。
@@ -3342,7 +3335,7 @@ W8   T17 真实模型走查与收口
     - 过期的 `contentRev` → `stale_revision`；背景为空 → `invalid_input`；`setResolved(null)` → `llm_not_configured`；已有运行中的任务时再生成 → `job_running`（让脚本化 llm 的第一步等待一个手动控制的 Promise）。
     - 两次不合格、第三次合格 → `done`；三次都不合格 → `failed` / `invalid_output`；脚本给出 `{ fail: "network" }` → `failed` / `network`。
     - 采用：生成预览后改背景，再采用 → `stale_preview`；基于当前背景重新生成并采用 → 返回 `routeId`，并逐项核对第 5 步第 6 点的每一处写入；同一 `jobId` 再采用 → 同一个 `routeId`，各表行数不变；用另一个任务采用 → `already_published`；采用后 `saveBackground` → `already_published`。
-    - `recoverInterrupted()` 把 `running` 的任务改成 `failed` / `interrupted`。
+    - `recoverInterrupted()` 把 `running` 的任务改成 `failed` / `interrupted`，按原任务 ID 留下失败事件。再次恢复时事件数不增加。
     - 测试里的背景和预览内容全部虚构。
 
 **注意事项。**
@@ -3378,10 +3371,12 @@ W8   T17 真实模型走查与收口
   ```ts
   export type TurnRow = typeof turns.$inferSelect;
 
-  export function ancestorChain(db: Database, headTurnId: string): TurnRow[];
+  export function ancestorChain(db: Database, headTurnId: string): Array<TurnRow & {
+    originRequest: { id: string; attempt: number } | null;
+  }>;
   ```
 
-  - 用递归查询取祖先 id（[数据模型 §5](../docs/data-model.md#5-可见性规则)）：
+  - 用递归查询读取祖先回合及原请求标识（[数据模型 §5](../docs/data-model.md#5-可见性规则)）：
 
     ```sql
     WITH RECURSIVE path(id, parent_id) AS (
@@ -3389,11 +3384,15 @@ W8   T17 真实模型走查与收口
       UNION ALL
       SELECT t.id, t.parent_id FROM turns t JOIN path p ON t.id = p.parent_id
     )
-    SELECT id FROM path
+    SELECT t.*, r.id AS request_id, r.attempts AS request_attempt
+    FROM path p
+    JOIN turns t ON t.id = p.id
+    LEFT JOIN turn_requests r ON r.result_turn_id = t.id
+    ORDER BY t.depth
     ```
 
     用 Drizzle 的 `sql` 模板执行（`db.all(sql\`…\`)` 或驱动实际提供的写法）。
-  - 再用 `inArray(turns.id, ids)` 取完整的行，按 `depth` 升序返回。
+  - 按表定义解码回合字段，将可空的请求 ID 和尝试号转成 `originRequest`。
   - 断言 `rows[i].depth === i`，不成立就抛错：那说明回合树的数据坏了。
 - [ ] 2. `narrator-prompt.ts`：导出附录 B.2 的 `NARRATOR_SYSTEM_PROMPT`。
 - [ ] 3. `propose-turn-tool.ts`：
@@ -3479,7 +3478,7 @@ W8   T17 真实模型走查与收口
 
   这里只放本作品发布版本的设定和本路线祖先链上的回合，所以别的作品、别的路线的内容天然进不来。
 - [ ] 5. `service.ts`：`export function createPlayService(deps: CoreDeps & { llm: LlmService }): PlayService`。常量：`TURN_CONCURRENCY = 2`、`MAX_CORRECTIONS = 2`、`REQUEST_LOG_RETENTION_DAYS = 90`。
-  - **`getRoute({ routeId })`**：路线不存在 → `not_found`。取开局、版本、作品；`turns = ancestorChain(head)` 转成 `TurnView`；`language` 同第 4 步；`pending` 是这条路线上 `expectedHeadTurnId = head` 且状态为 `running` 或 `failed` 的请求里 `createdAt` 最新的一个，没有就是 `null`。
+  - **`getRoute({ routeId })`**：路线不存在 → `not_found`。取开局、版本、作品；`turns = ancestorChain(head)` 转成 `TurnView`，保留 `originRequest`。`language` 同第 4 步；`pending` 是这条路线上 `expectedHeadTurnId = head` 且状态为 `running` 或 `failed` 的请求里 `createdAt` 最新的一个，没有就是 `null`。
   - **`submitAction({ requestId, routeId, expectedHeadTurnId, action })`**：事务里按顺序：
     1. `requestId` 已存在：路线、预期 head、行动原话、推荐项序号四项都相同 → 返回它当前的视图（重发，[回合循环 §2](../docs/turn-loop.md#2-回合请求)）；否则 `idempotency_conflict`。
     2. 路线不存在 → `not_found`。
@@ -3488,17 +3487,18 @@ W8   T17 真实模型走查与收口
     5. 这条路线已有 `running` 或 `needs_clarification` 的请求 → `request_in_progress`。
     6. `llm.resolve("narrator")` 为 `null` → `llm_not_configured`。
     7. 插入请求：`kind = 'continue'`、`expectedHeadTurnId`、`parentTurnId = head`、`action`、`status = 'running'`、`attempts = 1`。插入撞上部分唯一索引（两个标签页同时提交的竞态）时，捕获约束错误，改抛 `request_in_progress`。
-    事务外：发布 `turn_request.updated`，记 `turn.request.submitted`，入队 `runTurnRequest(requestId)`，返回视图。
-  - **`retry({ requestId })`**：事务里：请求不存在 → `not_found`；`running` → 返回当前视图；不是 `failed` → `request_not_retryable`；路线 head 已不等于它的 `expectedHeadTurnId` → 把它改成 `superseded`，返回视图（不入队）；路线上有别的进行中的请求 → `request_in_progress`；`llm.resolve` 为 `null` → `llm_not_configured`；否则 `status = 'running'`、`attempts + 1`、`error = null`。事务外发布事件，入队，返回视图。重试沿用原来的预期 head 和行动（[回合循环 §2](../docs/turn-loop.md#2-回合请求)）。
+    事务外：只有实际登记的新请求才发布 `turn_request.updated`、记录 `turn.request.submitted` 并入队 `runTurnRequest(requestId)`。
+  - **`retry({ requestId })`**：事务里：请求不存在 → `not_found`；`running` → 返回当前视图；不是 `failed` → `request_not_retryable`；路线 head 已不等于它的 `expectedHeadTurnId` → 把它改成 `superseded`，返回视图（不入队）；路线上有别的进行中的请求 → `request_in_progress`；`llm.resolve` 为 `null` → `llm_not_configured`；否则 `status = 'running'`、`attempts + 1`、`error = null`。实际进入新的运行尝试后，在事务外发布事件、记录 `turn.request.submitted` 与递增后的尝试号，并入队。过期的请求记录取代事件，返回当前视图。重试沿用原来的预期 head 和行动（[回合循环 §2](../docs/turn-loop.md#2-回合请求)）。
   - **`runTurnRequest(requestId)`**（不导出）：
     1. 读请求，不是 `running` 就返回。
     2. 取路线、开局、版本 `meta`、`chain = ancestorChain(请求的 parentTurnId)`。
     3. `model = llm.resolve("narrator")`；为 `null` → 失败 `llm_not_configured`。
     4. `buildNarratorContext({ meta, chain, action, model, estimateTokens: llm.estimateTokens, toolSchemaText: JSON.stringify(PROPOSE_TURN_PARAMETERS) + 工具描述 })`；`ok` 为假 → 失败 `context_too_small`。
     5. 建 `propose_turn` 工具，结构同 T09 第 5 步的预览工具：通过 → 记下 `ProposedTurn`，`terminate: true`；不通过 → 超过 `MAX_CORRECTIONS` 返回 `terminate: true`，否则抛错交还模型。每次调用往足迹里追加一条 `{ tool: "propose_turn", ok, errors }`。工具描述：`提交这一回合的正文、推荐行动和场景。写完正文后调用一次。`
-    6. `await llm.run({ purpose: "narrator", system, prompt, tools: [tool], requiredToolName: PROPOSE_TURN_TOOL_NAME, sessionId: routeId, ref: { kind: "turn_request", id: requestId, workId } })`。会话标识用路线 id（[LLM 端点 §5](../docs/llm-endpoints.md#5-opencode-go)）。`LlmRunError` → 失败，原因是它的 `code`；其他错误 → 失败 `internal`，记 error 日志。
+    6. `await llm.run({ purpose: "narrator", system, prompt, tools: [tool], requiredToolName: PROPOSE_TURN_TOOL_NAME, sessionId: routeId, ref: { kind: "turn_request", id: requestId, attempt: request.attempts, workId } })`。会话标识用路线 id（[LLM 端点 §5](../docs/llm-endpoints.md#5-opencode-go)）。`LlmRunError` → 失败，原因是它的 `code`；其他错误 → 失败 `internal`。
     7. 没有记下 `ProposedTurn` → 失败 `invalid_output`。
     8. 提交（见下）。提交抛错 → 失败 `save`。
+  - **计时。** 首次登记和有效重试分别记录起点，复用 `requestId` 并带本次 `attempt`。后台开始时结束排队计时，构建上下文、每次工具校验、最终提交各记录一个区间。在完成、失败或中断时结束总计时，取代计为中断。用现有的上下文成本估算记录上下文 token 数。幂等重发沿用已有请求，不再计时。
   - **提交事务**（[回合循环 §6](../docs/turn-loop.md#6-校验与保存)）：
     1. 重新读路线。head 不等于请求的 `expectedHeadTurnId` → `UPDATE turn_requests SET status = 'superseded' WHERE id = ? AND status = 'running'`，结束（不插入回合），事务外发布事件、记 `turn.request.superseded`。
     2. 插入回合：`parentId = parentTurnId`、`depth = 父回合 depth + 1`、`action`、`prose`、`options`、`scene`、`ending = 0`、`status = 'committed'`。
@@ -3506,13 +3506,14 @@ W8   T17 真实模型走查与收口
     4. `UPDATE turn_requests SET status = 'done', result_turn_id = 新回合, log = 足迹, updated_at = now WHERE id = ? AND status = 'running'`，影响行数必须是 1，否则抛错。
     5. 事务外：发布 `turn.committed` 和 `turn_request.updated`，记 `turn.request.done`。
   - **失败**：`UPDATE turn_requests SET status = 'failed', error = ?, log = 足迹, updated_at = now WHERE id = ? AND status = 'running'`；发布 `turn_request.updated`；记 `turn.request.failed`。路线一律不动，所以上一个完整决定点保持原样。
-  - **`recoverInterrupted()`**：`running` → `failed` / `interrupted`，返回行数；同时把 90 天以前请求的 `log` 清成 `NULL`（[回合循环 §2](../docs/turn-loop.md#2-回合请求)）。
-  - **`whenIdle()`**：`queue.onIdle()`。关闭后，尚未开始的任务不再调用模型，保留等待恢复的记录。已经开始的任务响应关闭信号，在数据库关闭前结束。
+  - **`recoverInterrupted()`**：把 `running` 的请求标成 `failed` / `interrupted`，取回这次更新的请求 ID 与尝试号。旧足迹按[回合循环 §2](../docs/turn-loop.md#2-回合请求)清理。事务结束后为每个中断请求记 `turn.request.failed`，并返回恢复行数。
+  - **`whenIdle()`**：`queue.onIdle()`。关闭后，尚未开始的尝试结束总计时，结果为 `interrupted`，保留请求记录供恢复。已经开始的尝试响应关闭信号，在数据库关闭前结束。
 - [ ] 6. 测试（临时数据目录、真实的库和事件总线、`createScriptedLlm`）。在测试文件里写一个 `seedPlayableWork(db, { background, publicSetting, openingProse, options })`，直接插入一部已发布作品、开局、根回合和路线（不依赖 T09 的代码），返回各个 id。内容全部虚构。
   - `propose-turn-tool.test.ts`：合格参数通过；`changes` 为空时场景沿用父回合；每条规则一条不通过的用例；`ending: "true"` 被拒；`present` 的中英文逗号和顿号都能切开。
+  - 诊断验收：续写总耗时和发生过的各阶段都保留 `requestId` 与尝试号。失败后重试生成独立样本，提交回滚要留下失败的提交样本。排队时关闭只记中断的总耗时。进程意外退出没有终点时只记恢复事件。
   - `context.test.ts`：预算充足时全部回合都在、没有省略说明；预算只够必需材料时其余回合全部省略，省略说明里的数字正确；预算连必需材料都不够 → `context_too_small`；回合按时间正序排列；行动块对推荐项和自由输入写的说明不同。
   - `service.test.ts`：
-    - `getRoute` 只有开场时 `turns` 一项、`pending` 为 `null`。
+    - `getRoute` 只有开场时 `turns` 一项，`originRequest` 和 `pending` 都为 `null`。
     - 点推荐项 1（原话一致）→ `running` → `whenIdle()` 后 `done`；路线有 2 个回合，新回合 `depth = 1`、行动里带 `optionIndex: 1`；事件依次是 `turn_request.updated(running)`、`turn.committed`、`turn_request.updated(done)`。
     - 自由输入（`optionIndex: null`）同样成功。
     - 推荐项序号和原话对不上 → `option_mismatch`；预期 head 过期 → `stale_head`，路线不变。
@@ -3520,12 +3521,12 @@ W8   T17 真实模型走查与收口
     - 同一 `requestId` 换了原话 → `idempotency_conflict`。
     - 第一个请求还在运行（脚本化 llm 等待一个手动控制的 Promise）时提交第二个 → `request_in_progress`。
     - `setResolved(null)` → `llm_not_configured`，请求表里没有新行。
-    - 三次不合格 → `failed` / `invalid_output`，路线不变，`getRoute().pending` 是这个失败的请求；再排一组合格参数并 `retry` → `done`，`attempts = 2`，只新增 1 个回合。
+    - 三次不合格 → `failed` / `invalid_output`，路线不变，`getRoute().pending` 是这个失败的请求；再排一组合格参数并 `retry` → `done`，`attempts = 2`，只新增 1 个回合。单独查询 `getRoute` 能从新回合的 `originRequest` 读到原请求 ID 和尝试号 2。
     - 脚本给出 `{ fail: "network" }` → `failed` / `network`；`retry` 后成功。
     - 对 `done` 的请求重试 → `request_not_retryable`；对 `running` 的请求重试 → 返回 `running` 的视图。
     - 运行期间把路线 head 直接改到另一个回合（模拟另一个标签页推进了路线）→ 请求变成 `superseded`，没有插入新回合。
     - 用 SQLite 触发器 `CREATE TRIGGER fail_insert BEFORE INSERT ON turns BEGIN SELECT RAISE(ABORT, 'boom'); END;` 让提交失败 → 请求 `failed` / `save`，路线不变。
-    - `recoverInterrupted()` 把 `running` 改成 `failed` / `interrupted`；之后 `retry` 能成功。
+    - `recoverInterrupted()` 把 `running` 改成 `failed` / `interrupted`，留下原请求和尝试号。再执行恢复不增加事件，之后 `retry` 能成功。
     - 上下文承接：第一回合自由输入一句虚构的行动，第二回合时 `llm.runs[1].prompt` 里能找到第一回合的行动原话和正文。
     - 作品隔离：建两部作品各走一回合，第二部作品的 `prompt` 里找不到第一部作品的背景和正文。
     - 预算不足：`setResolved({ …, contextWindow: 200, maxOutputTokens: 100 })` → `failed` / `context_too_small`。
@@ -3534,7 +3535,7 @@ W8   T17 真实模型走查与收口
 
 - 提交事务和提交前的检查必须在同一个事务里，`WHERE … AND status = 'running'`、`WHERE … AND head_turn_id = 预期 head` 两个条件都不能省：它们挡住的是“两个标签页同时操作”“恢复后又跑完了旧请求”这类竞态。
 - 生成到一半的正文永远不写进 `turns`。模型交上来、校验没通过的正文也不进任何表，只有校验错误说明进 `turn_requests.log`。
-- `turn_requests.log` 只留在本机数据库里，不写进日志文件（[回合循环 §2](../docs/turn-loop.md#2-回合请求)）。
+- `turn_requests.log` 随回合请求保存在作品库（[回合循环 §2](../docs/turn-loop.md#2-回合请求)）。
 - 不实现 `ask_clarification`、重写、开场请求（§1.3）。
 
 **完成判据。**
@@ -3560,11 +3561,12 @@ W8   T17 真实模型走查与收口
 **步骤。**
 
 - [ ] 1. 页面入口读取 URL hash 中的令牌，只保存在内存。生产环境用 `replaceState` 清除令牌，保留路径和查询串；开发环境按架构规则保留 hash。无令牌时只挂载说明页，完全跳过 API、事件订阅和错误上报。鉴权守卫的 HTTP 401 让根界面切换到说明页并取消还在运行的查询；模型鉴权错误由页面按业务错误显示。
-- [ ] 2. `shared/api` 暴露一套契约客户端、QueryClient、查询键与错误转换。由 RPCLink 为普通请求和事件订阅设置同一个请求头。错误只取已知契约码与通过校验的详情；本地网络失败使用对应文案。应用级错误只上报脱敏后的消息与位置，记录失败时结束，不递归上报。
+- [ ] 2. `shared/api` 暴露一套契约客户端、QueryClient、查询键与错误转换。由 RPCLink 为普通请求和事件订阅设置同一个请求头。错误只取已知契约码与通过校验的详情；本地网络失败使用对应文案。应用级错误按 T02 的区域和错误码上报。
 - [ ] 3. 根布局启动一条可取消的 `events.subscribe`。`llm.config_changed` 失效配置查询，`works.changed` 失效库和对应作品，`job.updated` 失效对应作品，`turn_request.updated` 失效对应路线，`turn.committed` 同时失效对应路线与作品库，以便刷新作品的进度入口。接通或重连后刷新当前查询，填补通知空窗；连接中断以有上限的退避重连。路由切换复用连接；卸载、鉴权失效时取消迭代和重试定时器。
 - [ ] 4. 注册 `/`、`/settings`、`/works/$workId/edit`、`/play/$routeId`，loader 加载相应文案。用组件接入各页面。每页一个 `h1`，路由切换后同步标题和焦点。接上 T03 的系统外观监听。
 - [ ] 5. 写共享 Button、TextField、TextArea、Page、Toolbar、BackLink、PageHeading、Notice、Badge、LiveRegion、VisuallyHidden、GeneratingMarker。表单标签与提示绑定，图标按钮有可读名称，焦点环、尺寸、材料和过渡引用 token。Enter 提交 hook 同时检查组合事件状态和 `nativeEvent.isComposing`，Shift+Enter 保留换行。
-- [ ] 6. 浏览器组件测试覆盖无令牌零请求、刷新、鉴权失效与模型鉴权错误的区别、一次订阅与重连补查、路由标题和焦点、组字回车，以及共享部件的 axe 检查。
+- [ ] 6. `shared/lib/log.ts` 提供 client 诊断入口，按[性能样本定义](../docs/diagnostics.md#3-性能样本)用 `performance.now()` 开始和结束计时。页面完成对应的 DOM 提交后上报，同一操作终点只报一次。上报失败即结束，鉴权失效后停止上报。
+- [ ] 7. 浏览器测试覆盖无令牌零请求、刷新、鉴权、事件重连补查、焦点、组字、共享部件的 axe 检查，以及性能样本去重和上报失败。
 
 **注意事项。** 查询失效用于重新读状态。变更请求遇到结果不明时由发起方按原幂等键或最新服务端状态处理。
 
@@ -3606,9 +3608,9 @@ W8   T17 真实模型走查与收口
 
 - [ ] 1. 作品库用 `works.list` 显示空、载入、读取失败和作品卡。草稿进入编辑，可玩作品显示简介，按 `hasProgress` 显示「开始故事」或「继续游玩」，用 `routeId` 进入同一条路线。新建时生成稳定的 `workId`，`works.create` 成功后进入编辑页。
 - [ ] 2. 编辑页用 `works.get` 恢复背景、修订号和最近任务。使用 `works.saveBackground` 保存编辑原文。保存成功才显示已保存；仍有未保存输入时明确展示状态，离开时允许保存后离开或继续编辑。
-- [ ] 3. 生成前先等待保存完成，用返回的 `contentRev` 和本次 `jobId` 调 `works.generatePreview`。配置不可用时显示设置入口；使用任务状态播报生成中、失败和完成。预览显示标题、简介、公开设定、正文和推荐行动，均以纯文本显示。
+- [ ] 3. 触发生成时先分配本次 `jobId` 并开始计时。等保存完成后用返回的 `contentRev` 和该 `jobId` 调 `works.generatePreview`。以该任务的预览或错误首次渲染为终点。生成前保存失败时，记录同一操作的错误耗时。配置不可用时显示设置入口；使用任务状态播报生成中、失败和完成。预览显示标题、简介、公开设定、正文和推荐行动，均以纯文本显示。
 - [ ] 4. 本地背景已经编辑或任务修订号与草稿不符时，禁用采用并提示重新生成。收到修订冲突时重新查作品，保留本地编辑，显式重试保存。采用用 `works.adoptPreview`，再次读取作品和库确认已发布；显示开始故事和返回作品库。已发布草稿只读，失败保留原预览并提示处理方式。
-- [ ] 5. 测试空库到草稿、离开再进入、先保存后生成、旧任务不可采用、成功采用后的路由和只读状态，以及模型缺失和运行失败。
+- [ ] 5. 作品库和预览页接入 `client.library_ready` 与 `client.preview_visible`。测试空库、草稿恢复、旧预览、采用、模型缺失和预览失败，并核对样本结果和预览任务 ID。
 
 **注意事项。** 事件回查更新服务端状态，不能覆盖尚未保存的本地输入。界面预览中的选项只用于阅读。
 
@@ -3630,7 +3632,7 @@ W8   T17 真实模型走查与收口
 - [ ] 2. 只在最新决定点展示推荐行动与自由输入。点击选项提交原文和一基序号，自由输入提交 `optionIndex: null`。每次发送带当前 `expectedHeadTurnId` 和稳定的 `requestId`。结果不明时用同一请求重发，直到取得当前视图；明确失败后按对应状态处理。
 - [ ] 3. 运行中的行动原话和生成提示显示在上一段完整正文之后，锁住重复发送。生成失败保留原话，`play.retry` 传原请求 ID。重连或重开从查询恢复；回合提交后只追加一份正式回应，过期 head 重新查路线并保留尚可编辑的输入。
 - [ ] 4. 使用 LiveRegion 播报等待、完成和失败，新回合按动效规则进入。设置缺失且已有作品时保留阅读能力，通过设置入口恢复生成。
-- [ ] 5. 测试推荐和自由行动、连点、组字回车、失败重试、过期决定点、重连后去重、从历史返回最新，以及键盘和可访问性。
+- [ ] 5. 阅读页接入 `client.turn_visible`。测试推荐和自由行动、组字、失败重试、过期决定点、重连去重、返回最新和可访问性。初次发送用尝试号 1，重试以返回的新尝试号为准。等 `originRequest` 或失败状态与当前请求和尝试号匹配，并且对应结果渲染后，才结束计时。明确拒绝或未入队即返回 `superseded` 时，以本次提示为终点。测试重试前还显示上次失败提示、成功通知丢失后重新查询两种情况。单纯续玩时不补造样本。
 
 **注意事项。** 判断最新决定点、待处理行动和提交结果时，以 core 返回的 id 与状态为准，避免 query 回查把同一行动显示两次。
 
@@ -3648,7 +3650,7 @@ W8   T17 真实模型走查与收口
 
 **步骤。**
 
-- [ ] 1. 入口先加载 fetch 守卫，再导入其余模块。解析参数并调用 `startCore`，注入四个真实工厂。监听成功后向 stdout 输出一行 `UNWRITTEN_CORE_URL=<带令牌的地址>`。失败返回非零退出码，日志与 stderr 不含令牌和 key。
+- [ ] 1. 入口先加载 fetch 守卫，再导入其余模块。解析参数并调用 `startCore`，注入四个真实工厂。监听成功后向 stdout 输出一行 `UNWRITTEN_CORE_URL=<带令牌的地址>`。失败返回非零退出码，诊断详情留在诊断库。库不可写时只向 stderr 给出固定故障提示。
 - [ ] 2. SIGINT、SIGTERM 共用一个关闭流程，停止接收请求并等待 `close()`。测试用过的伪端点、临时目录、服务实例均在 finally 清理。
 - [ ] 3. 通过真实 oRPC 客户端和 T05 的 HTTP 伪服务测试配置、工具调用、草稿、预览、采用、连续行动。停掉首实例，用相同数据目录启动第二实例，验证新令牌、原路线与后续请求上下文。并发标签页、过期 head 与重复请求的边界用真实服务装配覆盖一次。
 
@@ -3672,7 +3674,7 @@ W8   T17 真实模型走查与收口
 - [ ] 2. 从空库设置模型，测试工具调用并设为默认，写背景，生成预览，改背景再生成并采用。点推荐行动、自由输入并完成第三回合。重启 core，打开新地址继续游玩；断言历史、行动原话、当前决定点以及伪服务收到的后续上下文都正确。
 - [ ] 3. 模拟错误 key、没有调用工具、无效配置文件、无效预览或回合、进程生成中断。确认已有库和阅读仍可访问；失败后原行动保留，重试只提交一次。单独测试切换作品不会串上下文。
 - [ ] 4. 验证生产 HTML 与接口边界、无令牌时的说明和零 API 请求。用键盘走主路径，检查可见焦点；用浏览器组合事件模拟组字回车。跑关键页面的 axe 检查，真实输入法与播报留给 T17。
-- [ ] 5. 断言动作与状态以角色、名称和可观察结果为准。数据层只通过已有契约读取，不拿数据库断言替代界面验收。
+- [ ] 5. 用读取诊断库的数据验收持久化，界面路径仍按角色、名称和可见状态验收。正常退出后重开诊断库，按任务、请求和调用 ID 核对 core、client 样本，区分失败、重试和成功。正常退出后检查数据目录只含契约列出的数据库及其 SQLite 伴随文件、模型配置及允许的备份。stdout 只含启动地址，运行事件和性能样本仅从诊断库读到。
 
 **完成判据。** `pnpm build`、`pnpm e2e` 通过；主路径和失败恢复用例各连续运行两遍，临时进程和数据目录均已清理。
 
@@ -3691,7 +3693,7 @@ W8   T17 真实模型走查与收口
 - [ ] 1. 从空的手动数据目录启动生产构建。在界面测试并保存真实模型。写一句虚构的背景，先看预览，再修改背景并生成，采用新开场。
 - [ ] 2. 点一次推荐行动、提交一次自由行动、完成第三回合后重启 core。用新地址续玩，要求剧情承接第一次自由行动留下的实际后果。记录开场是否留下可行动的决定、自由行动是否被接住、重启后是否接得上。
 - [ ] 3. 用实际中文输入法确认组字回车不会发送。仅用键盘通过主要页面，检查路由焦点和读屏状态播报。
-- [ ] 4. 跑 `pnpm typecheck`、`pnpm lint`、`pnpm test`、`pnpm e2e`、`node scripts/check-doc-links.mjs` 和 `node scripts/check-tokens.mjs`。按 §0.5 自检。记录每个判据的结果与无法执行的项目，剧情和日志片段只留在本机数据目录。
+- [ ] 4. 跑 `pnpm typecheck`、`pnpm lint`、`pnpm test`、`pnpm e2e`、`node scripts/check-doc-links.mjs` 和 `node scripts/check-tokens.mjs`。按 §0.5 自检。记录验收结论，按相同场景和区间核对诊断库的样本数、中位数和第 95 百分位。运行诊断和性能读数保留在本机诊断库。
 
 **完成判据。** 自动化验收均通过，维护者能在真实模型上重走完整闭环；真实模型的体验核对也有单独结论。
 

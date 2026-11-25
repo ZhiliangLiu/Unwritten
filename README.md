@@ -43,6 +43,6 @@ client 不包含任何桌面专属代码，core 也可以脱离桌面独立运�
 | --- | --- |
 | `library.db` | 作品库：作品、版本、路线、存档、对话 |
 | `providers.json` | 模型端点和 API key；macOS、Linux 上文件权限为 0600，Windows 上依赖用户目录的访问控制。key 可以写成 `$ENV_VAR`，从环境变量读取 |
-| `logs/` | 运行日志 |
+| `diagnostics.db` | 本机运行事件和性能样本 |
 
 `.data/` 和 `providers.json` 都已列入 `.gitignore`，不要把它们提交进仓库。

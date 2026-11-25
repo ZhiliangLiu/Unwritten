@@ -16,6 +16,7 @@
 | [回合循环](./turn-loop.md) | 游玩时 AI 每回合读什么、怎样提交结果，core 怎样校验和保存 |
 | [创作工作站](./author-workstation.md) | 创作时的对话面板、提案卡，以及怎样写入草稿 |
 | [LLM 端点](./llm-endpoints.md) | 模型服务怎样配置、探测、按用途分配 |
+| [运行诊断与性能记录](./diagnostics.md) | 本机诊断库、事件、计时起止点和查询口径 |
 | [设计准则](./design-guidelines.md) | 界面的视觉方向：版式、布局、层次、颜色、图标、文案语气 |
 | [主题与 token](./theme.md) | 全部视觉 token、浅色与深色主题、外观切换、为将来主题预留的材质 |
 | [动效](./motion.md) | 动效原则、动效 token、各场景编排、实现规则 |
@@ -41,7 +42,7 @@
 ```
 Electron 主进程（desktop）
  ├─ utilityProcess：core（运行在 Electron 自带的 Node 上）
- │    ├─ SQLite：library.db
+ │    ├─ SQLite：library.db、diagnostics.db
  │    ├─ providers.json
  │    └─ HTTP（调用与事件流），监听 127.0.0.1 的随机端口
  └─ BrowserWindow：client，打开 http://127.0.0.1:<端口>/#token=<令牌>
@@ -51,7 +52,7 @@ Electron 主进程（desktop）
 
 1. 主进程取得单实例锁，生成一个本次启动有效的随机令牌。
 2. 主进程用 `utilityProcess.fork` 启动 core，传入数据目录和令牌。
-3. core 打开数据库、执行迁移、读取 providers.json，在回环地址上监听 0 端口（由系统分配空闲端口），再把实际端口告诉主进程。
+3. core 先打开诊断库，再打开作品库、执行迁移、读取 providers.json，在回环地址上监听 0 端口（由系统分配空闲端口），再把实际端口告诉主进程。
 4. 主进程用这个端口和令牌打开窗口。端口不保存，每次启动都重新分配。若迁移失败或 core 没有按时就绪，desktop 显示启动错误和重试入口。同一数据目录同时只允许一个 core 持有写入权，独立运行也遵守这条规则。
 5. 如果 core 意外退出，主进程显示错误页并提供“重启”。已提交的数据都在 SQLite 里；正在生成的请求按[回合循环 §8](./turn-loop.md#8-中断与恢复)处理。
 
@@ -123,6 +124,7 @@ core 独立运行时没有这条通道：启动参数改从命令行读取，另
 | `play` | 开局、回合树、路线、存档、回合循环 |
 | `authoring` | 创作向导、生成任务、工作站的对话与提案卡 |
 | `llm` | providers.json、对 pi-ai 的封装、用途分配、调用记录 |
+| `log` | 本机运行事件和性能记录的校验与写入，见[运行诊断与性能记录](./diagnostics.md) |
 | `api` | Hono 应用：令牌与 Host 校验、静态文件、挂载契约的实现 |
 
 两条硬规则：
@@ -144,10 +146,10 @@ core 使用 desktop 传进来的数据目录，桌面版的数据目录是 Elect
 <数据目录>/
   library.db        作品库：全部作品、版本、路线、对话
   providers.json    LLM 端点与 key；macOS、Linux 上文件权限为 0600，Windows 上依赖用户目录的访问控制
-  logs/             core 与 desktop 的日志
+  diagnostics.db    core、client 与 desktop 的运行事件和性能样本
 ```
 
-数据库迁移脚本按编号放在 `packages/core/src/store/migrations/`，core 启动时按顺序执行。
+作品库与诊断库的迁移分别在 `packages/core/src/store/migrations/` 和 `packages/core/src/log/migrations/`。core 打开各库时按编号执行对应的迁移。
 
 ## 7. 目录结构
 
