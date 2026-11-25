@@ -216,9 +216,10 @@ export function startFakeOpenAiServer(options?: { apiKey?: string }): Promise<Fa
     }
     if (step.kind === "drop_mid_stream") {
       response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
+      response.flushHeaders();
       sendSse(response, chunk(model, { role: "assistant", content: "" }));
       sendSse(response, chunk(model, { content: "半" }));
-      response.socket?.destroy();
+      setImmediate(() => response.socket?.destroy());
       return;
     }
     return;
