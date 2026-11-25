@@ -7,6 +7,7 @@ const repoRoot = process.argv[2] ?? join(dirname(fileURLToPath(import.meta.url))
 const NON_REPO_CONTENT_DIRS = new Set(["node_modules", ".git", ".claude", ".turbo", ".data", "dist", "out", "release"]);
 const EXTERNAL_LINK = /^[a-z]+:/i;
 const FENCED_CODE_BLOCK = /```[\s\S]*?```/g;
+const INLINE_CODE = /(`+)[^\n]*?\1/g;
 const MARKDOWN_LINK_TARGET = /\]\(([^)\s]+)\)/g;
 
 function findAgentsFiles(dir) {
@@ -17,12 +18,17 @@ function findAgentsFiles(dir) {
   });
 }
 
+function markdownIn(dir) {
+  const path = join(repoRoot, dir);
+  if (!existsSync(path)) return [];
+  return readdirSync(path).filter((name) => name.endsWith(".md")).map((name) => `${dir}/${name}`);
+}
+
 const markdownFiles = [
   ...new Set([
     "README.md",
-    ...readdirSync(join(repoRoot, "docs"))
-      .filter((name) => name.endsWith(".md"))
-      .map((name) => `docs/${name}`),
+    ...markdownIn("docs"),
+    ...markdownIn("tasks"),
     ...findAgentsFiles(""),
   ]),
 ].filter((path) => existsSync(join(repoRoot, path)));
@@ -62,7 +68,7 @@ function decodeAnchorOrNull(anchor) {
 const brokenLinks = [];
 for (const file of markdownFiles) {
   const absolutePath = join(repoRoot, file);
-  const textOutsideCodeBlocks = readFileSync(absolutePath, "utf8").replace(FENCED_CODE_BLOCK, "");
+  const textOutsideCodeBlocks = readFileSync(absolutePath, "utf8").replace(FENCED_CODE_BLOCK, "").replace(INLINE_CODE, "");
   for (const [, href] of textOutsideCodeBlocks.matchAll(MARKDOWN_LINK_TARGET)) {
     if (EXTERNAL_LINK.test(href)) continue;
     const [path, anchor] = href.split("#");

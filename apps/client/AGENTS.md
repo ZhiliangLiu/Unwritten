@@ -27,9 +27,9 @@
 - 方向一律用逻辑属性（[i18n §8](../../docs/i18n.md#8-布局方向)）。
 - 断点用 `@custom-media --uw-compact` 和 `--uw-wide`，不在媒体查询里写死数值。
 - **新增 token 的流程：** 在同一次改动里完成以下三件事，然后跑 token 契约测试。
-  1. 在 `tokens.css` 或两个主题文件里同时加上；
+  1. 在 `packages/tokens/tokens.json` 增加基元或每套主题的语义值，由生成脚本导出 CSS；
   2. 更新对应的设计文档。动效 token 写在 `docs/motion.md`，其他 token 写在 `docs/theme.md`；
-  3. 颜色类 token 补上对比度检查。
+  3. 颜色类 token 补上对比度检查，运行 `node scripts/check-tokens.mjs` 和 `node --test packages/tokens/build-css.test.mjs`。
 - 卡片、按钮、输入框始终保留一条边框，不需要显示时设为 `transparent`，以便在强制颜色模式下仍有轮廓（[a11y §7](../../docs/a11y.md#7-系统偏好)）。
 
 ## 3. 动效

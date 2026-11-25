@@ -209,7 +209,8 @@ state_defs (
   id            TEXT NOT NULL,
   key           TEXT NOT NULL,
   label         TEXT NOT NULL,
-  display       TEXT NOT NULL,     -- number | stage | text
+  display       TEXT NOT NULL,     -- number | stage | list | text
+  config        JSON,              -- 随 display 而定，见下文“栏目的显示方式”
   hidden        INTEGER NOT NULL DEFAULT 0,  -- 作者标为幕后：永远不显示给玩家
   reveal        TEXT,              -- 玩家什么时候能看见（作者原文）
   origin_turn_id TEXT REFERENCES turns ON DELETE CASCADE,  -- 空 = 作者定义；否则 = AI 在该回合新增的栏目
@@ -223,7 +224,7 @@ state_values (
   version_id    TEXT NOT NULL REFERENCES work_versions ON DELETE CASCADE,
   turn_id       TEXT NOT NULL REFERENCES turns ON DELETE CASCADE,
   state_def_id  TEXT NOT NULL,
-  value         TEXT,
+  value         TEXT,              -- list 栏目存这一回合合并后的整张清单
   visible       INTEGER NOT NULL,  -- 此刻是否显示给玩家
   closed        INTEGER NOT NULL DEFAULT 0,  -- 事情已了结，栏目收起
   PRIMARY KEY (version_id, turn_id, state_def_id),
@@ -245,6 +246,19 @@ state_values (
 - **同一组在同一个回合里最多只有一行。** `facts`、`entity_names`、`knowledge` 的唯一索引和 `state_values` 的主键保证这一点，所以“取 depth 最大的那一行”的结果总是唯一的。
 
 **栏目身份。** 栏目的 `id` 是存储身份，`key` 是 narrator 在当前路线引用的名称。新增时拒绝与当前投影或同批新增栏目重名。不同开局、兄弟分支和候选可以各自新增同名栏目。状态值引用当前投影中的栏目 id，或同批新建栏目的 id。
+
+**栏目的显示方式。** `display` 决定 `config` 和 `value` 的写法，以及玩家看到什么：
+
+| `display` | `config` | `value` | 玩家看到什么 |
+| --- | --- | --- | --- |
+| `number` | `{"min", "max", "unit"}`，都可以省略，同时给出两端时 `min < max` | 有限的十进制数字，遵守已设置的上下限 | 数字和单位；两端都有值时加一条进度条 |
+| `stage` | `{"stages": [...]}`，按先后列出至少两个不同的阶段名 | `stages` 里的某一项 | 一排分段，已到达的段填满；只写出当前阶段的名字，没到达的阶段只显示还剩几步 |
+| `list` | 空 | JSON 数组，每项是 `{"item", "status"}`，`status` 为 `open`、`done`、`failed`、`gone` 之一 | 每项一行，带状态图标和状态文字；`gone` 的项不再显示 |
+| `text` | 空 | 一句话 | 原文 |
+
+- **core 在写入时按 `display` 校验 `config` 和 `value`。** 作者在向导里写 `config`；narrator 新增栏目时随 `new_state` 给出（[回合循环 §5](./turn-loop.md#5-提交一回合propose_turn-与-ask_clarification)）。改 `config` 和改其他列一样让 `rev` 加一。
+- **没到达的阶段不写名字。** 阶段名本身就可能是剧透，例如“告白”“决裂”。
+- **清单按条目合并。** narrator 每回合只交出有变化的条目（`state_item`），core 把它们并进该栏目在父回合的清单，再把整张清单写成这一回合的一条状态值。narrator 不必每回合重抄整张清单，也就不会漏抄；“后面的覆盖前面的”对清单照样成立。条目按 `item` 原文识别，同一栏目里不重复。只交了条目、没交 `state` 时，`visible` 和 `closed` 沿用父回合的值；栏目第一次有值时默认不显示。
 
 **状态栏目显示给谁。** 三个字段按以下优先级决定：
 
@@ -301,6 +315,13 @@ WITH RECURSIVE path(id, parent_id, depth) AS (
 
 **手记不单独建表。** 它直接从主角视角的知情记录和出处生成，按人物、地点、事件分组；有出处时可跳回本路线原文。初始已知且没有出处的条目不显示跳转。只有确认知情的记录可以使用事实陈述；听说、猜测和误信只显示主角实际听见或相信的说法。没有保存该说法时，不生成手记条目。采用另一版回应后，head 变了，手记跟着变，不需要同步任何东西。
 
+**状态栏的投影。** client 的状态栏同样走主角视角，不另建表。每个显示中的栏目给出：
+
+- 显示方式和当前值。数字栏目附单位和已设置的边界，阶段栏目只附当时的阶段名、步序和总步数，清单栏目只返回可显示的条目。由 core 生成这些视图，原始阶段列表留在 core；
+- 父回合时同样经过投影的值，client 据此标出数字增减、先前文字和清单变化。父回合时栏目还没显示，就不给旧值，栏目标为“新”；
+- 本路线上每次可见变化的出处和当时的投影值。隐藏期间写下的值和未到达的阶段名不进入来历；
+- `closed` 为 1 的栏目单独给出，由 client 收进“已了结”。
+
 > 已知限制：祖先链用递归查询，适合几百个回合的路线。路线深到上千回合、查询明显变慢时，改用闭包表保存祖先关系。
 
 ## 6. 派生数据
@@ -354,5 +375,9 @@ SQLite 默认不执行外键约束。core 打开每个数据库连接时都执�
 | --- | --- | --- |
 | 两部作品各有一个同名角色；同一部作品的两次开局里，这个角色又有不同的称呼 | 在每条路线里分别查询这个名字 | 查到的都是本作品、本路线的那个人物，以及对应的原文 |
 | 同一个发布版本的两条兄弟路线 | 分别新增相同 key 的状态栏目，并设置不同的值 | 两条路线均保存成功，各自只显示自己的栏目和值 |
+| 一个阶段栏目，作者发布后改了阶段列表，再发布一次 | 分别续玩旧路线和新开一局 | 旧路线按旧版本的阶段显示，新开局按新的阶段显示 |
+| 一个清单栏目，narrator 连续三回合各交一个条目变化 | 查看第三回合的状态值 | 清单里有三个回合累计的全部条目，每项是最后一次的状态 |
+| 一个栏目隐藏期间改过两次值，然后设为显示 | 打开它的来历 | 来历从设为显示的那一回合开始，看不到隐藏期间的值 |
+| 一个阶段栏目的后续阶段名包含幕后剧情 | 查询当前状态、父回合和来历 | client 只收到各个回合可见的阶段名、步序和总步数，响应里没有未到达的阶段名 |
 | 一条路线在第 5 回合存档后继续走 | 从存档另开，采取不同行动，然后在两条路线里各查第 5 回合之后的事 | 第 5 回合以前的事实两边都能看见，之后的事实只在各自的路线里可见 |
 | 作者改了某个人物并发布新版本 | 分别续玩旧路线、从旧存档另开、新开一局 | 前两种用旧版本的人物，新开局用新版本的人物 |

@@ -16,11 +16,11 @@
 | [turn-loop.md](./turn-loop.md) | 游玩时每回合的上下文、工具、校验、提交、恢复，以及回合请求表 | 故事事实的表结构（在 data-model.md） |
 | [author-workstation.md](./author-workstation.md) | 创作工作站：对话、提案卡、草稿写入、生成任务 | 游玩时的回合循环 |
 | [llm-endpoints.md](./llm-endpoints.md) | 模型服务的配置、key、用途分配、会话标识、调用与错误 | 各处调用模型时的业务流程（在 turn-loop.md、author-workstation.md） |
-| [design-guidelines.md](./design-guidelines.md) | 视觉方向与判断方法；可以引用少数体现方向的目标值，例如正文对比度、行长 | token 的名字和完整取值表（在 theme.md、motion.md） |
-| [theme.md](./theme.md) | 全部非动效的 token 及其取值、主题、外观切换、样式的强制检查 | 动效 token |
+| [design-guidelines.md](./design-guidelines.md) | 视觉方向与判断方法；可以引用少数体现方向的目标值，例如正文对比度、行长 | token 的命名和用法（见 theme.md、motion.md），以及 JSON 里的取值 |
+| [theme.md](./theme.md) | 全部非动效的 token、主题、外观切换、样式的强制检查 | 动效 token |
 | [motion.md](./motion.md) | 动效原则、动效 token、场景编排、实现规则 | 颜色与尺寸 |
 | [i18n.md](./i18n.md) | 文案管理、core 的返回内容、作品语言、中文排版、输入法、布局方向 | 文案本身的内容 |
-| [a11y.md](./a11y.md) | 可访问性目标、分工、页面做法、测试 | 对比度的要求和取值（在 theme.md） |
+| [a11y.md](./a11y.md) | 可访问性目标、分工、页面做法、测试 | 对比度判据（见 theme.md） |
 
 - **同一件事只在一处详写**，别处用链接引用。
 - 新增文档时，同步更新 [architecture.md 的文档索引](./architecture.md#文档索引)。它是全仓唯一的文档索引，README 只链接到它，不另列文档。
@@ -150,7 +150,7 @@ docs_added | rg '(实测|测得|运行记录|样本)[^。｜|]{0,80}[0-9]'
 
 - 引用其他文档的章节时，写成带锚点的链接，例如 `[回合循环 §6](./turn-loop.md#6-校验与保存)`。
 - 锚点按 GitHub 的规则由标题文字生成，**改标题就会改锚点**。改了标题或章节编号后，运行 `node scripts/check-doc-links.mjs`。
-  - 它检查 README、`docs/` 和全仓所有 AGENTS.md 里的相对链接：目标文件要存在，锚点要能对上目标文件里的某个标题。
+  - 它检查 README、`docs/`、`tasks/` 和全仓所有 AGENTS.md 里的相对链接：目标文件要存在，锚点要能对上目标文件里的某个标题。
   - 它会跳过不属于本仓库内容的目录：依赖、构建产物、`.data/`、`.turbo/`。`.claude/` 也跳过，因为 worktree 建在那里，每个都是整份仓库的副本。
   - 可以传入另一个目录作为仓库根，例如 `node scripts/check-doc-links.mjs <样例目录>`，用来拿样例测试脚本本身。
 - 重排章节时，正文里指向旧编号的“§N”要一起改掉，可以用 `rg -n "§[0-9]" docs/*.md` 自查。

@@ -22,37 +22,39 @@
 
 ## 3. token
 
+时长、缓动、位移和缩放取自 `packages/tokens/tokens.json`，生成规则见[主题与 token §11](./theme.md#11-文件布局)。
+
 **时长与延迟：**
 
-| token | 值 | 用途 |
-| --- | --- | --- |
-| `--uw-motion-duration-fast` | `120ms` | 悬停、按下、小元素的状态变化 |
-| `--uw-motion-duration-base` | `200ms` | 菜单、下拉、气泡、提示、通知 |
-| `--uw-motion-duration-slow` | `280ms` | 对话框、工作站面板、页面内容切换 |
-| `--uw-motion-duration-reading` | `360ms` | 新剧情淡入 |
-| `--uw-motion-duration-theme` | `240ms` | 主题切换时的整页交叉淡入淡出 |
-| `--uw-motion-duration-highlight` | `1200ms` | 变化高亮淡回原色 |
-| `--uw-motion-duration-pulse` | `1600ms` | 加载指示的一次呼吸周期 |
-| `--uw-motion-delay-tooltip` | `500ms` | 提示出现前的停留时间 |
-| `--uw-motion-delay-stagger` | `80ms` | 新剧情的正文块与其后的状态栏、推荐行动之间的间隔 |
+| token | 用途 |
+| --- | --- |
+| `--uw-motion-duration-fast` | 悬停、按下、小元素的状态变化 |
+| `--uw-motion-duration-base` | 菜单、下拉、气泡、提示、通知 |
+| `--uw-motion-duration-slow` | 对话框、工作站面板、页面内容切换 |
+| `--uw-motion-duration-reading` | 新剧情淡入 |
+| `--uw-motion-duration-theme` | 主题切换时的整页交叉淡入淡出 |
+| `--uw-motion-duration-highlight` | 变化高亮淡回原色 |
+| `--uw-motion-duration-pulse` | 加载指示的一次呼吸周期 |
+| `--uw-motion-delay-tooltip` | 提示出现前的停留时间 |
+| `--uw-motion-delay-stagger` | 新剧情的正文块与其后的状态栏、推荐行动之间的间隔 |
 
 **缓动：**
 
-| token | 值 | 用途 |
-| --- | --- | --- |
-| `--uw-motion-ease-standard` | `cubic-bezier(0.2, 0, 0, 1)` | 状态变化和位置移动，两个方向都用 |
-| `--uw-motion-ease-enter` | `cubic-bezier(0, 0, 0.2, 1)` | 出现：快进、慢停 |
-| `--uw-motion-ease-exit` | `cubic-bezier(0.4, 0, 1, 1)` | 消失：慢起、快走，是 `enter` 的镜像，进出才走同一条路 |
-| `--uw-motion-ease-linear` | `linear` | 呼吸、进度 |
+| token | 用途 |
+| --- | --- |
+| `--uw-motion-ease-standard` | 状态变化和位置移动，两个方向都用 |
+| `--uw-motion-ease-enter` | 出现：快进、慢停 |
+| `--uw-motion-ease-exit` | 消失：慢起、快走，是 `enter` 的镜像，进出才走同一条路 |
+| `--uw-motion-ease-linear` | 呼吸、进度 |
 
 **位移与缩放：**
 
-| token | 值 | 用途 |
-| --- | --- | --- |
-| `--uw-motion-distance-sm` | `4px` | 新剧情、提案卡出现时的上移量 |
-| `--uw-motion-distance-md` | `8px` | 页面内容切换、通知出现时的位移 |
-| `--uw-motion-scale-enter` | `0.97` | 浮层、对话框出现时的起始缩放 |
-| `--uw-motion-scale-press` | `0.98` | 按下时的缩放 |
+| token | 用途 |
+| --- | --- |
+| `--uw-motion-distance-sm` | 新剧情、提案卡出现时的上移量 |
+| `--uw-motion-distance-md` | 页面内容切换、通知出现时的位移 |
+| `--uw-motion-scale-enter` | 浮层、对话框出现时的起始缩放 |
+| `--uw-motion-scale-press` | 按下时的缩放 |
 
 **组合过渡与动画。** 组件直接使用这些组合，不自己拼属性列表：
 
@@ -61,7 +63,7 @@
 | `--uw-transition-feedback` | `color`、`background-color`、`border-color`，用 `fast` + `standard` | 悬停、按下、选中的颜色变化 |
 | `--uw-transition-press` | `transform`，用 `fast` + `standard` | 按下缩放 |
 | `--uw-transition-popup` / `-popup-exit` | `opacity`、`transform`，用 `base` + `enter` / `exit` | 菜单、下拉、气泡、通知 |
-| `--uw-transition-dialog` / `-dialog-exit` | `opacity`、`transform`，用 `slow` + `enter` / `exit` | 对话框、窄窗口下的工作站浮层 |
+| `--uw-transition-dialog` / `-dialog-exit` | `opacity`、`transform`，用 `slow` + `enter` / `exit` | 对话框、窄窗口下的工作站浮层、手记与存档浮层 |
 | `--uw-transition-panel` | `inline-size`，用 `slow` + `standard` | 工作站面板开合，全应用唯一的布局动画 |
 | `--uw-transition-reading` | `opacity`、`transform`，用 `reading` + `enter` | 新剧情、提案卡出现 |
 | `--uw-animation-pulse` | 透明度呼吸，用 `duration-pulse` + `ease-linear`，无限循环 | 加载骨架、“生成中”标记 |
@@ -94,12 +96,13 @@
 | 通知 | 从所在屏幕边缘的方向移入 `distance-md`，同时淡入 | 沿原路退出 | `transition-popup`、`-popup-exit` |
 | 工作站面板（创作页） | 列宽从 0 展开到面板宽度，面板内容随后淡入 | 内容先淡出，列宽再收回 | `transition-panel`、`transition-popup` |
 | 窄窗口下的工作站 | 从右侧整体滑入，覆盖在主区之上 | 滑回右侧 | `transition-dialog`、`-dialog-exit` |
+| 手记与存档浮层（游玩页） | 从右侧整体滑入，覆盖在正文之上 | 滑回右侧，阅读位置不变 | `transition-dialog`、`-dialog-exit` |
 | 页面切换 | 外壳不动；新内容淡入并上移 `distance-md` | 旧内容直接移除，不播放离开动画，免得用户等待 | `transition-dialog` |
 | 新剧情到达 | 整段正文作为一个块淡入，并上移 `distance-sm`；间隔 `delay-stagger` 后，状态栏和推荐行动淡入 | 无 | `transition-reading` |
 | 生成中 | 显示“生成中”标记，透明度缓慢呼吸 | 提交后移除标记，按“新剧情到达”显示正式回合 | `animation-pulse` |
 | 自动跟随 | 玩家停在最新位置时，新内容出现后平滑滚动，让它进入视野 | 玩家往上翻过时不滚动，改为淡入一个“回到最新”按钮 | `transition-popup` |
 | 换一种发展的比较 | 原版和候选之间交叉淡入淡出 | 同左 | `duration-base` |
-| 状态栏数值变化 | 变化的那一项底色变为 `accent-soft`，在 `duration-highlight` 内淡回 | 无 | `duration-highlight` |
+| 状态栏数值变化 | 变化的那一项底色变为 `accent-soft`，在 `duration-highlight` 内淡回；进度条和阶段条直接画成新值，不做长度动画 | 无 | `duration-highlight` |
 | 提案卡出现 | 淡入并上移 `distance-sm` | 无 | `transition-reading` |
 | 确认提案卡 | 按钮区换成回执，只有颜色过渡 | 无 | `transition-feedback` |
 | 从手记跳回原文 | 平滑滚动到那一段；该段底色变为 `ink-highlight`，在 `duration-highlight` 内淡回 | 无 | `duration-highlight` |

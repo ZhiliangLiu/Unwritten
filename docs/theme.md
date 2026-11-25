@@ -1,10 +1,11 @@
 # Unwritten · 主题与 token
 
-本文定义 client 的全部视觉 token、浅色和深色两套主题、外观切换的方式，以及组件怎样使用 token。取值背后的设计方向见[设计准则](./design-guidelines.md)；动效相关的 token 见[动效 §3](./motion.md#3-token)。
+本文定义 client 的全部视觉 token 的名字、用途和规则、浅色和深色两套主题、外观切换的方式，以及组件怎样使用 token。取值背后的设计方向见[设计准则](./design-guidelines.md)；动效相关的 token 见[动效 §3](./motion.md#3-token)。
 
 ## 1. 范围
 
 - **token 是唯一的视觉值来源。** 组件样式里不出现任何颜色、尺寸、时长的字面量，全部引用 token。这样换主题、调尺度时，所有组件都会跟着变，不会有哪个角落漏掉。
+- **取值只写在 `packages/tokens/tokens.json`。** 它是全部 token 的单源，动效 token 也在里面。格式是 DTCG 2025.10（设计 token 社区组的格式），与平台无关。本文和[动效](./motion.md)只写 token 的名字、用途、规则和理由，不抄取值。各客户端的样式由它生成：web 的生成规则见 §11；将来的原生客户端各加一个生成目标，组件照样只认名字。
 - **两套主题：** 浅色 `light` 和深色 `dark`。
 - **外观偏好有三档：** 跟随系统、浅色、深色，默认跟随系统。
 - **为将来的主题预留扩展点。** 功能层和浮层通过“材质”token 取色（§6），所以将来接半透明主题时，只需改 token 的值，组件不用改。
@@ -12,19 +13,21 @@
 ## 2. token 分三层
 
 ```
-基元   apps/client/src/theme/tokens.css
-       排版尺度、间距、圆角、描边、尺寸、层级、不透明度、动效、阅读偏好；与主题无关
+packages/tokens/tokens.json
+ ├─ base                 基元：排版、正文与阅读偏好、空间、尺寸、层级、不透明度、断点、动效；与主题无关
+ ├─ theme.<主题 id>      语义：颜色、层次（投影）、材质；每套主题完整定义一遍
+ └─ override.<系统偏好>  系统偏好生效时覆盖其中一部分：reduced-motion、contrast-more
+        │ 生成
+各客户端的样式，例如 web 的 tokens.css 与 themes/<主题 id>.css（§11）
         │
-语义   apps/client/src/theme/themes/{light,dark}.css
-       颜色、层次（投影）、材质；每套主题完整定义一遍
-        │
-组件   各组件的 CSS Module
-       只引用基元与语义 token；可以定义自己的局部变量，但值必须来自全局 token
+组件   只引用基元与语义 token；可以定义自己的局部变量，但值必须来自全局 token
 ```
 
 - **基元层不含颜色。** 颜色属于主题，放在语义层。
-- **语义层是每套主题的必填契约。** §5、§6、§7 表里的每个 token（颜色、材质、层次），两套主题都必须给出值。少一个，测试就会失败（§12）。
-- **组件只认语义名**，例如 `--uw-color-surface`，永远不认 `#FBFAF7`。
+- **引用跟随作用域。** 基元引用其他基元。主题内引用基元或本主题的 token。覆盖沿用被覆盖 token 的作用域。
+- **语义层是每套主题的必填契约。** §5、§6、§7 表里的每个 token（颜色、材质、层次），每套主题都必须给出值，token 集合完全相同。少一个，`node scripts/check-tokens.mjs` 就失败（§12）。
+- **覆盖只改已有的 token。** `override.<偏好>.base` 覆盖基元，`override.<偏好>.<主题 id>` 覆盖语义；按主题覆盖时每套主题都要写。
+- **组件只认语义名**，例如 `--uw-color-surface`，永远不认具体色值。
 
 ## 3. 命名
 
@@ -45,127 +48,148 @@
 
 token 的名字表达角色，不表达取值：写 `--uw-color-text-muted`，不写 `--uw-color-gray-600`。
 
+**JSON 路径和名字一一对应。** 去掉开头的 `base.`、`theme.<主题 id>.` 或 `override.<偏好>.<base 或主题 id>.`，其余各段用 `-` 连起来，前面加 `--uw-`：`theme.light.color.text-muted` 就是 `--uw-color-text-muted`，`base.motion.duration-fast` 就是 `--uw-motion-duration-fast`。原生客户端按同一条路径给自己的常量命名。
+
+DTCG 里没有直接对应的几类值，约定这样写：
+
+- **相对字号的长度**（字距、版心、段间距、玩家行动的字号）：DTCG 的 `dimension` 只有 `px` 和 `rem`，所以写成 `number`，并在 `$extensions.unwritten.unit` 标 `em`；
+- **过渡涉及哪些属性**：写在 `$extensions.unwritten.properties`；循环动画另标 `iteration`；
+- **不播放的过渡和动画**：时长写 0；
+- **材质的背景模糊**：写成模糊半径，0 表示不模糊；
+- **阅读偏好的选项**：写在对应 token 的 `$extensions.unwritten.options`（§4.2）；
+- **主题的 `color-scheme`**：写在主题这一组的 `$extensions.unwritten.color-scheme`（§9）。
+
 ## 4. 基元 token
 
 ### 4.1 排版
 
-| token | 值 | 用途 |
-| --- | --- | --- |
-| `--uw-font-ui` | `system-ui, -apple-system, "PingFang SC", "Microsoft YaHei UI", "Noto Sans CJK SC", sans-serif` | 界面 |
-| `--uw-font-prose-serif` | `"Songti SC", "Source Han Serif SC", "Noto Serif CJK SC", serif` | 正文，默认 |
-| `--uw-font-prose-sans` | `var(--uw-font-ui)` | 正文，读者选择无衬线时使用 |
-| `--uw-font-mono` | `ui-monospace, "SF Mono", Menlo, Consolas, monospace` | 端点地址、模型 id、快捷键 |
-| `--uw-text-xs` / `sm` / `md` / `lg` / `xl` / `2xl` / `3xl` | `0.75` / `0.8125` / `0.875` / `1` / `1.25` / `1.5` / `2` rem | 界面字号；`md`（14px）是界面基准 |
-| `--uw-leading-tight` / `ui` / `prose` / `prose-compact` | `1.25` / `1.5` / `1.85` / `1.65` | 标题 / 界面 / 正文舒适 / 正文紧凑 |
-| `--uw-weight-regular` / `medium` / `semibold` | `400` / `500` / `600` | |
-| `--uw-tracking-tight` / `normal` | `-0.01em` / `0` | `xl` 及以上的标题用 `tight` |
+| token | 用途 |
+| --- | --- |
+| `--uw-font-ui` | 界面 |
+| `--uw-font-prose-serif` | 正文，默认 |
+| `--uw-font-prose-sans` | 正文，读者选择无衬线时使用；就是界面字体 |
+| `--uw-font-mono` | 端点地址、模型 id、快捷键 |
+| `--uw-text-xs` / `sm` / `md` / `lg` / `xl` / `2xl` / `3xl` | 界面字号，从小到大；`md` 是界面基准 |
+| `--uw-leading-tight` / `ui` / `prose` / `prose-compact` | 标题 / 界面 / 正文舒适 / 正文紧凑 |
+| `--uw-weight-regular` / `medium` / `semibold` | 常规 / 中等 / 半粗 |
+| `--uw-tracking-tight` / `normal` | `xl` 及以上的标题用 `tight`；相对字号 |
 
 字体全部使用系统自带的，不打包网络字体（[设计准则 §3](./design-guidelines.md#3-版式)）。
 
+**排版角色。** 组件按角色取排版 token，不自己搭配字号和字重。标题级别由页面结构决定，和角色无关（[a11y §3](./a11y.md#3-页面结构)）。界面的七个角色是 `base.typography` 下的组合 token，各自引用字体、字号、字重、行高，字距等于 `tracking` 乘以字号；正文的三个角色随阅读偏好变化，直接用 §4.2 的 token。
+
+| 角色 | token | 用在哪里 |
+| --- | --- | --- |
+| 页面标题 | `typography.page-title`：`2xl`、半粗、`tight` 行高与字距 | 作品库、设置等页面的主标题 |
+| 区块标题 | `typography.section-title`：`lg`、半粗、`tight` 行高 | 向导步骤、设置分区、作品卡标题 |
+| 小标题 | `typography.subtitle`：`md`、半粗 | 工具行里的作品名、提案卡标题、表单分组 |
+| 界面正文 | `typography.body`：`md`、常规 | 按钮、输入框、列表、对话消息、推荐行动 |
+| 说明 | `typography.caption`：`sm`、常规 | 次要说明、元信息、错误原因 |
+| 标签 | `typography.label`：`xs`、中等 | 徽标、状态栏的栏目名 |
+| 技术信息 | `typography.mono`：等宽、`sm`、常规 | 端点地址、模型 id、快捷键提示、推荐行动前的序号 |
+| 正文 | `prose-font`、`prose-size`、`prose-leading`，常规 | 剧情正文、开场预览 |
+| 玩家行动 | `font-ui`、`prose-action-size`、`prose-leading`，常规 | 夹在两段剧情之间的行动 |
+| 正文强调 | 只改字重：`semibold`，其余继承 | 正文里的 `em` 和 `strong` |
+
+正文强调用 `semibold`，不用 `medium`。宋体只有常规和粗体两档，浏览器把 500 回落成常规体，强调就看不出来；600 会选中粗体。苹方有中等字重，所以界面里的标签可以用 `medium`。
+
 ### 4.2 正文与阅读偏好
 
-| token | 默认值 | 说明 |
-| --- | --- | --- |
-| `--uw-prose-font` | `var(--uw-font-prose-serif)` | 随阅读偏好在衬线和无衬线之间切换 |
-| `--uw-prose-size` | `1.125rem` | 五档：`1` / `1.0625` / `1.125` / `1.25` / `1.375` rem |
-| `--uw-prose-leading` | `var(--uw-leading-prose)` | 随阅读偏好在舒适和紧凑之间切换 |
-| `--uw-prose-measure` | `36em` | 版心宽度，约 36 个汉字 |
-| `--uw-prose-paragraph-gap` | `0.9em` | 段间距，正文不首行缩进 |
+| token | 说明 |
+| --- | --- |
+| `--uw-prose-font` | 随阅读偏好在衬线和无衬线之间切换，默认衬线 |
+| `--uw-prose-size` | 随阅读偏好在五档（`prose.size-scale.1` 到 `5`）之间切换，默认第 3 档 |
+| `--uw-prose-leading` | 随阅读偏好在舒适和紧凑之间切换，默认舒适 |
+| `--uw-prose-measure` | 版心宽度，约 36 个汉字；相对正文字号 |
+| `--uw-prose-paragraph-gap` | 段间距，正文不首行缩进；相对正文字号 |
+| `--uw-prose-action-size` | 玩家行动的字号；相对正文字号，随阅读偏好一起缩放 |
 
-阅读偏好写在根元素上（§9），`tokens.css` 把它们映射成上面这几个 token：
-
-```css
-:root[data-uw-prose-size='1'] { --uw-prose-size: 1rem; }
-/* …其余四档同理 */
-:root[data-uw-prose-font='sans'] { --uw-prose-font: var(--uw-font-prose-sans); }
-:root[data-uw-prose-leading='compact'] { --uw-prose-leading: var(--uw-leading-prose-compact); }
-```
+阅读偏好写在根元素上（§9）。三个随偏好切换的 token 在 `$extensions.unwritten` 里写明对应哪项偏好（`preference`）和每个选项指向哪个 token（`options`）。web 据此生成属性选择器，例如 `:root[data-uw-prose-size='1']` 把 `--uw-prose-size` 指向第 1 档。
 
 阅读偏好和主题无关，切换主题时不会重置。
 
 ### 4.3 空间与几何
 
-| token | 值 |
+| token | 用途 |
 | --- | --- |
-| `--uw-space-1` / `2` / `3` / `4` / `5` / `6` / `8` / `10` / `12` / `16` | `0.25` / `0.5` / `0.75` / `1` / `1.25` / `1.5` / `2` / `2.5` / `3` / `4` rem（4px 基线） |
-| `--uw-radius-sm` / `md` / `lg` / `full` | `0.25rem`（标签）/ `0.375rem`（控件）/ `0.625rem`（卡片、面板、对话框）/ `9999px` |
-| `--uw-border-width` | `1px` |
-| `--uw-focus-ring-width` / `--uw-focus-ring-offset` | `2px` / `2px` |
-| `--uw-size-icon-sm` / `md` | `1rem` / `1.25rem` |
-| `--uw-size-control-sm` / `md` / `lg` | `1.75rem` / `2rem` / `2.5rem` |
-| `--uw-size-target-min` | `1.5rem`，交互目标的最小尺寸（[a11y §6](./a11y.md#6-尺寸缩放与目标大小)） |
-| `--uw-size-panel` / `-min` / `-max` | `22.5rem` / `20rem` / `35rem`，工作站面板宽度 |
-| `--uw-size-page-max` | `75rem`，作品库等页面的最大宽度 |
+| `--uw-space-1` / `2` / `3` / `4` / `5` / `6` / `8` / `10` / `12` / `16` | 间距，编号是 4px 的倍数 |
+| `--uw-radius-sm` / `md` / `lg` / `full` | 标签 / 控件 / 卡片、面板、对话框 / 胶囊和圆点 |
+| `--uw-border-width` | 描边 |
+| `--uw-focus-ring-width` / `--uw-focus-ring-offset` | 焦点环的粗细和外扩 |
+| `--uw-size-icon-sm` / `md` | 图标的两档尺寸（[设计准则 §7](./design-guidelines.md#7-图标)） |
+| `--uw-size-control-sm` / `md` / `lg` | 控件高度 |
+| `--uw-size-target-min` | 交互目标的最小尺寸（[a11y §6](./a11y.md#6-尺寸缩放与目标大小)） |
+| `--uw-size-icon-stroke` | 图标线宽，按 Lucide 图标 24 单位的画布计，随图标尺寸等比缩放。比 Lucide 默认的 `2` 细一档，和苹方常规体的笔画相称 |
+| `--uw-size-meter` | 状态栏里进度条和阶段条的粗细 |
+| `--uw-size-toolbar` | 顶部工具行的高度；滚动容器的 `scroll-padding-block-start` 取这个值（[a11y §4](./a11y.md#4-键盘与焦点)） |
+| `--uw-size-panel` / `-min` / `-max` | 工作站面板宽度；手记与存档浮层用 `--uw-size-panel` |
+| `--uw-size-page-max` | 作品库等页面的最大宽度 |
+| `--uw-size-card-min` | 作品库卡片网格的最小列宽；页面最宽时排三列 |
 
 ### 4.4 层级、不透明度、断点
 
-| token | 值 | 用途 |
-| --- | --- | --- |
-| `--uw-z-sticky` | `10` | 粘顶的工具行 |
-| `--uw-z-overlay` | `100` | 对话框和它的遮罩 |
-| `--uw-z-popover` | `200` | 菜单、下拉、气泡。高于对话框，因为它们可能从对话框里打开 |
-| `--uw-z-toast` | `300` | 通知 |
-| `--uw-z-tooltip` | `400` | 提示 |
-| `--uw-opacity-disabled` | `0.45` | 禁用态 |
-| `--uw-opacity-muted` | `0.7` | 仍可见、但不是当前重点的元素 |
+| token | 用途 |
+| --- | --- |
+| `--uw-z-sticky` | 粘顶的工具行 |
+| `--uw-z-overlay` | 对话框和它的遮罩 |
+| `--uw-z-popover` | 菜单、下拉、气泡。高于对话框，因为它们可能从对话框里打开 |
+| `--uw-z-toast` | 通知 |
+| `--uw-z-tooltip` | 提示 |
+| `--uw-opacity-disabled` | 禁用态 |
+| `--uw-opacity-muted` | 仍可见、但不是当前重点的元素 |
 
-断点不能写成 CSS 变量（媒体查询里读不到变量），所以用 `@custom-media` 在 `media.css` 里定义一次，由构建工具展开：
+断点写在 `base.breakpoint`：`compact` 是窄窗口（宽度小于它），`wide` 是宽窗口（宽度不小于它），比较方式写在 `$extensions.unwritten.media`。媒体查询里读不到 CSS 变量，所以 web 把它们生成成 `media.css` 里的 `@custom-media --uw-compact` 和 `--uw-wide`，由构建工具展开。
 
-```css
-@custom-media --uw-compact (width < 48rem);
-@custom-media --uw-wide (width >= 80rem);
-```
+## 5. 语义 token：颜色契约
 
-## 5. 语义 token：颜色契约与两套取值
+每套主题都必须完整定义下表中的每一项。浅色像米白书页，深色像夜里的暖灰；强调色是墨蓝（[设计准则 §6](./design-guidelines.md#6-颜色)）。
 
-两套主题都必须完整定义下表中的每一项。浅色像米白书页，深色像夜里的暖灰；强调色是墨蓝（[设计准则 §6](./design-guidelines.md#6-颜色)）。
+| token | 用途 |
+| --- | --- |
+| `--uw-color-bg` | 应用背景 |
+| `--uw-color-surface` | 面板、卡片 |
+| `--uw-color-surface-raised` | 浮层 |
+| `--uw-color-surface-sunken` | 输入框、凹陷区 |
+| `--uw-color-surface-hover` | 可交互项悬停 |
+| `--uw-color-surface-pressed` | 可交互项按下 |
+| `--uw-color-surface-selected` | 选中项 |
+| `--uw-color-text` | 主要文字 |
+| `--uw-color-text-muted` | 次要文字、说明、占位符 |
+| `--uw-color-text-subtle` | 装饰性或大字号的元信息，不承载必读内容 |
+| `--uw-color-text-on-accent` | 强调色实底上的文字 |
+| `--uw-color-border` | 分隔线、卡片描边（装饰性） |
+| `--uw-color-border-control` | 输入框、复选框等控件的边框 |
+| `--uw-color-accent` | 主按钮底色、选中指示 |
+| `--uw-color-accent-hover` | 强调色悬停 |
+| `--uw-color-accent-pressed` | 强调色按下 |
+| `--uw-color-accent-soft` | 柔和底：徽标底、选中行 |
+| `--uw-color-accent-text` | 用作文字的强调色：链接 |
+| `--uw-color-focus-ring` | 键盘焦点环 |
+| `--uw-color-success` / `-soft` | 成功：前景 / 柔和底 |
+| `--uw-color-warning` / `-soft` | 警告 |
+| `--uw-color-danger` / `-soft` | 危险、破坏性操作 |
+| `--uw-color-info` / `-soft` | 中性提示 |
+| `--uw-color-page` | 正文纸面，独立于 `surface` |
+| `--uw-color-ink` | 正文墨色，独立于 `text` |
+| `--uw-color-ink-muted` | 正文里的次要文字 |
+| `--uw-color-ink-action` | 夹在剧情之间的玩家行动 |
+| `--uw-color-ink-selection` | 正文选中底，半透明 |
+| `--uw-color-ink-highlight` | 从手记跳回原文时的定位高亮、搜索命中 |
+| `--uw-color-scrim` | 对话框遮罩，半透明 |
 
-| token | 用途 | 浅色 | 深色 |
-| --- | --- | --- | --- |
-| `--uw-color-bg` | 应用背景 | `#F4F2ED` | `#181715` |
-| `--uw-color-surface` | 面板、卡片 | `#FBFAF7` | `#201F1C` |
-| `--uw-color-surface-raised` | 浮层 | `#FFFFFF` | `#292724` |
-| `--uw-color-surface-sunken` | 输入框、凹陷区 | `#EEEBE5` | `#141311` |
-| `--uw-color-surface-hover` | 可交互项悬停 | `#F0EDE7` | `#2A2825` |
-| `--uw-color-surface-pressed` | 可交互项按下 | `#E8E4DD` | `#33302C` |
-| `--uw-color-surface-selected` | 选中项 | `#E4E9F0` | `#28313D` |
-| `--uw-color-text` | 主要文字 | `#26221D` | `#E7E3DB` |
-| `--uw-color-text-muted` | 次要文字、说明、占位符 | `#5F584F` | `#ACA59A` |
-| `--uw-color-text-subtle` | 装饰性或大字号的元信息，不承载必读内容 | `#888074` | `#827C72` |
-| `--uw-color-text-on-accent` | 强调色实底上的文字 | `#FFFFFF` | `#141A21` |
-| `--uw-color-border` | 分隔线、卡片描边（装饰性） | `#E3DED5` | `#33302C` |
-| `--uw-color-border-control` | 输入框、复选框等控件的边框 | `#857C70` | `#857E76` |
-| `--uw-color-accent` | 主按钮底色、选中指示 | `#3B5878` | `#8EAED3` |
-| `--uw-color-accent-hover` | 强调色悬停 | `#324C68` | `#A2BEDF` |
-| `--uw-color-accent-pressed` | 强调色按下 | `#2A405A` | `#7C9DC3` |
-| `--uw-color-accent-soft` | 柔和底：徽标底、选中行 | `#E4E9F0` | `#28313D` |
-| `--uw-color-accent-text` | 用作文字的强调色：链接 | `#34506E` | `#9BB8DA` |
-| `--uw-color-focus-ring` | 键盘焦点环 | `#3B5878` | `#8EAED3` |
-| `--uw-color-success` / `-soft` | 成功：前景 / 柔和底 | `#3B7350` / `#E3EEE6` | `#82B592` / `#22302A` |
-| `--uw-color-warning` / `-soft` | 警告 | `#8A5D14` / `#F4EBDA` | `#D6A75A` / `#352C1D` |
-| `--uw-color-danger` / `-soft` | 危险、破坏性操作 | `#A8402F` / `#F5E2DE` | `#E48C80` / `#3A2422` |
-| `--uw-color-info` / `-soft` | 中性提示 | `#45637F` / `#E4EAF0` | `#94ADC8` / `#243039` |
-| `--uw-color-page` | 正文纸面，独立于 `surface` | `#FAF7F1` | `#1D1C1A` |
-| `--uw-color-ink` | 正文墨色，独立于 `text` | `#3A342D` | `#D9D3C8` |
-| `--uw-color-ink-muted` | 正文里的次要文字 | `#665D52` | `#A29B90` |
-| `--uw-color-ink-action` | 夹在剧情之间的玩家行动 | `#3B5878` | `#9BB8DA` |
-| `--uw-color-ink-selection` | 正文选中底 | `rgb(59 88 120 / 0.18)` | `rgb(142 174 211 / 0.28)` |
-| `--uw-color-ink-highlight` | 从手记跳回原文时的定位高亮、搜索命中 | `#F2E5C2` | `#3A3222` |
-| `--uw-color-scrim` | 对话框遮罩 | `rgb(38 34 29 / 0.32)` | `rgb(0 0 0 / 0.5)` |
-| `--uw-color-shadow` | 投影色的 RGB 三元组，供 §7 合成 | `40 32 20` | `0 0 0` |
+**对比度。** 下表的“各个表面”指全部 7 种表面底色：`bg`、`surface`、`surface-raised`、`surface-sunken`、`surface-hover`、`surface-pressed`、`surface-selected`。`node scripts/check-tokens.mjs` 按 token 文件逐套主题计算每一组，不达标就失败。
 
-**对比度**（按上表取值计算，§12 的测试会钉住它们）。下表的“各个表面”指全部 7 种表面底色：`bg`、`surface`、`surface-raised`、`surface-sunken`、`surface-hover`、`surface-pressed`、`surface-selected`。
-
-| 组合 | 浅色 | 深色 | 要求 |
-| --- | --- | --- | --- |
-| `text` 对各个表面 | ≥ 12.4 : 1 | ≥ 10.2 : 1 | ≥ 4.5 : 1 |
-| `text-muted` 对各个表面 | ≥ 5.5 : 1 | ≥ 5.3 : 1 | ≥ 4.5 : 1 |
-| `text-subtle` 对各个表面 | ≥ 3.0 : 1 | ≥ 3.1 : 1 | ≥ 3 : 1，只用于大字号或装饰 |
-| `ink` 对 `page` | 11.5 : 1 | 11.4 : 1 | 落在约 11 : 1 的护眼区间：足够清楚，又不像纯黑配纯白那样刺眼 |
-| `accent-text` 对各个表面；`ink-action` 对 `page` | ≥ 6.5 : 1 | ≥ 6.4 : 1 | ≥ 4.5 : 1 |
-| 四种反馈色对 `surface` | ≥ 5.3 : 1 | ≥ 6.5 : 1 | ≥ 4.5 : 1 |
-| `border-control` 对各个表面 | ≥ 3.2 : 1 | ≥ 3.2 : 1 | ≥ 3 : 1（WCAG 1.4.11） |
-| `focus-ring` 对各个表面 | ≥ 5.8 : 1 | ≥ 5.7 : 1 | ≥ 3 : 1 |
+| 组合 | 要求 |
+| --- | --- |
+| `text` 对各个表面 | ≥ 4.5 : 1 |
+| `text-muted` 对各个表面 | ≥ 4.5 : 1 |
+| `text-subtle` 对各个表面 | ≥ 3 : 1，只用于大字号或装饰 |
+| `ink` 对 `page` | 10 : 1 到 12 : 1。约 11 : 1 是护眼区间：足够清楚，又不像纯黑配纯白那样刺眼 |
+| `accent-text` 对各个表面；`ink-action` 对 `page` | ≥ 4.5 : 1 |
+| `text-on-accent` 对主按钮的默认、悬停与按下底色 | ≥ 4.5 : 1 |
+| 四种反馈色对 `surface` 和各自的柔和底色 | ≥ 4.5 : 1 |
+| `border-control` 对各个表面 | ≥ 3 : 1（WCAG 1.4.11） |
+| `focus-ring` 对各个表面 | ≥ 3 : 1 |
 
 **两条规则：**
 
@@ -176,12 +200,14 @@ token 的名字表达角色，不表达取值：写 `--uw-color-text-muted`，�
 
 界面上的大面积表面分四类。功能层和浮层的背景一律通过材质 token 取得；内容和通知的背景直接用颜色 token，永远不透明：
 
-| 材质角色 | 用在哪里 | token | 浅色和深色主题的取值 |
-| --- | --- | --- | --- |
-| 功能层 `chrome` | 顶部工具行、工作站面板 | `--uw-material-chrome-bg`、`--uw-material-chrome-backdrop` | `var(--uw-color-surface)`、`none` |
-| 浮层 `overlay` | 菜单、下拉、气泡、对话框 | `--uw-material-overlay-bg`、`--uw-material-overlay-backdrop`、`--uw-material-overlay-border`、`--uw-material-overlay-elevation` | `var(--uw-color-surface-raised)`、`none`、`var(--uw-color-border)`、`var(--uw-elevation-overlay)` |
-| 内容 | 正文纸、卡片、输入框、表格 | 直接用颜色 token | 永远不透明，不经过材质 token |
-| 通知 `toast` | 通知、错误提示 | 背景直接用 `--uw-color-surface-raised`；描边和投影借用 `--uw-material-overlay-border`、`--uw-material-overlay-elevation` | 背景永远不透明；描边和投影跟着浮层的取值走 |
+| 材质角色 | 用在哪里 | token |
+| --- | --- | --- |
+| 功能层 `chrome` | 顶部工具行、工作站面板 | `--uw-material-chrome-bg`、`--uw-material-chrome-backdrop` |
+| 浮层 `overlay` | 菜单、下拉、气泡、对话框、手记与存档浮层 | `--uw-material-overlay-bg`、`--uw-material-overlay-backdrop`、`--uw-material-overlay-border`、`--uw-material-overlay-elevation` |
+| 内容 | 正文纸、卡片、输入框、表格 | 直接用颜色 token，永远不透明，不经过材质 token |
+| 通知 `toast` | 通知、错误提示 | 背景直接用 `--uw-color-surface-raised`，永远不透明；描边和投影借用 `--uw-material-overlay-border`、`--uw-material-overlay-elevation` |
+
+浅色和深色主题里，材质背景指向不透明的颜色 token：功能层指向 `surface`，浮层指向 `surface-raised`；背景模糊为 0。
 
 通知和错误提示和浮层一样浮在页面上方，所以借用浮层的描边和投影，和菜单、对话框处在同一高度。但它们承载必须立刻读清的状态，背景不借用浮层材质，任何主题下都不半透明。
 
@@ -196,7 +222,7 @@ token 的名字表达角色，不表达取值：写 `--uw-color-text-muted`，�
 }
 ```
 
-现在 `backdrop` 的值是 `none`，看起来和直接写颜色没有区别。之所以现在就这样写，是为了以后接半透明主题时，组件一行都不用改。
+现在 `backdrop` 生成出来是 `none`，看起来和直接写颜色没有区别。之所以现在就这样写，是为了以后接半透明主题时，组件一行都不用改。
 
 **将来的半透明主题（例如仿 Apple 液态玻璃的主题）必须遵守的约束。** 这些约束现在就写下来，让组件的写法从一开始就不挡路：
 
@@ -210,23 +236,23 @@ token 的名字表达角色，不表达取值：写 `--uw-color-text-muted`，�
 
 ## 7. 层次（投影）
 
-| token | 浅色 | 深色 |
-| --- | --- | --- |
-| `--uw-elevation-surface` | `0 1px 2px rgb(var(--uw-color-shadow) / 0.06)` | `inset 0 1px 0 rgb(255 255 255 / 0.04)` |
-| `--uw-elevation-overlay` | `0 1px 3px rgb(var(--uw-color-shadow) / 0.08), 0 8px 24px rgb(var(--uw-color-shadow) / 0.12)` | `inset 0 1px 0 rgb(255 255 255 / 0.06), 0 12px 32px rgb(var(--uw-color-shadow) / 0.45)` |
+| token | 用途 |
+| --- | --- |
+| `--uw-elevation-surface` | 表面：卡片、面板 |
+| `--uw-elevation-overlay` | 浮层：菜单、对话框、通知 |
 
 浅色主题靠投影分层，深色主题靠“越高的层越亮”加顶边的一条细亮线分层，因为深色背景上投影几乎看不见（[设计准则 §5](./design-guidelines.md#5-层次与材质)）。
 
 ## 8. 提高对比度
 
-`prefers-contrast: more` 时，每个主题文件把以下 token 覆盖掉，组件不用写任何东西：
+`prefers-contrast: more` 时，按 token 文件的 `override.contrast-more` 覆盖以下 token，组件不用写任何东西：
 
-| token | 覆盖为 |
+| token | 效果 |
 | --- | --- |
-| `--uw-color-text-muted` | `var(--uw-color-text)` |
-| `--uw-color-text-subtle` | 原来的 `text-muted` 值 |
-| `--uw-color-border` | `var(--uw-color-border-control)` |
-| `--uw-focus-ring-width` | `3px` |
+| `--uw-color-text-muted` | 改用主要文字色 |
+| `--uw-color-text-subtle` | 改用原来的次要文字色 |
+| `--uw-color-border` | 改用控件边框色 |
+| `--uw-focus-ring-width` | 加粗 |
 
 Windows 的强制颜色模式（`forced-colors: active`）见 [a11y §7](./a11y.md#7-系统偏好)。
 
@@ -248,7 +274,7 @@ Windows 的强制颜色模式（`forced-colors: active`）见 [a11y §7](./a11y.
 
 **原生界面跟着走：**
 
-- 每个主题文件都声明 `color-scheme: light` 或 `color-scheme: dark`，让滚动条、原生表单控件、默认选中色跟主题一致。
+- 每套主题在 token 文件里写明 `color-scheme`，生成的主题样式带上它（web 是 `color-scheme: light` 或 `dark`），让滚动条、原生表单控件、默认选中色跟主题一致。
 - desktop 把 Electron 的 `nativeTheme.themeSource` 设成同一个偏好，让原生菜单、标题栏、系统对话框也跟主题一致。core 在就绪时向 desktop 提供当前偏好。偏好变化时，core 通过进程消息通道发出 `appearance-changed`，通知 desktop（[架构总览 §2.3](./architecture.md#23-core-与-desktop-的进程消息通道)）。
 
 **切换时的过渡。** 浅色和深色之间不做生硬跳变，因为大面积的亮度突变刺眼。
@@ -271,14 +297,29 @@ Windows 的强制颜色模式（`forced-colors: active`）见 [a11y §7](./a11y.
 ## 11. 文件布局
 
 ```
+packages/tokens/
+  tokens.json        全部 token 的单源
+  build-css.mjs      web 的生成脚本
+
 apps/client/src/theme/
-  tokens.css         基元 token、材质与动效的默认值、阅读偏好映射、prefers-* 覆盖
-  media.css          @custom-media 断点
-  themes/light.css   浅色主题：颜色、层次、color-scheme、提高对比度时的覆盖
-  themes/dark.css    深色主题：同上
+  tokens.css         生成：base，override.*.base，阅读偏好的属性选择器
+  media.css          生成：@custom-media 断点
+  themes/<主题 id>.css  生成：theme.<主题 id>、color-scheme、override.contrast-more.<主题 id>
   appearance.ts      applyAppearance()：首屏之后唯一写入根属性的入口
   boot.inline.js     首屏前解析外观的内联脚本，由 core 内联进 index.html
 ```
+
+**web 的生成规则。** 构建和启动开发服务器先运行 `node packages/tokens/build-css.mjs`。可以传入输出目录，默认写入 `apps/client/src/theme/`。生成的 CSS 不提交，也不手改。
+
+- token 生成 CSS 变量，名字按 §3。引用生成 `var()`。偏好覆盖中引用同一组覆盖掉的 token 时，使用它在原主题中的值，以便 `text-subtle` 保留原来的 `text-muted`；
+- 颜色有 alpha 时生成 `rgb(r g b / a)`，没有时生成十六进制；
+- `shadow` 生成一个 `box-shadow` 值；`transition` 按 `properties` 生成 `transition` 简写；`animation.pulse` 生成 `animation` 简写，关键帧写在 `tokens.css` 里；
+- `typography` 每个字段生成一个变量，例如 `--uw-typography-page-title-font-size`；
+- 标了 `em` 的 `number` 生成 `em` 长度；
+- 时长为 0 的过渡和动画、模糊半径为 0 的 `backdrop` 生成 `none`，模糊半径不为 0 时生成 `blur()`；
+- `override.reduced-motion` 生成在 `@media (prefers-reduced-motion: reduce)` 里，基元覆盖所在的规则同时把 `scroll-behavior` 设为 `auto`；`override.contrast-more` 生成在 `@media (prefers-contrast: more)` 里；
+- 断点引用解析成具体尺寸。背景模糊引用解析成半径，再按模糊规则生成；
+- 每套主题生成在 `:root[data-uw-theme='<主题 id>']` 下。
 
 ## 12. 强制检查
 
@@ -290,9 +331,13 @@ apps/client/src/theme/
   - 禁止 `transition: all`；
   - 要求使用逻辑属性。
 - **oxlint：** 用 oxlint 的 JS 插件自写一条规则，规定 JSX 的 `style` 对象里只允许 `--` 开头的键（[技术选型 §9](./tech-stack.md#9-代码质量)）。
-- **token 契约测试：**
-  - 解析两个主题文件，确认 §5、§6、§7 的每个 token 在两边都有定义；
-  - 按 §5 的对比度表计算每一组颜色，低于要求就失败。
+- **token 检查（`node scripts/check-tokens.mjs`）：**
+  - 每个 token 都有 `$type`，取值符合 DTCG 的格式；引用都能解析、没有循环，引用的类型对得上；
+  - 每套主题的 token 集合完全相同；覆盖只能覆盖已有的 token，按主题覆盖时每套主题都要写；
+  - 生成的 CSS 变量名不重复；
+  - 界面排版角色的字距等于 `tracking` 乘以字号；
+  - 逐套检查默认和提高对比度两种配色。按 §5 逐组计算，半透明的前景先合成到对应的不透明底色上。
+  - 用 Web 生成器检查阅读选项和 CSS 变量声明，组合排版展开后的变量名也参与重名检查。
 - **外观测试：**
   - DOM 上从不出现 `data-uw-theme="system"`；
   - 首屏前就已经有 `data-uw-theme`；
@@ -300,9 +345,9 @@ apps/client/src/theme/
 
 ## 13. 新增一套主题
 
-1. 复制 `themes/light.css` 或 `themes/dark.css`，改成新的主题 id。id 只用小写字母和连字符，发布后不再改名。
-2. 填完 §5、§6、§7 的全部 token，并通过 §12 的契约测试和对比度测试。
-3. 材质 token 默认指向不透明的颜色 token，只有确实需要时才改成半透明；动效 token 也只在确实需要时覆盖。半透明主题遵守 §6 的约束。
+1. 在 token 文件的 `theme` 下复制 `light` 或 `dark`，改成新的主题 id，并写明它的 `color-scheme`。id 只用小写字母和连字符，发布后不再改名。
+2. 改完 §5、§6、§7 的全部 token，在 `override.contrast-more` 下补上这套主题的覆盖，并通过 `node scripts/check-tokens.mjs`。
+3. 材质 token 默认指向不透明的颜色 token，只有确实需要时才改成半透明。半透明主题遵守 §6 的约束。
 4. 在外观偏好里加上这个选项；展示名走 i18n。
 5. 用户保存的主题 id 不认识时（例如主题被撤下），回落为“跟随系统”，不报错。
 
@@ -310,7 +355,7 @@ apps/client/src/theme/
 
 - **按作品改变界面配色。** 界面基调固定，作品内容只在正文里呈现（[设计准则 §1](./design-guidelines.md#1-基调)）。
 - **用户自定义颜色或导入第三方主题 CSS。** 会造成对比度和验收矩阵失控，也会执行外部样式。
-- **CSS-in-JS 或 Tailwind。** token 只有一个来源，就是这几份 CSS 文件。
+- **CSS-in-JS 或 Tailwind。** token 只有一个来源，就是 token 文件；web 只用由它生成的 CSS 变量。
 
 ## 15. 验收
 
@@ -320,5 +365,8 @@ apps/client/src/theme/
 | 任意页面 | 在设置里切换浅色和深色 | 整页淡入淡出一次，按钮之类的控件不会各自再淡变；开启减少动态效果后照样淡入淡出 |
 | 系统开启提高对比度 | 浏览作品库、游玩页、设置 | 次要文字与背景的对比提高，分隔线变成控件边框色，焦点环变粗 |
 | 代码里新加一处写死的颜色或间距 | 运行 stylelint | 报错 |
-| 只在浅色主题里新增一个语义 token | 运行 token 契约测试 | 失败，指出深色主题缺这一项 |
+| 只在 `theme.light` 里新增一个语义 token | 运行 `node scripts/check-tokens.mjs` | 失败，指出 `theme.dark` 缺这一项 |
+| 把 `ink` 改成接近纯黑 | 运行 `node scripts/check-tokens.mjs` | 失败，指出 `ink` 对 `page` 的对比度超出护眼区间 |
+| 修改 token 文件里的一个颜色 | 重新构建 client | 生成的主题 CSS 跟着变，组件不用改 |
 | 阅读偏好设为最大字号 + 无衬线字体 | 切换主题 | 阅读偏好保持不变 |
+| 正文字体为宋体，正文里有一处强调 | 浅色和深色下各读一遍 | 强调处明显比周围粗 |

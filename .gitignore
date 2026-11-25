@@ -42,3 +42,7 @@ Thumbs.db
 # Claude Code 本机设置与工作树
 .claude/settings.local.json
 .claude/worktrees/
+
+/apps/client/src/theme/tokens.css
+/apps/client/src/theme/media.css
+/apps/client/src/theme/themes/*.css

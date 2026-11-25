@@ -57,7 +57,7 @@ desktop 的主进程代码只有几百行：开窗口、启动和看护 core、�
 
 | 技术 | 用途 | 理由 |
 | --- | --- | --- |
-| **React 19** + **React Compiler 1** | 界面 | 生态最大。React Compiler 自动做记忆化，组件里不再需要手写 `useMemo`、`useCallback` |
+| **React 19** + **React Compiler 1** | 界面 | 生态最大。React Compiler 自动做记忆化，组件里不再需要手写 `useMemo`、`useCallback`。Vite 的 React 插件用 `reactCompilerPreset()` 和 `@rolldown/plugin-babel` 接入编译器，Babel 运行依赖是 `@babel/core` |
 | **Base UI 1** | 组件基础 | 无样式组件中当前最主流的一个，也是 shadcn/ui 新项目的默认底座。负责键盘操作、焦点管理和 ARIA 语义，样式完全由我们决定（[a11y §2](./a11y.md#2-分工)） |
 | **CSS Modules** | 样式 | 样式只用 token，由 Stylelint 强制（[主题与 token §12](./theme.md#12-强制检查)） |
 | **TanStack Router 1** | 路由 | 路由、路径参数和查询参数都有完整的类型。下载量不如 React Router，但类型安全更好，按质量优先的原则选它；和 TanStack Query 也是同一个生态。用文件路由，配合 `@tanstack/router-plugin` 生成路由树 |
