@@ -5,7 +5,7 @@ export class RedirectBlockedError extends Error {
 
   constructor(status: number) {
     super(`redirect blocked: ${status}`);
-    this.name = "RedirectBlockedError";
+    this.name = 'RedirectBlockedError';
     this.status = status;
   }
 }
@@ -21,7 +21,7 @@ export function createFetchRecorder(): FetchRecorder {
 
 export function createGuardedFetch(base: typeof fetch, recorder?: FetchRecorder): typeof fetch {
   return async (input, init) => {
-    const response = await base(input, { ...init, redirect: "manual" });
+    const response = await base(input, { ...init, redirect: 'manual' });
     if (recorder) recorder.lastStatus = response.status;
     if (REDIRECT_STATUSES.has(response.status)) {
       if (recorder) recorder.redirected = true;

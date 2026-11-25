@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const PROVIDERS_FILE_VERSION = 1;
 
@@ -14,7 +14,7 @@ const ModelEntrySchema = z.looseObject({
 const EndpointEntrySchema = z.looseObject({
   id: z.string().min(1),
   name: z.string().min(1),
-  api: z.enum(["openai-completions", "anthropic-messages"]),
+  api: z.enum(['openai-completions', 'anthropic-messages']),
   baseUrl: z.string().min(1),
   apiKey: z.string().optional(),
   models: z.array(ModelEntrySchema),

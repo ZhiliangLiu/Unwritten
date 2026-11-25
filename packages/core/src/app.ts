@@ -1,15 +1,15 @@
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
-import { randomBytes } from "node:crypto";
-import { serve } from "@hono/node-server";
-import packageJson from "../package.json" with { type: "json" };
-import type { CliOptions } from "./cli.ts";
-import { createEventBus } from "./events/bus.ts";
-import { createLogger } from "./log/logger.ts";
-import { DataDirLockedError, openDatabase } from "./store/db.ts";
-import type { ServiceFactories, Services } from "./services.ts";
-import { createHttpApp } from "./api/http-app.ts";
-import { loadClientAssets } from "./api/client-assets.ts";
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { serve } from '@hono/node-server';
+import packageJson from '../package.json' with { type: 'json' };
+import type { CliOptions } from './cli.ts';
+import { createEventBus } from './events/bus.ts';
+import { createLogger } from './log/logger.ts';
+import { DataDirLockedError, openDatabase } from './store/db.ts';
+import type { ServiceFactories, Services } from './services.ts';
+import { createHttpApp } from './api/http-app.ts';
+import { loadClientAssets } from './api/client-assets.ts';
 
 export interface RunningCore {
   url: string;
@@ -30,19 +30,19 @@ export async function startCore(options: CliOptions, factories: ServiceFactories
   try {
     const libraryStarted = performance.now();
     try {
-      opened = openDatabase(join(options.dataDir, "library.db"));
+      opened = openDatabase(join(options.dataDir, 'library.db'));
     } catch (error) {
       if (error instanceof DataDirLockedError) {
-        logger.record({ level: "error", module: "core", event: "store.locked" });
+        logger.record({ level: 'error', module: 'core', event: 'store.locked' });
       }
       throw error;
     }
     logger.sample({
-      metric: "core.library_open",
+      metric: 'core.library_open',
       durationMs: performance.now() - libraryStarted,
-      outcome: "ok",
+      outcome: 'ok',
     });
-    logger.record({ level: "info", module: "core", event: "store.migrated" });
+    logger.record({ level: 'info', module: 'core', event: 'store.migrated' });
 
     const shutdown = new AbortController();
     const bus = createEventBus();
@@ -64,31 +64,31 @@ export async function startCore(options: CliOptions, factories: ServiceFactories
     const jobs = authoring.recoverInterrupted();
     llm.pruneCalls();
     play.pruneOldRequestLogs();
-    logger.sample({ metric: "core.recover", durationMs: performance.now() - recoverStarted, outcome: "ok" });
+    logger.sample({ metric: 'core.recover', durationMs: performance.now() - recoverStarted, outcome: 'ok' });
     logger.record({
-      level: "info",
-      module: "core",
-      event: "recovery.interrupted",
+      level: 'info',
+      module: 'core',
+      event: 'recovery.interrupted',
       data: { turnRequests, jobs },
     });
 
-    const token = randomBytes(32).toString("base64url");
+    const token = randomBytes(32).toString('base64url');
     const assets = loadClientAssets(options.clientDir);
-    if (!assets) logger.record({ level: "warn", module: "core", event: "client.assets.missing" });
+    if (!assets) logger.record({ level: 'warn', module: 'core', event: 'client.assets.missing' });
 
     let port = 0;
     const app = createHttpApp({ token, getPort: () => port, assets, services, logger });
     port = await new Promise<number>((resolve, reject) => {
       try {
-        server = serve({ fetch: app.fetch, hostname: "127.0.0.1", port: options.port }, (info) => resolve(info.port));
+        server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: options.port }, (info) => resolve(info.port));
       } catch (error) {
         reject(error);
       }
     });
     const origin = `http://127.0.0.1:${port}`;
     const url = `${options.clientOrigin ?? origin}/#token=${token}`;
-    logger.record({ level: "info", module: "core", event: "core.started", data: { port } });
-    logger.sample({ metric: "core.startup", durationMs: performance.now() - startupStarted, outcome: "ok" });
+    logger.record({ level: 'info', module: 'core', event: 'core.started', data: { port } });
+    logger.sample({ metric: 'core.startup', durationMs: performance.now() - startupStarted, outcome: 'ok' });
 
     let closing: Promise<void> | null = null;
     return {
@@ -106,14 +106,14 @@ export async function startCore(options: CliOptions, factories: ServiceFactories
           shutdown.abort();
           await Promise.all([authoring.whenIdle(), play.whenIdle()]);
           opened?.close();
-          logger.record({ level: "info", module: "core", event: "core.stopped" });
+          logger.record({ level: 'info', module: 'core', event: 'core.stopped' });
           await logger.close();
         })();
         return closing;
       },
     };
   } catch (error) {
-    logger.record({ level: "error", module: "core", event: "core.start_failed", data: { stage: "startup" } });
+    logger.record({ level: 'error', module: 'core', event: 'core.start_failed', data: { stage: 'startup' } });
     opened?.close();
     await logger.close();
     throw error;

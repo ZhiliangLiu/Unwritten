@@ -1,7 +1,7 @@
-@import url("./tokens.css");
-@import url("./media.css");
-@import url("./themes/light.css");
-@import url("./themes/dark.css");
+@import url('./tokens.css');
+@import url('./media.css');
+@import url('./themes/light.css');
+@import url('./themes/dark.css');
 
 html {
   background-color: var(--uw-color-bg);

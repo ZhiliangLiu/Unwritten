@@ -1,15 +1,15 @@
-import { mkdirSync } from "node:fs";
-import { randomUUID } from "node:crypto";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { DatabaseSync, type StatementSync } from "node:sqlite";
-import { drizzle } from "drizzle-orm/node-sqlite";
-import { migrate } from "drizzle-orm/node-sqlite/migrator";
-import { scrubSecrets } from "./scrub.ts";
+import { mkdirSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { DatabaseSync, type StatementSync } from 'node:sqlite';
+import { drizzle } from 'drizzle-orm/node-sqlite';
+import { migrate } from 'drizzle-orm/node-sqlite/migrator';
+import { scrubSecrets } from './scrub.ts';
 
-export type LogLevel = "debug" | "info" | "warn" | "error";
-export type SampleSource = "core" | "client" | "desktop";
-export type SampleOutcome = "ok" | "error" | "interrupted";
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type SampleSource = 'core' | 'client' | 'desktop';
+export type SampleOutcome = 'ok' | 'error' | 'interrupted';
 
 export interface LogEvent {
   level: LogLevel;
@@ -60,7 +60,7 @@ const BLOCKED_DATA_KEYS =
 
 type PendingRow =
   | {
-      kind: "event";
+      kind: 'event';
       id: string;
       createdAt: number;
       runId: string;
@@ -74,7 +74,7 @@ type PendingRow =
       data: string;
     }
   | {
-      kind: "sample";
+      kind: 'sample';
       id: string;
       createdAt: number;
       runId: string;
@@ -93,10 +93,10 @@ type PendingRow =
 
 function sanitize(value: unknown, depth = 0): unknown {
   if (depth > 5) return null;
-  if (typeof value === "string") return scrubSecrets(value, []);
-  if (typeof value === "number" || typeof value === "boolean" || value === null) return value;
+  if (typeof value === 'string') return scrubSecrets(value, []);
+  if (typeof value === 'number' || typeof value === 'boolean' || value === null) return value;
   if (Array.isArray(value)) return value.map((item) => sanitize(item, depth + 1));
-  if (typeof value === "object") {
+  if (typeof value === 'object') {
     const result: Record<string, unknown> = {};
     for (const [key, child] of Object.entries(value)) {
       if (BLOCKED_DATA_KEYS.test(key)) continue;
@@ -113,7 +113,7 @@ function encodeData(data: Record<string, unknown> | undefined): string {
 
 function migrationsFolder(): string {
   return fileURLToPath(
-    new URL(import.meta.url.endsWith(".ts") ? "./migrations/" : "./diagnostic-migrations/", import.meta.url),
+    new URL(import.meta.url.endsWith('.ts') ? './migrations/' : './diagnostic-migrations/', import.meta.url),
   );
 }
 
@@ -127,14 +127,14 @@ export function createLogger(options: LoggerOptions): Logger {
   let insertSample: StatementSync | null = null;
   let dropped = 0;
   let reportedFailure = false;
-  let lastCleanupDay = "";
+  let lastCleanupDay = '';
   let flushing: Promise<void> | null = null;
   const minimumLevel = LEVEL_VALUE[options.level];
 
   const reportFailure = () => {
     if (reportedFailure) return;
     reportedFailure = true;
-    process.stderr.write("unwritten: diagnostics unavailable\n");
+    process.stderr.write('unwritten: diagnostics unavailable\n');
   };
 
   const closeClient = () => {
@@ -152,9 +152,9 @@ export function createLogger(options: LoggerOptions): Logger {
     if (client) return true;
     try {
       mkdirSync(options.dataDir, { recursive: true });
-      const opened = new DatabaseSync(join(options.dataDir, "diagnostics.db"));
-      opened.exec("PRAGMA busy_timeout = 0");
-      opened.exec("PRAGMA journal_mode = WAL");
+      const opened = new DatabaseSync(join(options.dataDir, 'diagnostics.db'));
+      opened.exec('PRAGMA busy_timeout = 0');
+      opened.exec('PRAGMA journal_mode = WAL');
       const db = drizzle({ client: opened });
       migrate(db, { migrationsFolder: migrationsFolder() });
       client = opened;
@@ -186,19 +186,19 @@ export function createLogger(options: LoggerOptions): Logger {
     lastCleanupDay = day;
     const cutoff = now - RETENTION_DAYS * DAY_MS;
     try {
-      client.prepare("delete from diagnostic_events where created_at < ?").run(cutoff);
-      client.prepare("delete from performance_samples where created_at < ?").run(cutoff);
+      client.prepare('delete from diagnostic_events where created_at < ?').run(cutoff);
+      client.prepare('delete from performance_samples where created_at < ?').run(cutoff);
     } catch {
       reportFailure();
     }
   };
 
   const writeBatch = (batch: PendingRow[], now: number) => {
-    if (!client || !insertEvent || !insertSample) throw new Error("diagnostics unavailable");
-    client.exec("BEGIN");
+    if (!client || !insertEvent || !insertSample) throw new Error('diagnostics unavailable');
+    client.exec('BEGIN');
     try {
       for (const row of batch) {
-        if (row.kind === "event") {
+        if (row.kind === 'event') {
           insertEvent.run(
             row.id,
             row.createdAt,
@@ -231,11 +231,11 @@ export function createLogger(options: LoggerOptions): Logger {
           );
         }
       }
-      client.exec("COMMIT");
+      client.exec('COMMIT');
       cleanup(now);
     } catch (error) {
       try {
-        client.exec("ROLLBACK");
+        client.exec('ROLLBACK');
       } catch {
         void 0;
       }
@@ -254,13 +254,13 @@ export function createLogger(options: LoggerOptions): Logger {
       const includeDropped = dropped > 0 && batch.length < BATCH_LIMIT;
       if (includeDropped) {
         batch.push({
-          kind: "event",
+          kind: 'event',
           id: randomUUID(),
           createdAt: clock(),
           runId,
-          level: "warn",
-          module: "core",
-          event: "diagnostics.dropped",
+          level: 'warn',
+          module: 'core',
+          event: 'diagnostics.dropped',
           workId: null,
           requestId: null,
           jobId: null,
@@ -300,7 +300,7 @@ export function createLogger(options: LoggerOptions): Logger {
         return;
       }
       queue.push({
-        kind: "event",
+        kind: 'event',
         id: randomUUID(),
         createdAt: clock(),
         runId,
@@ -320,12 +320,12 @@ export function createLogger(options: LoggerOptions): Logger {
         return;
       }
       queue.push({
-        kind: "sample",
+        kind: 'sample',
         id: randomUUID(),
         createdAt: clock(),
         runId,
         appVersion: options.appVersion,
-        source: sample.source ?? "core",
+        source: sample.source ?? 'core',
         metric: sample.metric,
         durationMs: sample.durationMs,
         outcome: sample.outcome,

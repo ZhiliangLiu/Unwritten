@@ -1,4 +1,4 @@
-import { oc } from "@orpc/contract";
+import { oc } from '@orpc/contract';
 import {
   CreateEndpointInputSchema,
   CreateEndpointOutputSchema,
@@ -7,7 +7,7 @@ import {
   TestConnectionInputSchema,
   TestConnectionResultSchema,
   UpdateEndpointInputSchema,
-} from "../schemas/llm.ts";
+} from '../schemas/llm.ts';
 
 export const llmContract = {
   providers: { list: oc.output(LlmConfigViewSchema) },

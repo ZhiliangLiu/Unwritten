@@ -1,6 +1,6 @@
-import { z } from "zod";
-import { ErrorCodeSchema } from "../errors.ts";
-import { UuidSchema } from "./common.ts";
+import { z } from 'zod';
+import { ErrorCodeSchema } from '../errors.ts';
+import { UuidSchema } from './common.ts';
 
 export const ModelCapabilitiesSchema = z.object({
   id: z.string().min(1),
@@ -11,14 +11,14 @@ export const ModelCapabilitiesSchema = z.object({
 
 export const KeyStatusSchema = z.object({
   hasKey: z.boolean(),
-  source: z.enum(["file", "env", "none"]),
+  source: z.enum(['file', 'env', 'none']),
   envVar: z.string().nullable(),
 });
 
 export const EndpointViewSchema = z.object({
   id: z.string().min(1),
   name: z.string(),
-  api: z.enum(["openai-completions", "anthropic-messages"]),
+  api: z.enum(['openai-completions', 'anthropic-messages']),
   baseUrl: z.string(),
   key: KeyStatusSchema,
   models: z.array(ModelCapabilitiesSchema),
@@ -26,19 +26,19 @@ export const EndpointViewSchema = z.object({
 
 export const ModelRefSchema = z.object({ endpointId: z.string().min(1), modelId: z.string().min(1) });
 
-export const ConfigProblemSchema = z.discriminatedUnion("kind", [
+export const ConfigProblemSchema = z.discriminatedUnion('kind', [
   z.object({
-    kind: z.literal("syntax"),
+    kind: z.literal('syntax'),
     line: z.number().int().positive(),
     column: z.number().int().positive(),
     message: z.string(),
   }),
-  z.object({ kind: z.literal("schema"), path: z.string(), message: z.string() }),
-  z.object({ kind: z.literal("too_new"), version: z.number().int() }),
+  z.object({ kind: z.literal('schema'), path: z.string(), message: z.string() }),
+  z.object({ kind: z.literal('too_new'), version: z.number().int() }),
 ]);
 
 export const LlmConfigViewSchema = z.object({
-  status: z.enum(["ok", "missing", "invalid", "too_new"]),
+  status: z.enum(['ok', 'missing', 'invalid', 'too_new']),
   revision: z.string(),
   problem: ConfigProblemSchema.nullable(),
   endpoints: z.array(EndpointViewSchema),
@@ -63,10 +63,10 @@ export const CreateEndpointInputSchema = z.object({
 
 export const CreateEndpointOutputSchema = z.object({ endpointId: z.string(), config: LlmConfigViewSchema });
 
-export const KeyChangeSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("keep") }),
-  z.object({ action: z.literal("set"), value: ApiKeyValueSchema }),
-  z.object({ action: z.literal("remove") }),
+export const KeyChangeSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('keep') }),
+  z.object({ action: z.literal('set'), value: ApiKeyValueSchema }),
+  z.object({ action: z.literal('remove') }),
 ]);
 
 export const UpdateEndpointInputSchema = z.object({
@@ -79,14 +79,14 @@ export const UpdateEndpointInputSchema = z.object({
 
 export const SetPurposeInputSchema = z.object({
   baseRevision: z.string(),
-  purpose: z.literal("default"),
+  purpose: z.literal('default'),
   model: ModelRefSchema,
 });
 
-export const TestKeySchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("set"), value: ApiKeyValueSchema }),
-  z.object({ action: z.literal("keep"), endpointId: z.string().min(1) }),
-  z.object({ action: z.literal("none") }),
+export const TestKeySchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('set'), value: ApiKeyValueSchema }),
+  z.object({ action: z.literal('keep'), endpointId: z.string().min(1) }),
+  z.object({ action: z.literal('none') }),
 ]);
 
 export const TestConnectionInputSchema = z.object({

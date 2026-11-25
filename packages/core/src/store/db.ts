@@ -1,12 +1,12 @@
-import { DatabaseSync } from "node:sqlite";
-import { fileURLToPath } from "node:url";
-import { drizzle, type NodeSQLiteDatabase } from "drizzle-orm/node-sqlite";
-import { migrate } from "drizzle-orm/node-sqlite/migrator";
+import { DatabaseSync } from 'node:sqlite';
+import { fileURLToPath } from 'node:url';
+import { drizzle, type NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
+import { migrate } from 'drizzle-orm/node-sqlite/migrator';
 
 export class DataDirLockedError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "DataDirLockedError";
+    this.name = 'DataDirLockedError';
   }
 }
 
@@ -26,21 +26,21 @@ function isLockedError(error: unknown): boolean {
 export function openDatabase(file: string): OpenedDatabase {
   const client = new DatabaseSync(file);
   try {
-    client.exec("PRAGMA busy_timeout = 0");
-    client.exec("PRAGMA locking_mode = EXCLUSIVE");
-    client.exec("PRAGMA journal_mode = WAL");
-    client.exec("PRAGMA foreign_keys = ON");
-    client.exec("BEGIN IMMEDIATE");
-    client.exec("COMMIT");
+    client.exec('PRAGMA busy_timeout = 0');
+    client.exec('PRAGMA locking_mode = EXCLUSIVE');
+    client.exec('PRAGMA journal_mode = WAL');
+    client.exec('PRAGMA foreign_keys = ON');
+    client.exec('BEGIN IMMEDIATE');
+    client.exec('COMMIT');
   } catch (error) {
     client.close();
-    if (isLockedError(error)) throw new DataDirLockedError("data directory is already open in another core");
+    if (isLockedError(error)) throw new DataDirLockedError('data directory is already open in another core');
     throw error;
   }
 
   try {
     const db = drizzle({ client });
-    migrate(db, { migrationsFolder: fileURLToPath(new URL("./migrations/", import.meta.url)) });
+    migrate(db, { migrationsFolder: fileURLToPath(new URL('./migrations/', import.meta.url)) });
     return { db, close: () => client.close() };
   } catch (error) {
     client.close();

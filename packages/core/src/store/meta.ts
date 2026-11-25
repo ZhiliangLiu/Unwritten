@@ -1,5 +1,5 @@
-import { PreviewSchema } from "@unwritten/contracts";
-import { z } from "zod";
+import { PreviewSchema } from '@unwritten/contracts';
+import { z } from 'zod';
 
 export const StoredOptionSchema = z.object({ text: z.string() });
 export const StoredSceneSchema = z.object({ place: z.string(), time: z.string(), present: z.array(z.string()) });
@@ -8,10 +8,10 @@ export const StoredActionSchema = z.object({ text: z.string(), optionIndex: z.nu
 export const PlanItemSchema = z.object({
   id: z.string(),
   text: z.string(),
-  source: z.enum(["author", "ai", "author_confirmed"]),
+  source: z.enum(['author', 'ai', 'author_confirmed']),
 });
 
-export const PUBLIC_SETTING_PLAN_ITEM_ID = "public_setting";
+export const PUBLIC_SETTING_PLAN_ITEM_ID = 'public_setting';
 
 export const VersionMetaSchema = z.object({
   background: z.string(),

@@ -1,5 +1,5 @@
-import { oc } from "@orpc/contract";
-import { z } from "zod";
+import { oc } from '@orpc/contract';
+import { z } from 'zod';
 import {
   AdoptPreviewInputSchema,
   AdoptPreviewOutputSchema,
@@ -10,7 +10,7 @@ import {
   WorkDetailSchema,
   WorkIdInputSchema,
   WorkSummarySchema,
-} from "../schemas/works.ts";
+} from '../schemas/works.ts';
 
 export const worksContract = {
   list: oc.output(z.array(WorkSummarySchema)),

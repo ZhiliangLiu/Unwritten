@@ -1,11 +1,11 @@
-import type { FakeStep } from "./fake-openai-server.ts";
+import type { FakeStep } from './fake-openai-server.ts';
 
 export function rawToolStep(name: string, args: Record<string, string>): FakeStep {
-  return { kind: "tool_call", name, arguments: JSON.stringify(args) };
+  return { kind: 'tool_call', name, arguments: JSON.stringify(args) };
 }
 
 export function pingStep(): FakeStep {
-  return rawToolStep("ping", {});
+  return rawToolStep('ping', {});
 }
 
 export function proposeTurnStep(input: {
@@ -14,18 +14,18 @@ export function proposeTurnStep(input: {
   scene?: { place: string; time: string; present: string[] };
   ending?: boolean;
 }): FakeStep {
-  return rawToolStep("propose_turn", {
+  return rawToolStep('propose_turn', {
     prose: input.prose,
-    options: input.options.map((text) => JSON.stringify({ text })).join("\n"),
+    options: input.options.map((text) => JSON.stringify({ text })).join('\n'),
     changes: input.scene
       ? JSON.stringify({
-          type: "scene",
+          type: 'scene',
           place: input.scene.place,
           time: input.scene.time,
-          present: input.scene.present.join(","),
+          present: input.scene.present.join(','),
         })
-      : "",
-    ending: input.ending ? "true" : "false",
+      : '',
+    ending: input.ending ? 'true' : 'false',
   });
 }
 
@@ -39,12 +39,12 @@ export function proposePreviewStep(input: {
   time: string;
   language: string;
 }): FakeStep {
-  return rawToolStep("propose_preview", {
+  return rawToolStep('propose_preview', {
     title: input.title,
     blurb: input.blurb,
     public_setting: input.publicSetting,
     prose: input.prose,
-    options: input.options.map((text) => JSON.stringify({ text })).join("\n"),
+    options: input.options.map((text) => JSON.stringify({ text })).join('\n'),
     place: input.place,
     time: input.time,
     language: input.language,

@@ -1,6 +1,6 @@
-import type { ErrorCode } from "@unwritten/contracts";
+import type { ErrorCode } from '@unwritten/contracts';
 
-export type Purpose = "narrator" | "author_chat" | "background";
+export type Purpose = 'narrator' | 'author_chat' | 'background';
 
 export interface LlmToolResult {
   text: string;
@@ -15,7 +15,7 @@ export interface LlmTool {
 }
 
 export interface LlmRunRef {
-  kind: "turn_request" | "job";
+  kind: 'turn_request' | 'job';
   id: string;
   attempt: number;
   workId: string | null;
@@ -49,7 +49,7 @@ export class LlmRunError extends Error {
 
   constructor(code: ErrorCode, detail: string | null) {
     super(code);
-    this.name = "LlmRunError";
+    this.name = 'LlmRunError';
     this.code = code;
     this.detail = detail;
   }

@@ -1,13 +1,13 @@
-import { randomUUID } from "node:crypto";
-import { createGuardedFetch, createFetchRecorder, unguardedFetch } from "./fetch-guard.ts";
-import { classifyFailure } from "./classify.ts";
-import { scrubSecrets } from "../log/scrub.ts";
-import { createAgentSession, type CompletionOutcome, type RuntimeTarget } from "./pi.ts";
-import type { LlmRunInput, LlmRunResult } from "./types.ts";
-import { LlmRunError } from "./types.ts";
-import type { Database } from "../store/db.ts";
-import { llmCalls } from "../store/schema.ts";
-import type { Logger } from "../log/logger.ts";
+import { randomUUID } from 'node:crypto';
+import { createGuardedFetch, createFetchRecorder, unguardedFetch } from './fetch-guard.ts';
+import { classifyFailure } from './classify.ts';
+import { scrubSecrets } from '../log/scrub.ts';
+import { createAgentSession, type CompletionOutcome, type RuntimeTarget } from './pi.ts';
+import type { LlmRunInput, LlmRunResult } from './types.ts';
+import { LlmRunError } from './types.ts';
+import type { Database } from '../store/db.ts';
+import { llmCalls } from '../store/schema.ts';
+import type { Logger } from '../log/logger.ts';
 
 export interface LlmTimeouts {
   firstOutputMs: number;
@@ -18,23 +18,23 @@ export const DEFAULT_TIMEOUTS: LlmTimeouts = { firstOutputMs: 120_000, stallMs: 
 export const MAX_TOOL_ROUNDS = 8;
 export const MAX_NUDGES = 2;
 export const RATE_LIMIT_RETRY_DELAY_MS = 2_000;
-const RETRYABLE: ReadonlySet<string> = new Set(["network", "timeout", "server", "rate_limited"]);
+const RETRYABLE: ReadonlySet<string> = new Set(['network', 'timeout', 'server', 'rate_limited']);
 
 export interface RunnerDeps {
   db: Database;
   logger: Logger;
   shutdown: AbortSignal;
   timeouts?: Partial<LlmTimeouts>;
-  targetFor(purpose: LlmRunInput["purpose"]): RuntimeTarget | null;
+  targetFor(purpose: LlmRunInput['purpose']): RuntimeTarget | null;
 }
 
 export function opencodeHeaders(baseUrl: string, sessionId: string): Record<string, string> {
   try {
-    if (new URL(baseUrl).hostname !== "opencode.ai") return {};
+    if (new URL(baseUrl).hostname !== 'opencode.ai') return {};
   } catch {
     return {};
   }
-  return { "x-opencode-client": "unwritten", "x-opencode-session": sessionId };
+  return { 'x-opencode-client': 'unwritten', 'x-opencode-session': sessionId };
 }
 
 function wait(ms: number, signal: AbortSignal): Promise<void> {
@@ -45,7 +45,7 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
     }
     const timer = setTimeout(resolve, ms);
     signal.addEventListener(
-      "abort",
+      'abort',
       () => {
         clearTimeout(timer);
         resolve();
@@ -57,7 +57,7 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
 
 interface AttemptResult {
   ok: boolean;
-  code?: LlmRunError["code"];
+  code?: LlmRunError['code'];
   detail: string | null;
   gotOutput: boolean;
   streamStarted: boolean;
@@ -87,8 +87,8 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
       stallTimer = null;
     };
 
-    const onActivity = (kind: "output" | "turn_end") => {
-      if (kind === "output") {
+    const onActivity = (kind: 'output' | 'turn_end') => {
+      if (kind === 'output') {
         state.gotOutput = true;
         if (firstOutputAt === null) {
           firstOutputAt = performance.now();
@@ -142,8 +142,8 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
       outcome = await session.prompt(input.prompt);
       let nudges = 0;
       while (
-        outcome.stopReason !== "error" &&
-        outcome.stopReason !== "aborted" &&
+        outcome.stopReason !== 'error' &&
+        outcome.stopReason !== 'aborted' &&
         !state.terminated &&
         nudges < MAX_NUDGES
       ) {
@@ -156,10 +156,10 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
       clearTimers();
     }
 
-    const errorMessage = thrown ?? outcome?.errorMessage ?? "";
-    let code: LlmRunError["code"] | undefined;
-    if (state.tooManyRounds) code = "invalid_output";
-    else if (thrown || outcome?.stopReason === "error" || outcome?.stopReason === "aborted") {
+    const errorMessage = thrown ?? outcome?.errorMessage ?? '';
+    let code: LlmRunError['code'] | undefined;
+    if (state.tooManyRounds) code = 'invalid_output';
+    else if (thrown || outcome?.stopReason === 'error' || outcome?.stopReason === 'aborted') {
       code = classifyFailure({
         httpStatus: recorder.lastStatus,
         redirected: recorder.redirected,
@@ -167,10 +167,10 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
         aborted: Boolean(input.signal?.aborted || deps.shutdown.aborted),
         errorMessage,
       });
-    } else if (!state.terminated) code = "invalid_output";
+    } else if (!state.terminated) code = 'invalid_output';
 
     const usage = outcome?.usage ?? { input: 0, output: 0, cacheRead: 0, cost: 0, costFromProvider: false };
-    const status = code === undefined ? "ok" : code === "interrupted" ? "aborted" : "error";
+    const status = code === undefined ? 'ok' : code === 'interrupted' ? 'aborted' : 'error';
     deps.db
       .insert(llmCalls)
       .values({
@@ -194,22 +194,22 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
       .run();
 
     deps.logger.record({
-      level: code ? "warn" : "info",
-      module: "llm",
-      event: "llm.call",
+      level: code ? 'warn' : 'info',
+      module: 'llm',
+      event: 'llm.call',
       callId,
-      requestId: input.ref.kind === "turn_request" ? input.ref.id : undefined,
-      jobId: input.ref.kind === "job" ? input.ref.id : undefined,
+      requestId: input.ref.kind === 'turn_request' ? input.ref.id : undefined,
+      jobId: input.ref.kind === 'job' ? input.ref.id : undefined,
       data: { status, code: code ?? null, attempt: input.ref.attempt },
     });
     if (firstOutputAt !== null) {
       deps.logger.sample({
-        metric: "llm.first_output",
+        metric: 'llm.first_output',
         durationMs: firstOutputAt - startedAt,
-        outcome: code === undefined ? "ok" : code === "interrupted" ? "interrupted" : "error",
+        outcome: code === undefined ? 'ok' : code === 'interrupted' ? 'interrupted' : 'error',
         callId,
-        requestId: input.ref.kind === "turn_request" ? input.ref.id : undefined,
-        jobId: input.ref.kind === "job" ? input.ref.id : undefined,
+        requestId: input.ref.kind === 'turn_request' ? input.ref.id : undefined,
+        jobId: input.ref.kind === 'job' ? input.ref.id : undefined,
         attempt: input.ref.attempt,
       });
     }
@@ -225,7 +225,7 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
 
   return async (input) => {
     const target = deps.targetFor(input.purpose);
-    if (!target) throw new LlmRunError("llm_not_configured", null);
+    if (!target) throw new LlmRunError('llm_not_configured', null);
 
     for (let index = 0; index < 2; index += 1) {
       const result = await attemptOnce(input, target);
@@ -238,9 +238,9 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
         !result.streamStarted &&
         !input.signal?.aborted &&
         !deps.shutdown.aborted;
-      if (!retry) throw new LlmRunError(result.code ?? "invalid_output", result.detail);
-      if (result.code === "rate_limited") await wait(RATE_LIMIT_RETRY_DELAY_MS, deps.shutdown);
+      if (!retry) throw new LlmRunError(result.code ?? 'invalid_output', result.detail);
+      if (result.code === 'rate_limited') await wait(RATE_LIMIT_RETRY_DELAY_MS, deps.shutdown);
     }
-    throw new LlmRunError("invalid_output", null);
+    throw new LlmRunError('invalid_output', null);
   };
 }

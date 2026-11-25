@@ -1,23 +1,23 @@
-import { readFileSync, statSync } from "node:fs";
-import { join, resolve, sep } from "node:path";
-import { Hono } from "hono";
-import { RPCHandler } from "@orpc/server/fetch";
-import { DEFAULT_APPEARANCE } from "@unwritten/contracts";
-import type { Services } from "../services.ts";
-import type { Logger } from "../log/logger.ts";
-import type { ClientAssets } from "./client-assets.ts";
-import { contentSecurityPolicy, newNonce, renderIndexHtml } from "./client-assets.ts";
-import { createRouter } from "./router.ts";
-import { hostGuard, originGuard, tokenGuard } from "./security.ts";
+import { readFileSync, statSync } from 'node:fs';
+import { join, resolve, sep } from 'node:path';
+import { Hono } from 'hono';
+import { RPCHandler } from '@orpc/server/fetch';
+import { DEFAULT_APPEARANCE } from '@unwritten/contracts';
+import type { Services } from '../services.ts';
+import type { Logger } from '../log/logger.ts';
+import type { ClientAssets } from './client-assets.ts';
+import { contentSecurityPolicy, newNonce, renderIndexHtml } from './client-assets.ts';
+import { createRouter } from './router.ts';
+import { hostGuard, originGuard, tokenGuard } from './security.ts';
 
 const CONTENT_TYPES: Record<string, string> = {
-  ".js": "text/javascript; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".woff2": "font/woff2",
-  ".png": "image/png",
-  ".json": "application/json",
-  ".map": "application/json",
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.woff2': 'font/woff2',
+  '.png': 'image/png',
+  '.json': 'application/json',
+  '.map': 'application/json',
 };
 
 export interface HttpAppOptions {
@@ -32,45 +32,48 @@ export function createHttpApp(options: HttpAppOptions): Hono {
   const app = new Hono();
   const rpcHandler = new RPCHandler(createRouter(options.services));
 
-  app.use("*", hostGuard(() => options.getPort(), options.logger));
-  app.use("*", originGuard(options.logger));
-  app.use("/api/*", tokenGuard(options.token, options.logger));
+  app.use(
+    '*',
+    hostGuard(() => options.getPort(), options.logger),
+  );
+  app.use('*', originGuard(options.logger));
+  app.use('/api/*', tokenGuard(options.token, options.logger));
 
-  app.all("/api/*", async (c) => {
+  app.all('/api/*', async (c) => {
     const { matched, response } = await rpcHandler.handle(c.req.raw, {
-      prefix: "/api",
+      prefix: '/api',
       context: { services: options.services },
     });
     return matched ? response : c.notFound();
   });
 
-  app.get("/assets/*", (c) => {
+  app.get('/assets/*', (c) => {
     if (!options.assets) return c.notFound();
-    const relative = c.req.path.replace(/^\//, "");
+    const relative = c.req.path.replace(/^\//, '');
     const resolved = resolve(options.assets.dir, relative);
-    const root = join(options.assets.dir, "assets") + sep;
+    const root = join(options.assets.dir, 'assets') + sep;
     if (!resolved.startsWith(root)) return c.notFound();
     try {
       if (!statSync(resolved).isFile()) return c.notFound();
       const data = readFileSync(resolved);
-      const extension = resolved.slice(resolved.lastIndexOf("."));
-      c.header("Content-Type", CONTENT_TYPES[extension] ?? "application/octet-stream");
-      c.header("Cache-Control", "public, max-age=31536000, immutable");
-      c.header("X-Content-Type-Options", "nosniff");
+      const extension = resolved.slice(resolved.lastIndexOf('.'));
+      c.header('Content-Type', CONTENT_TYPES[extension] ?? 'application/octet-stream');
+      c.header('Cache-Control', 'public, max-age=31536000, immutable');
+      c.header('X-Content-Type-Options', 'nosniff');
       return c.body(data);
     } catch {
       return c.notFound();
     }
   });
 
-  app.get("*", (c) => {
-    if (!options.assets) return c.text("client build not found", 503);
+  app.get('*', (c) => {
+    if (!options.assets) return c.text('client build not found', 503);
     const nonce = newNonce();
-    c.header("Content-Type", "text/html; charset=utf-8");
-    c.header("Cache-Control", "no-store");
-    c.header("Content-Security-Policy", contentSecurityPolicy(nonce));
-    c.header("X-Content-Type-Options", "nosniff");
-    c.header("Referrer-Policy", "no-referrer");
+    c.header('Content-Type', 'text/html; charset=utf-8');
+    c.header('Cache-Control', 'no-store');
+    c.header('Content-Security-Policy', contentSecurityPolicy(nonce));
+    c.header('X-Content-Type-Options', 'nosniff');
+    c.header('Referrer-Policy', 'no-referrer');
     return c.html(renderIndexHtml(options.assets, nonce, DEFAULT_APPEARANCE));
   });
 

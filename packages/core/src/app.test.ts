@@ -1,11 +1,11 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { describe, expect, it } from "vitest";
-import type { Logger } from "./log/logger.ts";
-import { createEventBus } from "./events/bus.ts";
-import type { Services } from "./services.ts";
-import { makeTempDataDir } from "./test-support/temp-dir.ts";
-import { startCore } from "./app.ts";
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import type { Logger } from './log/logger.ts';
+import { createEventBus } from './events/bus.ts';
+import type { Services } from './services.ts';
+import { makeTempDataDir } from './test-support/temp-dir.ts';
+import { startCore } from './app.ts';
 
 const logger: Logger = {
   record() {},
@@ -22,32 +22,32 @@ function fakeServices(): Services {
     library: {
       list: () => [],
       create: () => {
-        throw new Error("not used");
+        throw new Error('not used');
       },
       get: () => {
-        throw new Error("not used");
+        throw new Error('not used');
       },
       saveBackground: () => {
-        throw new Error("not used");
+        throw new Error('not used');
       },
     },
     llm: {
       listProviders: () => ({
-        status: "missing",
-        revision: "absent",
+        status: 'missing',
+        revision: 'absent',
         problem: null,
         endpoints: [],
         defaultModel: null,
         defaultModelUsable: false,
       }),
       createEndpoint: async () => {
-        throw new Error("not used");
+        throw new Error('not used');
       },
       updateEndpoint: async () => {
-        throw new Error("not used");
+        throw new Error('not used');
       },
       setPurpose: async () => {
-        throw new Error("not used");
+        throw new Error('not used');
       },
       testConnection: async () => ({ ok: false, code: null, detail: null, savedToolsCapability: false }),
       resolve: () => null,
@@ -57,23 +57,23 @@ function fakeServices(): Services {
     },
     authoring: {
       generatePreview: () => {
-        throw new Error("not used");
+        throw new Error('not used');
       },
       adoptPreview: () => {
-        throw new Error("not used");
+        throw new Error('not used');
       },
       recoverInterrupted: () => 0,
       whenIdle: async () => {},
     },
     play: {
       getRoute: () => {
-        throw new Error("not used");
+        throw new Error('not used');
       },
       submitAction: () => {
-        throw new Error("not used");
+        throw new Error('not used');
       },
       retry: () => {
-        throw new Error("not used");
+        throw new Error('not used');
       },
       recoverInterrupted: () => 0,
       pruneOldRequestLogs: () => 0,
@@ -82,16 +82,16 @@ function fakeServices(): Services {
   };
 }
 
-describe("startCore", () => {
-  it("启动、提供接口并在关闭后停止监听", async () => {
+describe('startCore', () => {
+  it('启动、提供接口并在关闭后停止监听', async () => {
     const temp = makeTempDataDir();
-    const clientDir = join(temp.dir, "client");
+    const clientDir = join(temp.dir, 'client');
     mkdirSync(clientDir);
-    writeFileSync(join(clientDir, "index.html"), '<!doctype html><html lang="zh-CN"><head></head><body></body></html>');
-    writeFileSync(join(clientDir, "boot.inline.js"), "");
+    writeFileSync(join(clientDir, 'index.html'), '<!doctype html><html lang="zh-CN"><head></head><body></body></html>');
+    writeFileSync(join(clientDir, 'boot.inline.js'), '');
     const services = fakeServices();
     const core = await startCore(
-      { dataDir: join(temp.dir, "data"), port: 0, clientDir, clientOrigin: null, logLevel: "error" },
+      { dataDir: join(temp.dir, 'data'), port: 0, clientDir, clientOrigin: null, logLevel: 'error' },
       {
         llm: () => services.llm,
         library: () => services.library,
@@ -102,9 +102,9 @@ describe("startCore", () => {
     try {
       expect(core.url).toContain(`#token=${core.token}`);
       const response = await fetch(`${core.origin}/api/works/list`, {
-        method: "POST",
-        body: "{}",
-        headers: { authorization: `Bearer ${core.token}`, "content-type": "application/json" },
+        method: 'POST',
+        body: '{}',
+        headers: { authorization: `Bearer ${core.token}`, 'content-type': 'application/json' },
       });
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({ json: [] });

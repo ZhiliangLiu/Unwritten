@@ -1,6 +1,6 @@
-import { z } from "zod";
-import { ErrorCodeSchema } from "../errors.ts";
-import { LanguageTagSchema, TimestampSchema, UuidSchema } from "./common.ts";
+import { z } from 'zod';
+import { ErrorCodeSchema } from '../errors.ts';
+import { LanguageTagSchema, TimestampSchema, UuidSchema } from './common.ts';
 
 export const ACTION_TEXT_MAX_LENGTH = 2_000;
 
@@ -22,12 +22,12 @@ export const TurnViewSchema = z.object({
 });
 
 export const TurnRequestStatusSchema = z.enum([
-  "running",
-  "needs_clarification",
-  "done",
-  "failed",
-  "superseded",
-  "cancelled",
+  'running',
+  'needs_clarification',
+  'done',
+  'failed',
+  'superseded',
+  'cancelled',
 ]);
 
 export const TurnRequestViewSchema = z.object({
