@@ -1,7 +1,7 @@
-import { createORPCClient } from "@orpc/client";
-import { RPCLink } from "@orpc/client/fetch";
-import type { ContractRouterClient } from "@orpc/contract";
-import type { Contract } from "@unwritten/contracts";
+import { createORPCClient } from '@orpc/client';
+import { RPCLink } from '@orpc/client/fetch';
+import type { ContractRouterClient } from '@orpc/contract';
+import type { Contract } from '@unwritten/contracts';
 
 export type ApiClient = ContractRouterClient<Contract>;
 

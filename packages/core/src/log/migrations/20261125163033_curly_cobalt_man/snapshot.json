@@ -2,9 +2,7 @@
   "version": "7",
   "dialect": "sqlite",
   "id": "388e21b8-f76e-42f4-a648-2c3276f01e55",
-  "prevIds": [
-    "00000000-0000-0000-0000-000000000000"
-  ],
+  "prevIds": ["00000000-0000-0000-0000-000000000000"],
   "ddl": [
     {
       "name": "diagnostic_events",
@@ -461,18 +459,14 @@
     {
       "table": "diagnostic_events",
       "name": "diagnostic_events_pk",
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "entityType": "pks"
     },
     {
       "table": "performance_samples",
       "name": "performance_samples_pk",
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "entityType": "pks"
     }

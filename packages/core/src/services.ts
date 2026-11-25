@@ -20,11 +20,11 @@ import type {
   WorkDetail,
   WorkIdInput,
   WorkSummary,
-} from "@unwritten/contracts";
-import type { EventBus } from "./events/bus.ts";
-import type { LlmRunInput, LlmRunResult, Purpose, ResolvedModel } from "./llm/types.ts";
-import type { Logger } from "./log/logger.ts";
-import type { Database } from "./store/db.ts";
+} from '@unwritten/contracts';
+import type { EventBus } from './events/bus.ts';
+import type { LlmRunInput, LlmRunResult, Purpose, ResolvedModel } from './llm/types.ts';
+import type { Logger } from './log/logger.ts';
+import type { Database } from './store/db.ts';
 
 export interface LlmService {
   listProviders(): LlmConfigView;

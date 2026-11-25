@@ -1,8 +1,8 @@
-import { ORPCError, implement, os } from "@orpc/server";
-import { ERROR_CODES, type ErrorCode } from "@unwritten/contracts";
-import { contract } from "@unwritten/contracts";
-import { appError } from "../errors.ts";
-import type { Services } from "../services.ts";
+import { ORPCError, implement, os } from '@orpc/server';
+import { ERROR_CODES, type ErrorCode } from '@unwritten/contracts';
+import { contract } from '@unwritten/contracts';
+import { appError } from '../errors.ts';
+import type { Services } from '../services.ts';
 
 const errorCodes = new Set<string>(ERROR_CODES);
 
@@ -14,17 +14,17 @@ export function createRouter(services: Services) {
       if (error instanceof ORPCError) {
         if (errorCodes.has(error.code)) {
           services.logger.record({
-            level: "warn",
-            module: "api",
-            event: "rpc.failed",
+            level: 'warn',
+            module: 'api',
+            event: 'rpc.failed',
             data: { code: error.code },
           });
           throw error;
         }
-        if (error.code === "BAD_REQUEST") throw appError("invalid_input", error.message);
+        if (error.code === 'BAD_REQUEST') throw appError('invalid_input', error.message);
       }
-      services.logger.record({ level: "error", module: "api", event: "rpc.crashed", data: { code: "internal" } });
-      throw appError("internal", "unexpected error");
+      services.logger.record({ level: 'error', module: 'api', event: 'rpc.crashed', data: { code: 'internal' } });
+      throw appError('internal', 'unexpected error');
     }
   });
 
@@ -71,23 +71,23 @@ export function createRouter(services: Services) {
     },
     log: {
       client: base.log.client.handler(({ input, context }) => {
-        if (input.kind === "event") {
+        if (input.kind === 'event') {
           context.services.logger.record({
-            level: "error",
-            module: "client",
-            event: "client.error",
+            level: 'error',
+            module: 'client',
+            event: 'client.error',
             data: { area: input.area, code: input.code },
           });
         } else {
           context.services.logger.sample({
-            source: "client",
+            source: 'client',
             metric: input.metric,
             durationMs: input.durationMs,
             outcome: input.outcome,
-            workId: "workId" in input ? input.workId : undefined,
-            jobId: "jobId" in input ? input.jobId : undefined,
-            requestId: "requestId" in input ? input.requestId : undefined,
-            attempt: "attempt" in input ? input.attempt : undefined,
+            workId: 'workId' in input ? input.workId : undefined,
+            jobId: 'jobId' in input ? input.jobId : undefined,
+            requestId: 'requestId' in input ? input.requestId : undefined,
+            attempt: 'attempt' in input ? input.attempt : undefined,
           });
         }
         return {};

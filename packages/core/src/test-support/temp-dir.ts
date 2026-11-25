@@ -1,9 +1,9 @@
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 export function makeTempDataDir(): { dir: string; cleanup(): void } {
-  const dir = mkdtempSync(join(tmpdir(), "unwritten-"));
+  const dir = mkdtempSync(join(tmpdir(), 'unwritten-'));
   return {
     dir,
     cleanup() {

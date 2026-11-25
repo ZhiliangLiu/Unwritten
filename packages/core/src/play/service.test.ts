@@ -1,12 +1,12 @@
-import { join } from "node:path";
-import { sql } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
-import { createEventBus } from "../events/bus.ts";
-import type { Logger } from "../log/logger.ts";
-import { makeTempDataDir } from "../test-support/temp-dir.ts";
-import { createScriptedLlm } from "../test-support/scripted-llm.ts";
-import { openDatabase } from "../store/db.ts";
-import { createPlayService } from "./service.ts";
+import { join } from 'node:path';
+import { sql } from 'drizzle-orm';
+import { describe, expect, it } from 'vitest';
+import { createEventBus } from '../events/bus.ts';
+import type { Logger } from '../log/logger.ts';
+import { makeTempDataDir } from '../test-support/temp-dir.ts';
+import { createScriptedLlm } from '../test-support/scripted-llm.ts';
+import { openDatabase } from '../store/db.ts';
+import { createPlayService } from './service.ts';
 
 const logger: Logger = {
   record() {},
@@ -15,34 +15,34 @@ const logger: Logger = {
   async close() {},
 };
 
-const workId = "00000000-0000-4000-8000-000000000001";
-const versionId = "00000000-0000-4000-8000-000000000002";
-const playthroughId = "00000000-0000-4000-8000-000000000003";
-const rootTurnId = "00000000-0000-4000-8000-000000000004";
-const routeId = "00000000-0000-4000-8000-000000000005";
-const requestId = "00000000-0000-4000-8000-000000000006";
+const workId = '00000000-0000-4000-8000-000000000001';
+const versionId = '00000000-0000-4000-8000-000000000002';
+const playthroughId = '00000000-0000-4000-8000-000000000003';
+const rootTurnId = '00000000-0000-4000-8000-000000000004';
+const routeId = '00000000-0000-4000-8000-000000000005';
+const requestId = '00000000-0000-4000-8000-000000000006';
 
 const meta = {
-  background: "雨夜修钟铺",
-  plan: { items: [{ id: "public_setting", text: "老城的钟铺", source: "ai" }] },
+  background: '雨夜修钟铺',
+  plan: { items: [{ id: 'public_setting', text: '老城的钟铺', source: 'ai' }] },
   opening: {
-    prose: "开场正文",
-    options: [{ text: "推门" }],
-    scene: { place: "钟铺", time: "深夜", present: [] },
+    prose: '开场正文',
+    options: [{ text: '推门' }],
+    scene: { place: '钟铺', time: '深夜', present: [] },
   },
-  narration: { language: "zh-CN" },
+  narration: { language: 'zh-CN' },
 };
 
 const turnArgs = {
-  prose: "你推开门。雨声更大了。",
+  prose: '你推开门。雨声更大了。',
   options: '{"text":"走进雨里"}\n{"text":"关上门"}',
-  changes: JSON.stringify({ type: "scene", place: "门外", time: "深夜", present: "学徒" }),
-  ending: "false",
+  changes: JSON.stringify({ type: 'scene', place: '门外', time: '深夜', present: '学徒' }),
+  ending: 'false',
 };
 
 function setup() {
   const temp = makeTempDataDir();
-  const opened = openDatabase(join(temp.dir, "library.db"));
+  const opened = openDatabase(join(temp.dir, 'library.db'));
   const now = Date.now();
   opened.db.run(
     sql`insert into works (id, title, draft_id, published_id, created_at, updated_at)
@@ -77,8 +77,8 @@ function setup() {
   return { temp, opened, llm, play };
 }
 
-describe("createPlayService", () => {
-  it("自由行动成功推进路线", async () => {
+describe('createPlayService', () => {
+  it('自由行动成功推进路线', async () => {
     const { temp, opened, llm, play } = setup();
     try {
       llm.enqueue({ args: turnArgs });
@@ -86,13 +86,13 @@ describe("createPlayService", () => {
         requestId,
         routeId,
         expectedHeadTurnId: rootTurnId,
-        action: { text: "推门", optionIndex: null },
+        action: { text: '推门', optionIndex: null },
       });
-      expect(first.status).toBe("running");
+      expect(first.status).toBe('running');
       await play.whenIdle();
       const route = play.getRoute({ routeId });
       expect(route.turns).toHaveLength(2);
-      expect(route.turns[1]?.action).toEqual({ text: "推门", optionIndex: null });
+      expect(route.turns[1]?.action).toEqual({ text: '推门', optionIndex: null });
       expect(route.turns[1]?.originRequest).toEqual({ id: requestId, attempt: 1 });
       expect(route.pending).toBeNull();
     } finally {
@@ -101,7 +101,7 @@ describe("createPlayService", () => {
     }
   });
 
-  it("推荐项序号和原文对上才接受", async () => {
+  it('推荐项序号和原文对上才接受', async () => {
     const { temp, opened, llm, play } = setup();
     try {
       expect(() =>
@@ -109,7 +109,7 @@ describe("createPlayService", () => {
           requestId,
           routeId,
           expectedHeadTurnId: rootTurnId,
-          action: { text: "推门", optionIndex: 2 },
+          action: { text: '推门', optionIndex: 2 },
         }),
       ).toThrow();
       llm.enqueue({ args: turnArgs });
@@ -117,7 +117,7 @@ describe("createPlayService", () => {
         requestId,
         routeId,
         expectedHeadTurnId: rootTurnId,
-        action: { text: "推门", optionIndex: 1 },
+        action: { text: '推门', optionIndex: 1 },
       });
       await play.whenIdle();
       expect(play.getRoute({ routeId }).turns[1]?.action?.optionIndex).toBe(1);
@@ -127,7 +127,7 @@ describe("createPlayService", () => {
     }
   });
 
-  it("同一 requestId 只产生一个回合", async () => {
+  it('同一 requestId 只产生一个回合', async () => {
     const { temp, opened, llm, play } = setup();
     try {
       llm.enqueue({ args: turnArgs });
@@ -135,12 +135,12 @@ describe("createPlayService", () => {
         requestId,
         routeId,
         expectedHeadTurnId: rootTurnId,
-        action: { text: "推门", optionIndex: null },
+        action: { text: '推门', optionIndex: null },
       };
       play.submitAction(input);
       await play.whenIdle();
       const again = play.submitAction(input);
-      expect(again.status).toBe("done");
+      expect(again.status).toBe('done');
       expect(play.getRoute({ routeId }).turns).toHaveLength(2);
       expect(llm.runs).toHaveLength(1);
     } finally {
@@ -149,15 +149,15 @@ describe("createPlayService", () => {
     }
   });
 
-  it("过期 head 不移动路线", () => {
+  it('过期 head 不移动路线', () => {
     const { temp, opened, play } = setup();
     try {
       expect(() =>
         play.submitAction({
           requestId,
           routeId,
-          expectedHeadTurnId: "00000000-0000-4000-8000-000000000099",
-          action: { text: "推门", optionIndex: null },
+          expectedHeadTurnId: '00000000-0000-4000-8000-000000000099',
+          action: { text: '推门', optionIndex: null },
         }),
       ).toThrow();
       expect(play.getRoute({ routeId }).turns).toHaveLength(1);
@@ -167,19 +167,19 @@ describe("createPlayService", () => {
     }
   });
 
-  it("失败保留路线，重试沿用原请求", async () => {
+  it('失败保留路线，重试沿用原请求', async () => {
     const { temp, opened, llm, play } = setup();
     try {
-      llm.enqueue({ fail: "network" });
+      llm.enqueue({ fail: 'network' });
       play.submitAction({
         requestId,
         routeId,
         expectedHeadTurnId: rootTurnId,
-        action: { text: "推门", optionIndex: null },
+        action: { text: '推门', optionIndex: null },
       });
       await play.whenIdle();
       expect(play.getRoute({ routeId }).turns).toHaveLength(1);
-      expect(play.getRoute({ routeId }).pending?.status).toBe("failed");
+      expect(play.getRoute({ routeId }).pending?.status).toBe('failed');
 
       llm.enqueue({ args: turnArgs });
       play.retry({ requestId });
@@ -194,7 +194,7 @@ describe("createPlayService", () => {
     }
   });
 
-  it("恢复时把运行中的请求标为中断，并清理旧足迹", () => {
+  it('恢复时把运行中的请求标为中断，并清理旧足迹', () => {
     const { temp, opened, play } = setup();
     try {
       const now = Date.now();
@@ -205,7 +205,7 @@ describe("createPlayService", () => {
                     '{"text":"推门","optionIndex":null}', 'running', 1, ${now}, ${now})`,
       );
       expect(play.recoverInterrupted()).toBe(1);
-      expect(play.getRoute({ routeId }).pending?.status).toBe("failed");
+      expect(play.getRoute({ routeId }).pending?.status).toBe('failed');
       opened.db.run(sql`update turn_requests set created_at = ${now - 91 * 86_400_000}`);
       expect(play.pruneOldRequestLogs()).toBe(0);
     } finally {

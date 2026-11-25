@@ -1,9 +1,9 @@
-import type { BackendModule } from "i18next";
+import type { BackendModule } from 'i18next';
 
-const loaders = import.meta.glob<Record<string, unknown>>("./zh-CN/*.json", { import: "default" });
+const loaders = import.meta.glob<Record<string, unknown>>('./zh-CN/*.json', { import: 'default' });
 
 export const lazyNamespaceBackend: BackendModule = {
-  type: "backend",
+  type: 'backend',
   init() {},
   read(language, namespace, callback) {
     const load = loaders[`./${language}/${namespace}.json`];

@@ -1,10 +1,10 @@
-import { z } from "zod";
-import { ErrorCodeSchema } from "../errors.ts";
-import { ContentRevSchema, LanguageTagSchema, TimestampSchema, UuidSchema } from "./common.ts";
+import { z } from 'zod';
+import { ErrorCodeSchema } from '../errors.ts';
+import { ContentRevSchema, LanguageTagSchema, TimestampSchema, UuidSchema } from './common.ts';
 
 export const BACKGROUND_MAX_LENGTH = 20_000;
 
-export const WorkStatusSchema = z.enum(["draft", "playable"]);
+export const WorkStatusSchema = z.enum(['draft', 'playable']);
 
 export const WorkSummarySchema = z.object({
   id: UuidSchema,
@@ -27,7 +27,7 @@ export const PreviewSchema = z.object({
   language: LanguageTagSchema,
 });
 
-export const JobStatusSchema = z.enum(["running", "done", "failed"]);
+export const JobStatusSchema = z.enum(['running', 'done', 'failed']);
 
 export const PreviewJobViewSchema = z.object({
   id: UuidSchema,

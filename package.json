@@ -12,8 +12,8 @@
     "lint": "oxlint --type-aware && stylelint \"apps/client/src/**/*.css\" --allow-empty-input",
     "test": "node scripts/check-tokens.mjs && node --test packages/tokens/build-css.test.mjs && turbo run test",
     "e2e": "turbo run build && pnpm --filter @unwritten/e2e e2e",
-    "format": "prettier --write apps packages e2e scripts \"*.json\"",
-    "format:check": "prettier --check apps packages e2e scripts \"*.json\"",
+    "format": "prettier --write apps packages e2e scripts \"*.json\" \"*.mjs\"",
+    "format:check": "prettier --check apps packages e2e scripts \"*.json\" \"*.mjs\"",
     "check:docs": "node scripts/check-doc-links.mjs",
     "dev:core": "pnpm --filter @unwritten/core dev",
     "dev:client": "pnpm --filter @unwritten/client dev"

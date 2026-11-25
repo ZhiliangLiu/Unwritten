@@ -1,8 +1,8 @@
-import { Agent } from "@earendil-works/pi-agent-core";
-import { createModels, createProvider, type AssistantMessage, type Model } from "@earendil-works/pi-ai";
-import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
-import packageJson from "../../package.json" with { type: "json" };
-import type { LlmTool } from "./types.ts";
+import { Agent } from '@earendil-works/pi-agent-core';
+import { createModels, createProvider, type AssistantMessage, type Model } from '@earendil-works/pi-ai';
+import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy';
+import packageJson from '../../package.json' with { type: 'json' };
+import type { LlmTool } from './types.ts';
 
 export interface RuntimeTarget {
   endpointId: string;
@@ -43,14 +43,14 @@ const IDENTITY = {
 
 const EMPTY_USAGE: UsageTotals = { input: 0, output: 0, cacheRead: 0, cost: 0, costFromProvider: false };
 
-function build(target: RuntimeTarget): { models: ReturnType<typeof createModels>; model: Model<"openai-completions"> } {
-  const model: Model<"openai-completions"> = {
+function build(target: RuntimeTarget): { models: ReturnType<typeof createModels>; model: Model<'openai-completions'> } {
+  const model: Model<'openai-completions'> = {
     id: target.modelId,
     name: target.modelId,
-    api: "openai-completions",
+    api: 'openai-completions',
     provider: target.endpointId,
     baseUrl: target.baseUrl,
-    input: ["text"],
+    input: ['text'],
     reasoning: false,
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: target.contextWindow,
@@ -59,7 +59,7 @@ function build(target: RuntimeTarget): { models: ReturnType<typeof createModels>
       supportsStore: false,
       supportsDeveloperRole: false,
       supportsReasoningEffort: false,
-      maxTokensField: "max_tokens",
+      maxTokensField: 'max_tokens',
     },
   };
   const provider = createProvider({
@@ -69,7 +69,7 @@ function build(target: RuntimeTarget): { models: ReturnType<typeof createModels>
     auth: {
       apiKey: {
         name: `${target.endpointName} API key`,
-        resolve: async () => ({ auth: { apiKey: target.apiKey ?? "unwritten-keyless" } }),
+        resolve: async () => ({ auth: { apiKey: target.apiKey ?? 'unwritten-keyless' } }),
       },
     },
     models: [model],
@@ -91,7 +91,7 @@ function usageOf(message: AssistantMessage): UsageTotals {
 }
 
 function toolNamesOf(message: AssistantMessage): string[] {
-  return message.content.filter((part) => part.type === "toolCall").map((part) => part.name);
+  return message.content.filter((part) => part.type === 'toolCall').map((part) => part.name);
 }
 
 function outcomeOf(message: AssistantMessage): CompletionOutcome {
@@ -127,7 +127,7 @@ export async function completeOnce(
     model,
     {
       systemPrompt: input.system,
-      messages: [{ role: "user", content: input.user, timestamp: Date.now() }],
+      messages: [{ role: 'user', content: input.user, timestamp: Date.now() }],
       tools: toolsOf(input.tools),
     },
     {
@@ -150,7 +150,7 @@ export interface AgentSession {
 export function createAgentSession(
   target: RuntimeTarget,
   transport: Transport,
-  input: { system: string; tools: LlmTool[]; onActivity(kind: "output" | "turn_end"): void },
+  input: { system: string; tools: LlmTool[]; onActivity(kind: 'output' | 'turn_end'): void },
 ): AgentSession {
   const { models, model } = build(target);
   const agentTools = input.tools.map((tool) => ({
@@ -160,14 +160,14 @@ export function createAgentSession(
     label: tool.name,
     execute: async (_id: string, params: unknown) => {
       const result = await tool.execute((params ?? {}) as Record<string, unknown>);
-      return { content: [{ type: "text" as const, text: result.text }], details: {}, terminate: result.terminate };
+      return { content: [{ type: 'text' as const, text: result.text }], details: {}, terminate: result.terminate };
     },
   }));
   const agent = new Agent({
     initialState: {
       systemPrompt: input.system,
       model,
-      thinkingLevel: "off",
+      thinkingLevel: 'off',
       tools: agentTools,
       messages: [],
     },
@@ -180,16 +180,16 @@ export function createAgentSession(
       }),
     sessionId: transport.sessionId,
     identity: IDENTITY,
-    toolExecution: "sequential",
+    toolExecution: 'sequential',
   });
   agent.subscribe((event) => {
-    if (event.type === "message_update") input.onActivity("output");
-    else if (event.type === "turn_end") input.onActivity("turn_end");
+    if (event.type === 'message_update') input.onActivity('output');
+    else if (event.type === 'turn_end') input.onActivity('turn_end');
   });
 
   const abort = () => agent.abort();
   if (transport.signal.aborted) abort();
-  else transport.signal.addEventListener("abort", abort, { once: true });
+  else transport.signal.addEventListener('abort', abort, { once: true });
 
   return {
     abort,
@@ -197,12 +197,12 @@ export function createAgentSession(
       const before = agent.state.messages.length;
       await agent.prompt(text);
       const messages = agent.state.messages.slice(before) as AssistantMessage[];
-      const assistants = messages.filter((message) => message.role === "assistant");
+      const assistants = messages.filter((message) => message.role === 'assistant');
       const last = assistants.at(-1);
       if (!last) {
         return {
-          stopReason: "error",
-          errorMessage: agent.state.errorMessage ?? "assistant did not reply",
+          stopReason: 'error',
+          errorMessage: agent.state.errorMessage ?? 'assistant did not reply',
           calledToolNames: [],
           usage: EMPTY_USAGE,
         };

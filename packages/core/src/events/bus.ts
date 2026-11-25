@@ -1,4 +1,4 @@
-import type { CoreEvent } from "@unwritten/contracts";
+import type { CoreEvent } from '@unwritten/contracts';
 
 export interface EventBus {
   publish(event: CoreEvent): void;
@@ -24,7 +24,7 @@ export function createEventBus(): EventBus {
         notify();
       };
       listeners.add(listener);
-      signal.addEventListener("abort", notify, { once: true });
+      signal.addEventListener('abort', notify, { once: true });
       try {
         while (!signal.aborted) {
           const next = queue.shift();
@@ -39,7 +39,7 @@ export function createEventBus(): EventBus {
         }
       } finally {
         listeners.delete(listener);
-        signal.removeEventListener("abort", notify);
+        signal.removeEventListener('abort', notify);
       }
     },
   };

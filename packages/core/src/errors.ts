@@ -1,5 +1,5 @@
-import { ORPCError } from "@orpc/server";
-import type { ErrorCode, ErrorData } from "@unwritten/contracts";
+import { ORPCError } from '@orpc/server';
+import type { ErrorCode, ErrorData } from '@unwritten/contracts';
 
 const HTTP_STATUS: Record<ErrorCode, number> = {
   invalid_input: 400,

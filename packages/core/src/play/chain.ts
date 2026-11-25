@@ -1,7 +1,7 @@
-import { sql } from "drizzle-orm";
-import type { Database } from "../store/db.ts";
-import { turns } from "../store/schema.ts";
-import type { StoredAction, StoredOption, StoredScene } from "../store/meta.ts";
+import { sql } from 'drizzle-orm';
+import type { Database } from '../store/db.ts';
+import { turns } from '../store/schema.ts';
+import type { StoredAction, StoredOption, StoredScene } from '../store/meta.ts';
 
 export type TurnRow = typeof turns.$inferSelect;
 
@@ -15,7 +15,7 @@ interface RawTurn {
   options: string;
   scene: string;
   ending: number;
-  status: "committed" | "candidate";
+  status: 'committed' | 'candidate';
   created_at: number;
   request_id: string | null;
   request_attempt: number | null;
@@ -39,7 +39,7 @@ export function ancestorChain(
   `);
 
   return rows.map((row, index) => {
-    if (row.depth !== index) throw new Error("turn chain is not contiguous");
+    if (row.depth !== index) throw new Error('turn chain is not contiguous');
     return {
       id: row.id,
       playthroughId: row.playthrough_id,

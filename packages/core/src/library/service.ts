@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq } from 'drizzle-orm';
 import type {
   PreviewJobView,
   SaveBackgroundInput,
@@ -6,33 +6,33 @@ import type {
   WorkDetail,
   WorkIdInput,
   WorkSummary,
-} from "@unwritten/contracts";
-import { appError } from "../errors.ts";
-import type { CoreDeps, LibraryService } from "../services.ts";
-import type { Database } from "../store/db.ts";
-import { jobs, playthroughs, routes, workVersions, works } from "../store/schema.ts";
-import type { VersionMeta } from "../store/meta.ts";
+} from '@unwritten/contracts';
+import { appError } from '../errors.ts';
+import type { CoreDeps, LibraryService } from '../services.ts';
+import type { Database } from '../store/db.ts';
+import { jobs, playthroughs, routes, workVersions, works } from '../store/schema.ts';
+import type { VersionMeta } from '../store/meta.ts';
 
 export function workLabel(title: string | null, background: string): string {
   if (title) return title;
   const firstLine = background
-    .split("\n")
+    .split('\n')
     .map((line) => line.trim())
     .find((line) => line.length > 0);
-  if (!firstLine) return "";
-  return Array.from(firstLine).slice(0, 40).join("");
+  if (!firstLine) return '';
+  return Array.from(firstLine).slice(0, 40).join('');
 }
 
 function summarize(db: Database, row: typeof works.$inferSelect): WorkSummary {
   const draft = db.select().from(workVersions).where(eq(workVersions.id, row.draftId)).get();
-  const background = (draft?.meta as VersionMeta | undefined)?.background ?? "";
+  const background = (draft?.meta as VersionMeta | undefined)?.background ?? '';
   let routeId: string | null = null;
   let hasProgress = false;
   if (row.publishedId) {
     const playthrough = db
       .select()
       .from(playthroughs)
-      .where(and(eq(playthroughs.versionId, row.publishedId), eq(playthroughs.kind, "play")))
+      .where(and(eq(playthroughs.versionId, row.publishedId), eq(playthroughs.kind, 'play')))
       .orderBy(playthroughs.createdAt)
       .get();
     if (playthrough) {
@@ -53,7 +53,7 @@ function summarize(db: Database, row: typeof works.$inferSelect): WorkSummary {
     title: row.title,
     blurb: row.blurb,
     label: workLabel(row.title, background),
-    status: row.publishedId ? "playable" : "draft",
+    status: row.publishedId ? 'playable' : 'draft',
     hasProgress,
     routeId,
     updatedAt: row.updatedAt,
@@ -65,7 +65,7 @@ export function previewJobView(row: typeof jobs.$inferSelect): PreviewJobView {
     id: row.id,
     status: row.status,
     basedOnContentRev: row.input.contentRev,
-    error: (row.error as PreviewJobView["error"]) ?? null,
+    error: (row.error as PreviewJobView['error']) ?? null,
     preview: row.result?.preview ?? null,
     updatedAt: row.updatedAt,
   };
@@ -74,14 +74,14 @@ export function previewJobView(row: typeof jobs.$inferSelect): PreviewJobView {
 export function createLibraryService(deps: CoreDeps): LibraryService {
   const getWork = (input: WorkIdInput): WorkDetail => {
     const row = deps.db.select().from(works).where(eq(works.id, input.workId)).get();
-    if (!row) throw appError("not_found", "work not found");
+    if (!row) throw appError('not_found', 'work not found');
     const draft = deps.db.select().from(workVersions).where(eq(workVersions.id, row.draftId)).get();
-    if (!draft) throw appError("not_found", "draft not found");
+    if (!draft) throw appError('not_found', 'draft not found');
     const summary = summarize(deps.db, row);
     const job = deps.db
       .select()
       .from(jobs)
-      .where(and(eq(jobs.workId, row.id), eq(jobs.kind, "preview")))
+      .where(and(eq(jobs.workId, row.id), eq(jobs.kind, 'preview')))
       .orderBy(desc(jobs.createdAt))
       .get();
     return {
@@ -116,18 +116,18 @@ export function createLibraryService(deps: CoreDeps): LibraryService {
             .values({
               id: draftId,
               workId: input.workId,
-              kind: "draft",
+              kind: 'draft',
               contentRev: 0,
-              meta: { background: "" },
+              meta: { background: '' },
               createdAt: now,
               updatedAt: now,
             })
             .run();
           return true;
         },
-        { behavior: "immediate" },
+        { behavior: 'immediate' },
       );
-      if (created) deps.bus.publish({ type: "works.changed", workId: input.workId });
+      if (created) deps.bus.publish({ type: 'works.changed', workId: input.workId });
       return getWork(input);
     },
     get: getWork,
@@ -135,13 +135,13 @@ export function createLibraryService(deps: CoreDeps): LibraryService {
       const result = deps.db.transaction(
         (tx) => {
           const work = tx.select().from(works).where(eq(works.id, input.workId)).get();
-          if (!work) throw appError("not_found", "work not found");
-          if (work.publishedId) throw appError("already_published", "work is already published");
+          if (!work) throw appError('not_found', 'work not found');
+          if (work.publishedId) throw appError('already_published', 'work is already published');
           const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
-          if (!draft) throw appError("not_found", "draft not found");
+          if (!draft) throw appError('not_found', 'draft not found');
           const meta = draft.meta as VersionMeta;
           if (meta.background === input.background) return { contentRev: draft.contentRev, changed: false };
-          if (draft.contentRev !== input.baseContentRev) throw appError("stale_revision", "draft revision is stale");
+          if (draft.contentRev !== input.baseContentRev) throw appError('stale_revision', 'draft revision is stale');
           const now = Date.now();
           const contentRev = draft.contentRev + 1;
           tx.update(workVersions)
@@ -151,9 +151,9 @@ export function createLibraryService(deps: CoreDeps): LibraryService {
           tx.update(works).set({ updatedAt: now }).where(eq(works.id, work.id)).run();
           return { contentRev, changed: true };
         },
-        { behavior: "immediate" },
+        { behavior: 'immediate' },
       );
-      if (result.changed) deps.bus.publish({ type: "works.changed", workId: input.workId });
+      if (result.changed) deps.bus.publish({ type: 'works.changed', workId: input.workId });
       return { contentRev: result.contentRev };
     },
   };
