@@ -258,7 +258,7 @@ Windows 的强制颜色模式（`forced-colors: active`）见 [a11y §7](./a11y.
 
 ## 9. 外观偏好与切换
 
-**偏好存在 core。** 外观偏好（跟随系统 / 浅色 / 深色）和阅读偏好（正文字号、字体、行距）都存在 core 的设置里，因为桌面版和将来的 web 客户端要共用同一份偏好。设置页通过契约里的 `settings.get` 和 `settings.update` 两个过程读写它们。
+**偏好存在 core。** 外观偏好（跟随系统 / 浅色 / 深色）和阅读偏好（正文字号、字体、行距）都存在 core 的设置里，因为桌面版和将来的 web 客户端要共用同一份偏好。core 把它们存进作品库的 `app_settings` 表，一行，按 contracts 的 `AppearanceSchema` 校验后写入。设置页通过契约里的 `settings.get` 和 `settings.update` 两个过程读写它们。
 
 **首屏不闪。** core 返回 `index.html` 时，把偏好直接写在根元素上：
 

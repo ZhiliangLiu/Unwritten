@@ -34,6 +34,7 @@
   ],
   "purposes": {
     "default":    { "provider": "opencode-go", "model": "kimi-k3" },
+    "narrator":   { "provider": "opencode-go", "model": "kimi-k3", "params": { "thinking": "high", "temperature": 0.8 } },
     "background": { "provider": "custom-ollama-3f2a1c", "model": "qwen3:14b" }
   }
 }
@@ -182,6 +183,23 @@ OpenCode Go 是可选的服务商。创作与游玩可以使用其他满足用�
 - **修改分配后**，从下一个请求开始生效，正在运行的请求继续用原来的模型。
 - **删除一个正在使用的端点**时，确认框会列出受影响的用途；删除后，清除引用该端点的分配，再按本节规则重新计算实际模型。确认框显示哪些用途会回落到默认模型，哪些会停用。
 
+**生成参数。** 每个用途的分配除了模型，还可以带一组生成参数，写在 `params` 里。参数挂在用途上，不挂在模型上：同一个模型续写时要深思，写摘要时要省钱，两处的参数本来就不同。
+
+| 参数 | 取值 | 交给 pi-ai |
+| --- | --- | --- |
+| `thinking` | `off`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max` | `reasoning`；`off` 时不传 |
+| `thinkingBudget` | 正整数，单位 token | `thinkingBudgets` 里与 `thinking` 同档的那一项；只对按 token 计思考预算的服务商生效 |
+| `temperature` | 0 到 2 | `temperature` |
+| `topP` | 大于 0、不超过 1 | `samplingParams.top_p` |
+| `topK` | 正整数 | `samplingParams.top_k` |
+| `minP` | 0 到 1 | `samplingParams.min_p` |
+
+- **没填的参数不发送**，由服务端的默认值决定。
+- **思考档位只对能力字段 `reasoning` 为“是”或“未知”的模型开放。** 为“否”时拒绝保存非 `off` 的档位；换成这样的模型时，分配里的思考参数一并清除。`thinkingBudget` 只在选了档位时有效。
+- **`topP`、`topK`、`minP` 只有 OpenAI 兼容协议会发送**，因为 pi-ai 只在这类协议上合并 `samplingParams`。`anthropic-messages` 端点上设置页不提供这三项，并写明原因。
+- **测试连接可以按用途发起**：用该用途实际的模型和参数，发 §6 同样的最小请求。服务商拒绝某个参数组合时，显示它的错误类别，分配保持不变。
+- 参数和模型一样，从下一个请求开始生效。
+
 ## 8. 调用、预算与错误
 
 - **调用入口只有一个。** `llm` 模块对业务模块只提供 `run(input)`；`input` 包含 `purpose`、`system`、`prompt`、`tools`、`requiredToolName`、`sessionId`、`ref` 和 `signal`。它先找到这个用途对应的 pi-ai 模型：需要工具的调用跑 pi-agent-core 的循环，不需要工具的调用直接做一次请求。
@@ -243,8 +261,8 @@ llm_calls (
 | `llm.endpoints.create` | 新增自定义端点，重发复用创建请求分配的端点 id |
 | `llm.endpoints.update` | 修改自定义端点：只能改名称、key、模型列表和能力字段。地址变化时拒绝，要作为新端点添加；跨源时返回 `endpoint_origin_changed`（§3） |
 | `llm.endpoints.remove` | 删除自定义端点 |
-| `llm.test` | 测试连接 |
-| `llm.purposes.get`、`llm.purposes.set` | 读取和修改用途分配 |
+| `llm.test` | 测试连接；可指定一个模型，也可指定一个用途，按该用途的模型和生成参数测试 |
+| `llm.purposes.get`、`llm.purposes.set` | 读取和修改用途分配，包括每个用途的生成参数 |
 | `llm.usage.summary` | 用量汇总 |
 
 ## 11. 不做的事
@@ -266,4 +284,5 @@ llm_calls (
 | 手动把 providers.json 改坏 | 在设置页点保存 | 拒绝保存，提示出错的行列；文件保持原样 |
 | 已配置若干 key | 在 client 的网络面板里查看所有 LLM 相关接口的响应 | 找不到任何 key |
 | 每种协议各配一个端点，端点对一切请求返回 302，指向另一台测试主机；其中一个内置服务商的 key 只来自标准环境变量，另有一个端点没有 key | 分别探测、测试连接、发起一次实际的模型调用 | 每个请求都以 `redirected` 失败，另一台测试主机没有收到任何请求 |
+| `narrator` 设了思考档位和采样参数，`background` 只选了模型 | 各发起一次调用，查看服务商收到的请求体 | 续写请求带上对应字段；摘要请求不带任何没填的参数。能力为“否”的模型选不了思考档位 |
 | key 写成 `$VAR`，变量只在 `~/.zshrc` 里设置 | 从访达启动 Unwritten | key 能正确解析 |
