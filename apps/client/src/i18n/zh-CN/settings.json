@@ -1,1 +1,22 @@
-{}
+{
+  "page": { "heading": "模型设置" },
+  "current": { "heading": "默认模型", "empty": "尚未配置默认模型" },
+  "endpoint": {
+    "add": "添加端点",
+    "edit": "修改端点",
+    "name": "端点名称",
+    "address": "接口地址",
+    "modelId": "模型 ID",
+    "key": "API key",
+    "keyHelp": "留空保留已保存的 key。",
+    "keyRemove": "移除已保存的 key",
+    "keySet": "已配置",
+    "keyMissing": "未配置",
+    "keyEnvMissing": "找不到配置的环境变量",
+    "test": "测试连接",
+    "testing": "正在测试",
+    "testOk": "连接成功，工具调用可用",
+    "default": "设为默认模型",
+    "save": "保存端点"
+  }
+}

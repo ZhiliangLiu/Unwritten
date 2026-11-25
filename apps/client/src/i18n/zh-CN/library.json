@@ -1,1 +1,13 @@
-{}
+{
+  "page": { "heading": "作品库" },
+  "empty": { "heading": "还没有作品", "description": "写一句背景，AI 会帮你写出开场。" },
+  "action": { "create": "新建故事" },
+  "card": {
+    "draft": "草稿",
+    "playable": "可玩",
+    "edit": "继续创作",
+    "play": "开始故事",
+    "resume": "继续游玩",
+    "updated": "更新于 {{time}}"
+  }
+}
