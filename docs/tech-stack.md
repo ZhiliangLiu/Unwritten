@@ -23,7 +23,7 @@
 | desktop | Electron 45、electron-builder 26、electron-updater 6、@electron/fuses、shell-env |
 | client | React 19 + React Compiler、Base UI 1、CSS Modules、TanStack Router 1、TanStack Query 5、Zustand 5、React Hook Form 7、TanStack Virtual 3、i18next + react-i18next、lucide-react、jsdiff |
 | contracts | Zod 4、oRPC contract 1 |
-| core | Hono 4 + @hono/node-server、oRPC server 1、Drizzle ORM + drizzle-kit、`node:sqlite`、pi-ai + pi-agent-core 1、p-queue |
+| core | Hono 4 + @hono/node-server、oRPC server 1、Drizzle ORM 1 + drizzle-kit 1、`node:sqlite`、pi-ai + pi-agent-core 1、p-queue |
 | 测试 | Vitest 5（Node 环境 + 浏览器模式）、Playwright、Testing Library、axe-core、fast-check、MSW、pi-ai 的测试用伪服务商 |
 | 代码质量 | oxlint + oxlint-tsgolint、Prettier 3、Stylelint 18、husky + lint-staged、GitHub Actions |
 
@@ -85,9 +85,9 @@ desktop 的主进程代码只有几百行：开窗口、启动和看护 core、�
 | --- | --- | --- |
 | **Hono 4** + **@hono/node-server** | HTTP 服务：令牌与 Host 校验、静态文件（client 的构建产物）、挂载 oRPC | 基于 Web 标准的 Request 和 Response，中间件简洁，类型好；下载量和 Express 同一量级 |
 | **oRPC server 1** | 实现契约：调用和事件流 | 见 §6。事件用 oRPC 的事件流推送（HTTP 流式响应），和普通调用走同一套令牌鉴权（[架构总览 §3](./architecture.md#3-client-与-core-的通信)） |
-| **Drizzle ORM** + **drizzle-kit** | 表结构定义、查询、迁移 | TypeScript 原生，SQL 写法直观，同步驱动也有同步 API；原生支持 `node:sqlite`。FTS5 虚表和祖先链递归查询用 `sql` 模板直接写 |
+| **Drizzle ORM 1** + **drizzle-kit 1** | 表结构定义、查询、迁移 | TypeScript 原生，SQL 写法直观，同步驱动也有同步 API；`node:sqlite` 驱动是 `drizzle-orm/node-sqlite`，从 1.0 起提供，所以 drizzle-orm 和 drizzle-kit 都用 1.x。FTS5 虚表和祖先链递归查询用 `sql` 模板直接写 |
 | **`node:sqlite`** | SQLite 驱动 | Node 内置，不用为 Electron 和 Node 两种运行时分别编译原生模块。Node 24 内置的 SQLite 编译时带了 FTS5，trigram 分词的中文检索可以直接用。如果 Electron 45 不提供这个模块，使用 better-sqlite3，并验证 Drizzle 驱动、迁移和各平台原生模块打包 |
-| **pi-ai 1** + **pi-agent-core 1** | 调用模型、工具调用循环 | 选型理由见 [LLM 端点](./llm-endpoints.md) |
+| **pi-ai 1** + **pi-agent-core 1** | 调用模型、工具调用循环。npm 包是 `@earendil-works/pi-ai` 和 `@earendil-works/pi-agent-core` | 选型理由见 [LLM 端点](./llm-endpoints.md) |
 | **`node:sqlite`** | 运行诊断写入 | 运行事件与性能样本写入独立的 SQLite 连接，使用准备好的语句批量提交。字段和计时口径见[运行诊断与性能记录](./diagnostics.md) |
 | **p-queue** | 后台任务队列 | 回合摘要、生成任务的并发控制（[回合循环 §9](./turn-loop.md#9-后台摘要)） |
 
@@ -192,7 +192,9 @@ unwritten/
 │     │  ├─ authoring/            向导、生成任务、工作站、动作注册表
 │     │  ├─ llm/                  providers.json、pi-ai 封装、用途分配、调用记录
 │     │  ├─ settings/             外观与阅读偏好
-│     │  └─ log/                  SQLite 运行事件、性能样本、诊断库迁移
+│     │  ├─ log/                  SQLite 运行事件、性能样本、诊断库迁移
+│     │  ├─ events/               进程内事件总线：各模块发布变更，事件流过程订阅
+│     │  └─ test-support/         测试支持代码：伪 OpenAI 服务、脚本化的 llm，不进构建产物
 │     ├─ drizzle.config.ts
 │     └─ package.json
 ├─ e2e/                           Playwright：浏览器模式与 Electron 模式

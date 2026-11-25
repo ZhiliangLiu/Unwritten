@@ -134,6 +134,7 @@
 | `opening`：生成开场候选 | `narrator` | `meta.opening_candidates` |
 | `title_blurb`：拟标题和简介 | `author_chat` | 发布确认页上的预填内容 |
 | `trial_extract`：从试玩里提取人物设定 | `author_chat` | 一张 `propose_from_trial` 卡（§10） |
+| `preview`：一次生成标题、简介、公开设定、开场正文、推荐行动和开场场景 | `narrator` | 任务自己的 `result`；作者采用时写入草稿并发布（[第一个里程碑](./milestone-1.md)） |
 
 - **输入在任务开始时冻结。** 生成期间作者改了草稿，也不影响这次任务读取的内容。
 - **写入结果和把任务标为完成在同一个事务里**，不会出现“结果已写入、任务却显示未完成”的中间状态。
@@ -218,7 +219,7 @@ card_claims (
 jobs (
   id             TEXT PRIMARY KEY,
   work_id        TEXT NOT NULL REFERENCES works ON DELETE CASCADE,
-  kind           TEXT NOT NULL,    -- plan | opening | title_blurb | trial_extract
+  kind           TEXT NOT NULL,    -- plan | opening | title_blurb | trial_extract | preview
   status         TEXT NOT NULL,    -- running | done | failed
   input          JSON NOT NULL,    -- 冻结的输入
   result         JSON,
