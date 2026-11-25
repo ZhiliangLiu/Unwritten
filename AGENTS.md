@@ -102,7 +102,8 @@
 
 ## 7. 贯穿性硬纪律
 
-- **不经同意不 commit，也不 push。** 每次都要当场明确获准，之前批准过一次不算数。维护者明说“提交”“commit 并 push”时，这句话本身就是这一次的授权，只管这一次。
+- **代码改动一律在 worktree 里做。** 仓库里任何被跟踪的文件要改——代码、测试、配置、`docs/`、`AGENTS.md`——都先从 `main` 切一个 worktree：`git worktree add .claude/worktrees/<slug> -b <slug>`。目录名和分支名用同一个 kebab-case 短名，一个任务一个 worktree；`.claude/worktrees/` 已在 `.gitignore` 里，不会进仓库。收口时把分支合回 `main`，然后连 worktree 带分支一起删：`git worktree remove .claude/worktrees/<slug>` 加 `git branch -d <slug>`。判据是 `git worktree list` 只剩主工作区、`git branch` 只剩 `main`——残留的 worktree 会让下一轮在旧副本上动手。
+- **不经同意不 commit，也不 push。** 每次都要当场明确获准，之前批准过一次不算数。维护者明说“提交”“commit 并 push”时，这句话本身就是这一次的授权，只管这一次。合并回 `main` 也是一次 commit，同样要当场获准。
 - **所有代码改动收口前，都必须用 `code-review-skill` 自检。** 对本次的全部 diff 走完技能规定的流程，不能用“自己看过”或“测试跑过”代替。确认成立的问题修掉后，重新对完整 diff 做 review，并重跑相关检查，直到都通过。只是“可能”的问题写进汇报，交维护者裁决，不自行取舍。只修本次改动引入的问题；顺带发现的无关毛病提一句即可，不顺手改。
 - **文档随改动当场改。** 设计一变，就直接把 `docs/` 改到位，写法遵循 [docs/AGENTS.md](docs/AGENTS.md)，不留“稍后补文档”的尾巴。改了标题或章节编号，运行 `node scripts/check-doc-links.mjs`。
 - **测试和示例里的故事内容一律虚构。** 用户的作品库里可能有第三方作品或未公开的作品，它们的文字、人物名、设定都不得进入已跟踪文件。测试只借用长度、分段、标点这类结构，内容另行编写。
