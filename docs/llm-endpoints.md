@@ -39,10 +39,12 @@
 }
 ```
 
-- **位置**是 `<数据目录>/providers.json`，文件权限 0600。
+- **位置**是 `<数据目录>/providers.json`。macOS、Linux 上文件权限为 0600；Windows 上依赖用户目录的访问控制。
 - **写入。** core 内部的写操作排队执行，每次先写临时文件，再改名覆盖原文件，避免写到一半留下坏文件。
 - **读取。** core 启动时读一次；每次使用前检查文件的修改时间，变了就重新读。所以用户手动编辑文件也能生效，生效后通过事件流推送 `llm.config_changed`。
 - **文件写坏了怎么办。** core 读取时按 schema 校验。文件无法解析时，设置页显示出错的行和列，并**拒绝从界面保存**，以免覆盖掉用户手写的内容。只有用户明确选择“用界面里的配置覆盖文件”时才会写入。
+- **启动时文件就是坏的。** core 照常启动，作品库、创作和阅读都能用；需要调用模型的功能停用，并提示“模型配置文件有误”。设置页照样能打开，显示出错位置，用户可以手动修好文件，或选择用界面配置覆盖。
+- **文件版本与迁移。** `version` 低于当前版本时，core 读取时在内存里升级；第一次从界面保存时写回新格式，旧文件另存为同目录的 `providers.json.bak`。它同样含有 key，权限和原文件相同。`version` 高于当前版本（被更新的应用写过）时，只读，拒绝从界面保存，提示升级应用。
 - **自定义端点的 id** 格式是 `custom-<名称简写>-<6 位随机十六进制>`，做法同 thinkrail 的 `newEndpointId`。
 
 ## 3. key 的来源与保护
@@ -64,8 +66,8 @@
 - **key 不出 core。** 列表接口只返回 `hasKey` 和 `keySource`（文件 / 某个环境变量 / 无），永远不返回 key 本身。
 - **编辑时 key 输入框留空，就保留原来的 key。** 要去掉 key 必须点“移除 key”（同 thinkrail 的 `hasSavedKey` / `removeKey`）。
 - **日志和调用记录里不出现 key。** 服务商返回的错误信息里如果带着 key，先抹掉再记录。
-- **带 key 探测时不跟随重定向**，以免 key 被转发到另一台主机（同 thinkrail：带 key 时 `redirect: "error"`）。
-- **端点的地址不能改到另一个源。** 协议、主机、端口任何一项变了，都要作为新端点添加，否则已保存的 key 会被悄悄发给新的主机（同 thinkrail 的“A server keeps its address”）。
+- **带 key 的请求一律不跟随重定向**（`redirect: "error"`，同 thinkrail），包括探测、测试连接和实际的模型调用，以免 key 被转发到另一台主机。实际的模型调用经过 pi-ai 和各家 SDK，所以由 `llm` 模块在 core 进程里包装全局的 `fetch`：请求的头或地址里出现任何一个已配置的 key（Google 的 key 可能放在地址参数里）时，强制这个选项，不依赖各家 SDK 自己的设置。Anthropic 协议的 key 放在 `x-api-key` 头里，Fetch 标准的“跨源重定向时去掉 `Authorization`”保护不到它，所以这条规则不能省。
+- **端点的地址不能改到另一个源。** 协议、主机、端口任何一项变了，都要作为新端点添加，否则已保存的 key 会被悄悄发给新的主机（同 thinkrail 的“A server keeps its address”）。修改端点时只能改名称、key、模型列表和能力字段（§10）。
 - **带 key 通过明文 http 访问非本机地址时**，界面给出警告，但不阻止（局域网里的模型服务很常见）。
 
 key 以明文或环境变量引用的形式保存在本机文件里，不用系统钥匙串。这是已经定下的取舍。介意明文存储的用户，可以改用环境变量引用。
@@ -86,7 +88,7 @@ OpenCode Go 是 Unwritten 必须支持的服务商。它是 pi-ai 的内置服�
 | Go 的要求 | Unwritten 的做法 |
 | --- | --- |
 | 用自己的 User-Agent 标明身份 | pi-ai `identity.userAgent` 设为 `{ custom: "unwritten/<版本>" }`；`identity.attribution` 的 `name` 设为 `unwritten`，pi-ai 会据此发出 `x-opencode-client: unwritten` |
-| 每个对话发送固定的会话标识 | pi-ai 的 `sessionId` 参数：游玩时用路线 id（回合和摘要都用这个），工作站对话用线程 id，生成任务用作品 id |
+| 每个对话发送固定的会话标识 | pi-ai 的 `sessionId` 参数：游玩时用路线 id（回合和摘要都用这个）；开场和每局生成人物时还没有路线，用开局 id；工作站对话用线程 id，生成任务用作品 id |
 | 发送“典型的编程 agent 流量” | 做不到：Unwritten 的请求是文字冒险。这个风险用户已经接受。设置页选择 Go 时显示一句提示：“OpenCode Go 面向编程 agent，官方会监控滥用。” |
 
 **用量上限。** Go 的用量有三层限制：每 5 小时、每周、每月。触发限制时按 `quota` 类错误处理（§8），提示“OpenCode Go 用量已达上限，稍后再试，或在 Console 开启 Extra Usage”，不自动重试。
@@ -172,7 +174,7 @@ OpenCode Go 是 Unwritten 必须支持的服务商。它是 pi-ai 的内置服�
 
 用途只分三档，对应成本画像完全不同的三类调用：看重写作质量的、看重听从指令的、看重便宜和快的。
 
-- **分配时校验。** `tools` 为“否”的模型不能分配给 `narrator` 和 `author_chat`。为“未知”的可以分配，但会提示先测试连接。
+- **分配时校验。** 校验按每个用途实际用到的模型来做：`narrator` 和 `author_chat` 没有单独配置、要回落到 `default` 时，`default` 的模型同样要求支持工具调用。`tools` 为“否”的模型不能用于这两个用途；为“未知”的可以，但会提示先测试连接。
 - **用途没有配置、也没有 `default` 时**，依赖它的功能会停用，并写明原因，例如“请先在设置里为『游玩』选择模型”。向导按钮同样显示原因。
 - **修改分配后**，从下一个请求开始生效，正在运行的请求继续用原来的模型。
 - **删除一个正在使用的端点**时，确认框会列出受影响的用途；删除后，这些用途变为未配置。
@@ -181,7 +183,7 @@ OpenCode Go 是 Unwritten 必须支持的服务商。它是 pi-ai 的内置服�
 
 - **调用入口只有一个。** `llm` 模块对外只提供 `run(purpose, {system, messages, tools, sessionId, signal, onEvent})`。它先找到这个用途对应的 pi-ai 模型：需要工具的调用跑 pi-agent-core 的循环，不需要工具的调用直接做一次请求。
 - **预算数字**来自模型元数据中的上下文窗口和输出上限。不知道上下文窗口时按 32,768 处理，并在设置页提醒补填；不知道输出上限时按 §6 的默认规则计算。
-- **调用前的长度估算**按字符数保守计算（中文按一个字一个 token），超出预算时按[回合循环 §3](./turn-loop.md#3-上下文哪些直接给哪些让模型查)的顺序裁剪。
+- **调用前的长度估算**按字符数保守计算：中日韩文字按每字 2 个 token，其他文字按每 3 个字符 1 个 token。很多分词器里一个汉字要占 1 到 3 个 token，按一字一个 token 算会低估。这两个系数可配置。超出预算时按[回合循环 §3](./turn-loop.md#3-上下文哪些直接给哪些让模型查)的顺序裁剪。
 - **时间上限：** 一次调用 120 秒内没有任何输出、或者流式输出中途停顿 60 秒，都按超时处理。两个上限都可配置。
 - **取消：** 回合请求或生成任务被取消时，通过 `AbortSignal` 中止正在进行的调用。
 
@@ -192,9 +194,11 @@ OpenCode Go 是 Unwritten 必须支持的服务商。它是 pi-ai 的内置服�
 | `rate_limited` | 短时限流 | 等待后重试一次 | 无 |
 | `context_overflow` | 服务商报告输入过长 | 不重试，记录实际长度 | 当前模型的上下文不够，请换一个模型 |
 | `network` / `timeout` / `server` | 断网、超时、5xx | 还没收到任何输出时重试一次 | 连不上模型服务 |
-| `bad_output` | 模型没有调用 `propose_turn`，或参数无法解析 | 走[回合循环 §6](./turn-loop.md#6-校验与保存)的修正机制 | 无 |
+| `invalid_output` | 模型没有调用 `propose_turn`，或参数无法解析、校验不通过 | 走[回合循环 §6](./turn-loop.md#6-校验与保存)的修正机制，修正 2 次仍不通过才失败 | 这一段没写成功，请重试 |
 
 自动重试最多一次。再失败就交给玩家点“重试”，避免多层重试叠在一起。
+
+`context_overflow` 和[回合循环 §3](./turn-loop.md#3-上下文哪些直接给哪些让模型查)的 `context_too_small` 是两件事：后者是 core 在调用前就算出约束性材料放不下，根本不发请求；前者是估算之后服务商仍然报告超长。两者提示相同，但前者说明估算系数偏小，记录实际长度供调整。全部错误码定义在 contracts 的 `errors.ts`（[i18n §5](./i18n.md#5-core-返回什么)）。
 
 ## 9. 调用记录
 
@@ -224,15 +228,19 @@ llm_calls (
 
 ## 10. core 接口
 
-| 接口 | 作用 |
+这些接口都是 contracts 里的 oRPC 过程，输入、输出和错误由契约定义，没有单独的 HTTP 路由（[架构总览 §3](./architecture.md#3-client-与-core-的通信)）。
+
+| 过程 | 作用 |
 | --- | --- |
-| `GET /api/llm/providers` | 内置服务商和自定义端点的列表：`hasKey`、`keySource`、模型及其能力 |
-| `PUT /api/llm/providers/:id/key` | 设置或移除内置服务商的 key |
-| `POST /api/llm/endpoints/probe` | 探测一个地址，返回模型列表或失败类别 |
-| `POST /api/llm/endpoints`、`PUT /api/llm/endpoints/:id`、`DELETE /api/llm/endpoints/:id` | 保存、修改、删除自定义端点 |
-| `POST /api/llm/test` | 测试连接 |
-| `GET /api/llm/purposes`、`PUT /api/llm/purposes` | 读取和修改用途分配 |
-| `GET /api/llm/usage` | 用量汇总 |
+| `llm.providers.list` | 内置服务商和自定义端点的列表：`hasKey`、`keySource`、模型及其能力 |
+| `llm.providers.setKey` | 设置或移除内置服务商的 key |
+| `llm.endpoints.probe` | 探测一个地址，返回模型列表或失败类别 |
+| `llm.endpoints.create` | 新增自定义端点 |
+| `llm.endpoints.update` | 修改自定义端点：只能改名称、key、模型列表和能力字段。地址的协议、主机、端口任何一项变了，以 `endpoint_origin_changed` 拒绝，要作为新端点添加（§3） |
+| `llm.endpoints.remove` | 删除自定义端点 |
+| `llm.test` | 测试连接 |
+| `llm.purposes.get`、`llm.purposes.set` | 读取和修改用途分配 |
+| `llm.usage.summary` | 用量汇总 |
 
 ## 11. 不做的事
 

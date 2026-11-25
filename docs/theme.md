@@ -23,7 +23,7 @@
 ```
 
 - **基元层不含颜色。** 颜色属于主题，放在语义层。
-- **语义层是每套主题的必填契约。** §5 表里的每个 token，两套主题都必须给出值。少一个，测试就会失败（§12）。
+- **语义层是每套主题的必填契约。** §5、§6、§7 表里的每个 token（颜色、材质、层次），两套主题都必须给出值。少一个，测试就会失败（§12）。
 - **组件只认语义名**，例如 `--uw-color-surface`，永远不认 `#FBFAF7`。
 
 ## 3. 命名
@@ -41,7 +41,7 @@
 | `z` / `opacity` | `--uw-z-popover`、`--uw-opacity-disabled` |
 | `elevation` | `--uw-elevation-overlay` |
 | `material` | `--uw-material-overlay-bg` |
-| `motion` / `transition` | `--uw-motion-duration-fast`、`--uw-transition-feedback`（见[动效 §3](./motion.md#3-token)） |
+| `motion` / `transition` / `animation` | `--uw-motion-duration-fast`、`--uw-transition-feedback`、`--uw-animation-pulse`（见[动效 §3](./motion.md#3-token)） |
 
 token 的名字表达角色，不表达取值：写 `--uw-color-text-muted`，不写 `--uw-color-gray-600`。
 
@@ -131,10 +131,10 @@ token 的名字表达角色，不表达取值：写 `--uw-color-text-muted`，�
 | `--uw-color-surface-selected` | 选中项 | `#E4E9F0` | `#28313D` |
 | `--uw-color-text` | 主要文字 | `#26221D` | `#E7E3DB` |
 | `--uw-color-text-muted` | 次要文字、说明、占位符 | `#5F584F` | `#ACA59A` |
-| `--uw-color-text-subtle` | 装饰性或大字号的元信息，不承载必读内容 | `#8C8478` | `#7D776E` |
+| `--uw-color-text-subtle` | 装饰性或大字号的元信息，不承载必读内容 | `#888074` | `#827C72` |
 | `--uw-color-text-on-accent` | 强调色实底上的文字 | `#FFFFFF` | `#141A21` |
 | `--uw-color-border` | 分隔线、卡片描边（装饰性） | `#E3DED5` | `#33302C` |
-| `--uw-color-border-control` | 输入框、复选框等控件的边框 | `#8A8174` | `#78716A` |
+| `--uw-color-border-control` | 输入框、复选框等控件的边框 | `#857C70` | `#857E76` |
 | `--uw-color-accent` | 主按钮底色、选中指示 | `#3B5878` | `#8EAED3` |
 | `--uw-color-accent-hover` | 强调色悬停 | `#324C68` | `#A2BEDF` |
 | `--uw-color-accent-pressed` | 强调色按下 | `#2A405A` | `#7C9DC3` |
@@ -154,18 +154,18 @@ token 的名字表达角色，不表达取值：写 `--uw-color-text-muted`，�
 | `--uw-color-scrim` | 对话框遮罩 | `rgb(38 34 29 / 0.32)` | `rgb(0 0 0 / 0.5)` |
 | `--uw-color-shadow` | 投影色的 RGB 三元组，供 §7 合成 | `40 32 20` | `0 0 0` |
 
-**对比度**（按上表取值计算，§12 的测试会钉住它们）：
+**对比度**（按上表取值计算，§12 的测试会钉住它们）。下表的“各个表面”指全部 7 种表面底色：`bg`、`surface`、`surface-raised`、`surface-sunken`、`surface-hover`、`surface-pressed`、`surface-selected`。
 
 | 组合 | 浅色 | 深色 | 要求 |
 | --- | --- | --- | --- |
-| `text` 对各个表面 | ≥ 13.2 : 1 | ≥ 11.6 : 1 | ≥ 4.5 : 1 |
-| `text-muted` 对各个表面 | ≥ 5.8 : 1 | ≥ 6.1 : 1 | ≥ 4.5 : 1 |
-| `text-subtle` 对 `surface` | 3.5 : 1 | 3.7 : 1 | ≥ 3 : 1，只用于大字号或装饰 |
+| `text` 对各个表面 | ≥ 12.4 : 1 | ≥ 10.2 : 1 | ≥ 4.5 : 1 |
+| `text-muted` 对各个表面 | ≥ 5.5 : 1 | ≥ 5.3 : 1 | ≥ 4.5 : 1 |
+| `text-subtle` 对各个表面 | ≥ 3.0 : 1 | ≥ 3.1 : 1 | ≥ 3 : 1，只用于大字号或装饰 |
 | `ink` 对 `page` | 11.5 : 1 | 11.4 : 1 | 落在约 11 : 1 的护眼区间：足够清楚，又不像纯黑配纯白那样刺眼 |
-| `accent-text`、`ink-action` 对所在表面 | ≥ 6.8 : 1 | ≥ 8.0 : 1 | ≥ 4.5 : 1 |
+| `accent-text` 对各个表面；`ink-action` 对 `page` | ≥ 6.5 : 1 | ≥ 6.4 : 1 | ≥ 4.5 : 1 |
 | 四种反馈色对 `surface` | ≥ 5.3 : 1 | ≥ 6.5 : 1 | ≥ 4.5 : 1 |
-| `border-control` 对各个表面 | ≥ 3.2 : 1 | ≥ 3.1 : 1 | ≥ 3 : 1（WCAG 1.4.11） |
-| `focus-ring` 对 `surface` | 7.0 : 1 | 7.2 : 1 | ≥ 3 : 1 |
+| `border-control` 对各个表面 | ≥ 3.2 : 1 | ≥ 3.2 : 1 | ≥ 3 : 1（WCAG 1.4.11） |
+| `focus-ring` 对各个表面 | ≥ 5.8 : 1 | ≥ 5.7 : 1 | ≥ 3 : 1 |
 
 **两条规则：**
 
@@ -179,8 +179,10 @@ token 的名字表达角色，不表达取值：写 `--uw-color-text-muted`，�
 | 材质角色 | 用在哪里 | token | 浅色和深色主题的取值 |
 | --- | --- | --- | --- |
 | 功能层 `chrome` | 顶部工具行、工作站面板 | `--uw-material-chrome-bg`、`--uw-material-chrome-backdrop` | `var(--uw-color-surface)`、`none` |
-| 浮层 `overlay` | 菜单、下拉、气泡、对话框、通知 | `--uw-material-overlay-bg`、`--uw-material-overlay-backdrop`、`--uw-material-overlay-border`、`--uw-material-overlay-elevation` | `var(--uw-color-surface-raised)`、`none`、`var(--uw-color-border)`、`var(--uw-elevation-overlay)` |
-| 内容 | 正文纸、卡片、输入框、表格 | 直接用颜色 token | 永远不透明，不经过材质 token |
+| 浮层 `overlay` | 菜单、下拉、气泡、对话框 | `--uw-material-overlay-bg`、`--uw-material-overlay-backdrop`、`--uw-material-overlay-border`、`--uw-material-overlay-elevation` | `var(--uw-color-surface-raised)`、`none`、`var(--uw-color-border)`、`var(--uw-elevation-overlay)` |
+| 内容 | 正文纸、卡片、输入框、表格、通知、错误提示 | 直接用颜色 token | 永远不透明，不经过材质 token |
+
+通知和错误提示也浮在页面上方，所以沿用浮层的描边和投影（`--uw-material-overlay-border`、`--uw-material-overlay-elevation`），但背景直接用 `--uw-color-surface-raised`。它们承载必须立刻读清的状态，任何主题下都不半透明。
 
 组件这样写：
 
@@ -229,7 +231,7 @@ Windows 的强制颜色模式（`forced-colors: active`）见 [a11y §7](./a11y.
 
 ## 9. 外观偏好与切换
 
-**偏好存在 core。** 外观偏好（跟随系统 / 浅色 / 深色）和阅读偏好（正文字号、字体、行距）都存在 core 的设置里，因为桌面版和将来的 web 客户端要共用同一份偏好。
+**偏好存在 core。** 外观偏好（跟随系统 / 浅色 / 深色）和阅读偏好（正文字号、字体、行距）都存在 core 的设置里，因为桌面版和将来的 web 客户端要共用同一份偏好。设置页通过契约里的 `settings.get` 和 `settings.update` 两个过程读写它们。
 
 **首屏不闪。** core 返回 `index.html` 时，把偏好直接写在根元素上：
 
@@ -246,7 +248,7 @@ Windows 的强制颜色模式（`forced-colors: active`）见 [a11y §7](./a11y.
 **原生界面跟着走：**
 
 - 每个主题文件都声明 `color-scheme: light` 或 `color-scheme: dark`，让滚动条、原生表单控件、默认选中色跟主题一致。
-- desktop 把 Electron 的 `nativeTheme.themeSource` 设成同一个偏好，让原生菜单、标题栏、系统对话框也跟主题一致。偏好变化时，core 通过 `utilityProcess` 的消息通道通知 desktop。
+- desktop 把 Electron 的 `nativeTheme.themeSource` 设成同一个偏好，让原生菜单、标题栏、系统对话框也跟主题一致。偏好变化时，core 通过进程消息通道发出 `appearance-changed`，通知 desktop（[架构总览 §2.3](./architecture.md#23-core-与-desktop-的进程消息通道)）。
 
 **切换时的过渡。** 浅色和深色之间不做生硬跳变，因为大面积的亮度突变刺眼。
 
@@ -261,7 +263,7 @@ Windows 的强制颜色模式（`forced-colors: active`）见 [a11y §7](./a11y.
 - **颜色字面量**——十六进制、`rgb()`、`hsl()`、颜色名——只能出现在 `themes/*.css` 里。
 - **组件不写主题选择器**，例如 `[data-uw-theme='dark']`，也不在 TypeScript 里读主题名。主题差异只能通过 token 表达。
 - **组件可以定义局部变量**，例如 `--button-height`，但它的值必须来自全局 token。
-- **内联 `style` 只能设置 CSS 自定义属性**，用来传递运行时才知道的几何量，例如虚拟列表的偏移量；不能直接写视觉值。
+- **内联 `style` 只能设置 CSS 自定义属性**，用来传递运行时才知道的几何量，例如虚拟列表的偏移量；不能直接写视觉值。React 通过 CSSOM 写入 `style`，不受内容安全策略的 `style-src` 限制，所以不需要 `'unsafe-inline'`（[架构总览 §2.1](./architecture.md#21-本机接口的安全)）。
 - **组件状态用 Base UI 暴露的 data 属性来选**，例如 `[data-open]`、`[data-disabled]`、`[data-highlighted]`、`[data-starting-style]`，不另外造 class。
 - **方向一律用逻辑属性**，例如 `margin-inline-start`、`inset-block-end`、`inline-size`（[i18n §8](./i18n.md#8-布局方向)）。
 
@@ -286,9 +288,9 @@ apps/client/src/theme/
   - 用 `color-no-hex`、`color-named: never`，以及禁止 `rgb`、`hsl`、`color-mix` 等颜色函数的规则，禁止颜色字面量。`themes/*.css` 豁免这一条；
   - 禁止 `transition: all`；
   - 要求使用逻辑属性。
-- **ESLint：** 自定义一条规则，规定 JSX 的 `style` 对象里只允许 `--` 开头的键。
+- **oxlint：** 用 oxlint 的 JS 插件自写一条规则，规定 JSX 的 `style` 对象里只允许 `--` 开头的键（[技术选型 §9](./tech-stack.md#9-代码质量)）。
 - **token 契约测试：**
-  - 解析两个主题文件，确认 §5 和 §7 的每个 token 在两边都有定义；
+  - 解析两个主题文件，确认 §5、§6、§7 的每个 token 在两边都有定义；
   - 按 §5 的对比度表计算每一组颜色，低于要求就失败。
 - **外观测试：**
   - DOM 上从不出现 `data-uw-theme="system"`；
@@ -298,8 +300,8 @@ apps/client/src/theme/
 ## 13. 新增一套主题
 
 1. 复制 `themes/light.css` 或 `themes/dark.css`，改成新的主题 id。id 只用小写字母和连字符，发布后不再改名。
-2. 填完 §5 和 §7 的全部 token，并通过 §12 的契约测试和对比度测试。
-3. 只有确实需要时，才覆盖材质 token 或动效 token。半透明主题遵守 §6 的约束。
+2. 填完 §5、§6、§7 的全部 token，并通过 §12 的契约测试和对比度测试。
+3. 材质 token 默认指向不透明的颜色 token，只有确实需要时才改成半透明；动效 token 也只在确实需要时覆盖。半透明主题遵守 §6 的约束。
 4. 在外观偏好里加上这个选项；展示名走 i18n。
 5. 用户保存的主题 id 不认识时（例如主题被撤下），回落为“跟随系统”，不报错。
 

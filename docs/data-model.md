@@ -6,11 +6,11 @@
 
 | 层 | 是什么 | 由谁写 | 什么时候改变 |
 | --- | --- | --- | --- |
-| 作品版本 | 作者的世界：设定、方案、开场、人物、秘密、状态栏定义、关键场面、结束条件 | 作者，通过创作向导和工作站 | 草稿随时可改；试玩快照和发布版本一经建立就不再改动 |
+| 作品版本 | 作者的世界：设定、方案、开场、人物、秘密、状态栏定义、关键场面、结束条件 | 作者，通过创作向导和工作站 | 草稿随时可改。复制成试玩快照或发布版本后，作者设定的部分不再改变；游玩产生的行继续追加在同一个版本下 |
 | 经历 | 一次开局下的回合树、路线和存档 | 玩家行动 + AI 回应，由 core 校验后提交 | 每提交一个回合，就在树上加一个节点 |
-| 故事事实 | 人物、地点、事件、关系、约定、谁知道什么、状态值 | 作者设定的部分随作品版本走；游玩中产生的部分挂在产生它的回合上 | 只追加，不修改 |
+| 故事事实 | 人物、地点、事件、关系、约定、谁知道什么、状态值 | 作者设定的部分随作品版本走；游玩中产生的部分挂在产生它的回合上 | 作者设定在草稿里可以编辑，复制进试玩快照或发布版本后冻结；游玩中产生的行只追加，不修改 |
 
-**最关键的设计：路线能看见什么，由回合树上的祖先链决定。** 不能用“第几回合之前”这种线性位置来过滤：两条路线可能共享同一段过去，如果在共享回合的行上写入“从某处起失效”，另一条路线也会被一起改掉。所以当前状态一律是对只追加日志的投影：只追加新行，从不修改旧行。
+**最关键的设计：路线能看见什么，由回合树上的祖先链决定。** 不能用“第几回合之前”这种线性位置来过滤：两条路线可能共享同一段过去，如果在共享回合的行上写入“从某处起失效”，另一条路线也会被一起改掉。所以路线上的当前状态一律是对只追加日志的投影：游玩中产生的行只追加，从不修改。
 
 ## 2. 作品与版本
 
@@ -29,6 +29,8 @@ work_versions (
   work_id       TEXT NOT NULL REFERENCES works ON DELETE CASCADE,
   kind          TEXT NOT NULL,     -- draft | trial | published
   copied_from   TEXT,              -- 由哪个版本复制而来
+  content_rev   INTEGER NOT NULL DEFAULT 0,  -- 作者设定的修订号，见下文“未发布的修改”
+  source_rev    INTEGER,           -- 复制时源版本的 content_rev
   meta          JSON NOT NULL,     -- 见下表
   created_at, updated_at
 )
@@ -39,15 +41,15 @@ work_versions (
 | 字段 | 内容 |
 | --- | --- |
 | `background` | 作者写的背景原文 |
-| `settings` | 补充设定。每一节都保存作者原文，以及作者的选择（例如主要人物用固定角色还是每局生成、行动提示是只显示行动还是提醒已知后果） |
-| `plan` | 故事方案。每一项都标明来源是作者还是 AI |
-| `protagonist_fields` | 作者留给玩家填写的主角项目 |
+| `settings` | 补充设定。每一节都保存作者原文、作者的选择（例如主要人物用固定角色还是每局生成、行动提示是只显示行动还是提醒已知后果），以及这一节自己的修订号 `rev` |
+| `plan` | 故事方案。每一项都标明来源：`author`（作者写的）、`ai`（AI 补全的）、`author_confirmed`（作者在提案卡上确认过的 AI 内容）。`author` 和 `author_confirmed` 都受“作者设定优先”的保护，AI 不能直接改写 |
+| `protagonist_fields` | 作者留给玩家填写的主角项目。每一项有项目名和默认值，玩家留空时用默认值，开场占位符因此总有值可填 |
 | `cast_slots` | 主要人物的位置。固定角色指向一个实体；每局生成的位置保存这个角色在故事里的作用和一次相遇样例 |
-| `opening` | 采用的开场：正文、初始选项、初始场景、初始状态值，以及它引用了哪些设定、各是什么修订号（见[创作工作站 §7](./author-workstation.md#7-受影响范围与开场核对)） |
+| `opening` | 采用的开场：正文、初始选项、初始场景、初始状态值，以及它引用了哪些设定、各是什么修订号（见[创作工作站 §7](./author-workstation.md#7-受影响范围与开场核对)）。正文里可以含主角填写项的占位符，格式为 `{{protagonist.<项目名>}}`，开局时替换成玩家填写的值（[回合循环 §10](./turn-loop.md#10-开场)） |
 | `opening_candidates` | 仅草稿有：候选开场 |
 | `key_scenes` | 关键场面：每条有编号、条件原文、发生什么、是否只发生一次 |
 | `ending` | 结束条件原文；为空表示开放式作品 |
-| `narration` | 作品语言（默认 `zh-CN`，见 [i18n §6](./i18n.md#6-作品语言)），以及基调、视角、段落节奏、对白风格等叙事要求 |
+| `narration` | 作品语言，以及基调、视角、段落节奏、对白风格等叙事要求。作品语言在生成故事方案时按作者背景所用的语言定下，作者可以修改（[i18n §6](./i18n.md#6-作品语言)） |
 | `wizard_step` | 仅草稿有：向导停在哪一步 |
 
 **为什么这些放在 JSON 里。** 它们由向导和工作站整块读写，从不按名字查询，而且只属于某一个版本。人物、地点、事实、状态栏定义则放进下面的表，因为回合循环的只读工具要把它们和游玩中产生的行一起查询。
@@ -62,9 +64,17 @@ work_versions (
 | 新开局 | 使用 `works.published_id` 指向的版本 |
 | 续玩 / 从存档另开 | 沿用该开局创建时记录的版本 |
 
-**怎样复制。** 复制版本时，实体、称呼、事实、知情、状态栏定义中所有作者设定的行（`origin_turn_id` 为空的行）一起复制，并且**保留原来的 id**。这些表的主键都是 `(version_id, id)`，所以复制后各行之间的引用不需要改写，同一个人物在草稿、试玩快照和发布版本里都是同一个 id。
+**怎样复制。**
 
-可玩作品是否还有未发布的修改，用草稿的 `updated_at` 是否晚于发布版本的 `created_at` 来判断。
+- **故事事实表：** 实体、称呼、事实、知情、状态栏定义中所有作者设定的行（`origin_turn_id` 为空的行）一起复制，换上新的 `version_id`，其余列原样保留：
+  - `entities`、`facts` 的主键是 `(version_id, id)`，`id` 不变；
+  - `entity_names`、`knowledge` 通过 `entity_id`、`fact_id` 引用前两张表，引用值不变；
+  - `state_defs` 的主键是 `(version_id, key)`，`key` 不变。
+
+  所以复制后各行之间的引用不需要改写，同一个人物在草稿、试玩快照和发布版本里都是同一个 id。
+- **meta：** `opening_candidates` 和 `wizard_step` 只属于草稿，不复制；`opening` 只复制已采用的那一份。
+
+**未发布的修改。** 草稿里作者设定的任何写入——`meta` 中除 `wizard_step`、`opening_candidates` 以外的字段，以及实体、称呼、事实、知情、状态定义——都在同一个事务里把草稿的 `content_rev` 加一。复制时，新版本记下源版本的 `content_rev`，写进 `source_rev`。草稿的 `content_rev` 大于最近发布版本的 `source_rev`，就表示有未发布的修改。切换向导步骤这类界面状态不参与计数。
 
 ## 3. 经历：开局、回合树、路线、存档
 
@@ -74,7 +84,7 @@ playthroughs (
   version_id    TEXT NOT NULL REFERENCES work_versions ON DELETE CASCADE,
   kind          TEXT NOT NULL,     -- play | trial
   protagonist   JSON,              -- 玩家这次填写的主角项目
-  cast          JSON,              -- 每局生成模式下本局确定的人物，开场提交时写入实体表
+  cast          JSON,              -- 每局生成模式下本局确定的人物；只在开场提交前暂存，供失败后重试。开场提交时写入实体表，并清空这一列
   root_turn_id  TEXT,              -- 开场回合；开场生成失败时为空，重试时沿用这一行
   created_at
 )
@@ -132,7 +142,7 @@ saves (
 
 ```sql
 entities (
-  version_id    TEXT NOT NULL,
+  version_id    TEXT NOT NULL REFERENCES work_versions ON DELETE CASCADE,
   id            TEXT NOT NULL,
   kind          TEXT NOT NULL,     -- character | place | item | group | other
   name          TEXT NOT NULL,     -- 真名，叙述者视角
@@ -145,7 +155,8 @@ entities (
 )
 
 entity_names (
-  version_id, entity_id,
+  version_id    TEXT NOT NULL REFERENCES work_versions ON DELETE CASCADE,
+  entity_id     TEXT NOT NULL,
   name          TEXT NOT NULL,
   holder_id     TEXT,              -- 谁这样称呼他；空 = 公开称呼
   origin_turn_id TEXT REFERENCES turns ON DELETE CASCADE,
@@ -156,7 +167,7 @@ CREATE UNIQUE INDEX entity_names_unique
   ON entity_names (version_id, entity_id, name, ifnull(holder_id, ''), ifnull(origin_turn_id, ''));
 
 facts (
-  version_id    TEXT NOT NULL,
+  version_id    TEXT NOT NULL REFERENCES work_versions ON DELETE CASCADE,
   id            TEXT NOT NULL,
   origin_turn_id TEXT REFERENCES turns ON DELETE CASCADE,  -- 空 = 作者设定
   source_para   INTEGER,
@@ -169,9 +180,14 @@ facts (
   rev           INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (version_id, id)
 )
+-- 有 key 的事实，同一组在同一个回合里只能有一行；event 没有 key，不受限
+CREATE UNIQUE INDEX facts_keyed_unique
+  ON facts (version_id, kind, ifnull(subject_id, ''), ifnull(object_id, ''), key, ifnull(origin_turn_id, ''))
+  WHERE key IS NOT NULL;
 
 knowledge (
-  version_id, fact_id,
+  version_id    TEXT NOT NULL REFERENCES work_versions ON DELETE CASCADE,
+  fact_id       TEXT NOT NULL,
   holder_id     TEXT NOT NULL,     -- 知情者（实体 id；玩家即主角实体）
   level         TEXT NOT NULL,     -- heard | suspects | confirmed | misled
   via_id        TEXT,              -- 从谁那里得知
@@ -182,7 +198,8 @@ CREATE UNIQUE INDEX knowledge_unique
   ON knowledge (version_id, fact_id, holder_id, ifnull(origin_turn_id, ''));
 
 state_defs (
-  version_id, key,
+  version_id    TEXT NOT NULL REFERENCES work_versions ON DELETE CASCADE,
+  key           TEXT NOT NULL,
   label         TEXT NOT NULL,
   display       TEXT NOT NULL,     -- number | stage | text
   hidden        INTEGER NOT NULL DEFAULT 0,  -- 作者标为幕后：永远不显示给玩家
@@ -193,7 +210,7 @@ state_defs (
 )
 
 state_values (
-  version_id    TEXT NOT NULL,
+  version_id    TEXT NOT NULL REFERENCES work_versions ON DELETE CASCADE,
   turn_id       TEXT NOT NULL REFERENCES turns ON DELETE CASCADE,
   key           TEXT NOT NULL,
   value         TEXT,
@@ -214,7 +231,13 @@ state_values (
 - `knowledge` 按 `(fact_id, holder_id)` 分组，后面的覆盖前面的。
 - `state_values` 按 `key` 分组，后面的覆盖前面的。
 - “后面”指所在回合的 `depth` 更大。作者设定的行视为 `depth = -1`，所以总是最先被覆盖。
-- **同一组在同一个回合里最多只有一行。** `entity_names`、`knowledge` 的唯一索引和 `state_values` 的主键保证这一点，所以“取 depth 最大的那一行”的结果总是唯一的。
+- **同一组在同一个回合里最多只有一行。** `facts`、`entity_names`、`knowledge` 的唯一索引和 `state_values` 的主键保证这一点，所以“取 depth 最大的那一行”的结果总是唯一的。
+
+**状态栏目显示给谁。** 三个字段按以下优先级决定：
+
+1. `state_defs.hidden` 为 1 的栏目永远不显示给玩家，任何状态变化都不能把它设为显示；
+2. 其余栏目此刻是否显示，由最近一次状态变化的 `visible` 决定；`closed` 为 1 时栏目收起，但来历仍留在手记里；
+3. `state_defs.reveal` 是作者写的揭晓条件原文。它交给 narrator 判断什么时候把 `visible` 设为 1，由评测保证，不做确定性校验。
 
 **几个典型的事实：**
 
@@ -222,7 +245,7 @@ state_values (
 | --- | --- |
 | 约定 | 先是一条 `event` 记下“对方问明天还会等我吗”；玩家答应后，才写 `promise`（`key` 是约定名，`status=agreed`），出处必须是答应的那一段；之后再写 `kept` 或 `broken`。一次询问不能直接记成承诺 |
 | 认识的过程 | 主角对某人的 `relation`，`key=acquaintance`，`data.stage` 依次为 `heard_of`、`met`、`familiar`。听说时在 `data.via` 里记下是谁提起的 |
-| 秘密 | 作者设定的 `secret` 事实，`data.title` 是无剧透的标题，`data.reveal` 是揭晓条件原文。一开局就知情的角色，用作者设定的 `knowledge` 行表示；主角得知秘密时，追加一条带出处的 `knowledge` |
+| 秘密 | `secret` 事实，`data.title` 是无剧透的标题，`data.reveal` 是揭晓条件原文。秘密可以来自作者设定，也可以由 narrator 在游玩中创造（[回合循环 §5](./turn-loop.md#5-提交一回合propose_turn-与-ask_clarification)）。一开始就知情的角色，用同一来源的 `knowledge` 行表示；主角得知秘密时，追加一条带出处的 `knowledge` |
 | 称呼 | 真名在 `entities.name`；主角知道的称呼是 `entity_names` 中 `holder_id` 为主角的行，例如“撑伞的女人”，得知真名后再追加一条 |
 | 关键场面已触发 | 写一条 `scene_hit` 事实，`key` 是场面编号，出处是发生的那一段 |
 | 新增状态栏目 | 写一条 `state_defs`，`origin_turn_id` 指向新增它的回合；作者标为幕后的信息，在新栏目里同样设为 `hidden` |
@@ -278,12 +301,16 @@ turn_summaries (
 
 prose_fts  -- FTS5 虚表，tokenize='trigram'
   (turn_id UNINDEXED, para UNINDEXED, body)
+
+-- FTS5 虚表不能声明外键，回合删除时由触发器清掉它的索引行
+CREATE TRIGGER turns_delete_fts AFTER DELETE ON turns
+BEGIN DELETE FROM prose_fts WHERE turn_id = old.id; END;
 ```
 
 - **全文索引在提交回合的同一个事务里写入**，所以已提交的回合一定搜得到。
-- **摘要在后台生成**（见[回合循环 §9](./turn-loop.md#9-后台摘要)）。生成失败或还没生成时，用“回合编号 + 玩家行动”代替。
+- **摘要在后台生成**（见[回合循环 §9](./turn-loop.md#9-后台摘要)）。生成失败或还没生成时，用“回合编号 + 玩家行动”代替；开场回合没有玩家行动，用“开场”。
 - **中文检索：** trigram 分词能处理中文，但不足 3 个字的查询切不出任何片段，结构上就搜不到。所以 1–2 个字的查询改为在祖先链的段落里做子串扫描。扫描范围受路线长度限制。
-- **派生数据不需要版本栅栏。** 已提交的回合不会再变，所以不存在“摘要基于旧版正文”的问题。写入摘要时只需确认回合仍然存在：候选被删除时，它的摘要和索引行会通过外键一起删掉。
+- **派生数据不需要版本栅栏。** 已提交的回合不会再变，所以不存在“摘要基于旧版正文”的问题。写入摘要时只需确认回合仍然存在：候选被删除时，它的摘要随外键删除，索引行由上面的触发器删除。
 
 ## 7. 写在其他文档里的表
 
@@ -295,12 +322,20 @@ prose_fts  -- FTS5 虚表，tokenize='trigram'
 
 ## 8. 删除
 
-- 删除作品时，通过外键级联删除它的所有版本、开局、回合、路线、存档、事实和对话。
-- 候选被删除时，挂在它上面的事实、称呼、知情、状态值、摘要、索引行一起删除。
-- 试玩快照和它的试玩进度一起保留，作者删除那次试玩时才一并删除。
-- 被替换下来的原版回合不删除，因为旧存档可能还指向它。
+SQLite 默认不执行外键约束。core 打开每个数据库连接时都执行 `PRAGMA foreign_keys = ON`，下面的级联删除才会生效。
 
-## 9. 验收
+- **删除作品：** 外键级联删除它的所有版本；版本下的开局、回合、路线、存档，以及作者设定和游玩产生的故事事实，都随版本删除；对话和生成任务随作品删除。正文的索引行由回合删除触发器清掉。
+- **删除候选：** 挂在它上面的事实、称呼、知情、状态值、摘要随外键删除，索引行由触发器删除。
+- **试玩：** 试玩快照和它的试玩进度一起保留，随作品一起删除，不单独提供删除。
+- **被替换下来的原版回合不删除**，因为旧存档可能还指向它。
+
+## 9. 不做的事
+
+- **单独删除一次试玩。** 试玩记录体量小，随作品一起删除就够了；单独删除要设计入口和确认流程，收益不大。
+- **跨作品共享人物或设定。** 每部作品的故事事实都按版本隔离，同名人物在不同作品里互不相干。
+- **语义检索和向量索引。** 检索只用 trigram 全文检索和短查询的子串扫描（§6）。
+
+## 10. 验收
 
 | 从什么情况开始 | 操作 | 应当看到的结果 |
 | --- | --- | --- |
