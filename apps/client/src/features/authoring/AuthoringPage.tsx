@@ -1,10 +1,11 @@
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { queryKeys } from '../../shared/api/query.ts';
 import { useApi } from '../../shared/api/context.tsx';
-import { ErrorNotice } from '../../shared/ui/Notice.tsx';
+import { ErrorNotice, LiveRegion } from '../../shared/ui/Notice.tsx';
+import { reportSample } from '../../shared/lib/log.ts';
 import styles from '../../app/app.module.css';
 
 export function AuthoringPage({ workId }: { workId: string }) {
@@ -15,11 +16,25 @@ export function AuthoringPage({ workId }: { workId: string }) {
   const work = useQuery({
     queryKey: queryKeys.work(workId),
     queryFn: () => api.works.get({ workId }),
-    refetchInterval: 1_000,
   });
   const [draft, setDraft] = useState<string | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const startedAt = useRef<number | null>(null);
+  const reportedJob = useRef<string | null>(null);
+
+  useEffect(() => {
+    const latest = work.data?.latestPreviewJob;
+    if (!latest || latest.status === 'running' || startedAt.current === null || reportedJob.current === latest.id)
+      return;
+    reportedJob.current = latest.id;
+    reportSample(api, {
+      metric: 'client.preview_visible',
+      durationMs: performance.now() - startedAt.current,
+      outcome: latest.status === 'done' ? 'ok' : 'error',
+      workId,
+      jobId: latest.id,
+    });
+  }, [api, workId, work.data?.latestPreviewJob]);
 
   const background = draft ?? work.data?.draft.background ?? '';
 
@@ -39,6 +54,7 @@ export function AuthoringPage({ workId }: { workId: string }) {
 
   const generate = useMutation({
     mutationFn: async () => {
+      startedAt.current = performance.now();
       const saved =
         background === work.data?.draft.background
           ? { contentRev: work.data?.draft.contentRev ?? 0 }
@@ -48,7 +64,6 @@ export function AuthoringPage({ workId }: { workId: string }) {
               background,
             });
       const id = crypto.randomUUID();
-      setJobId(id);
       return api.works.generatePreview({ workId, jobId: id, contentRev: saved.contentRev });
     },
     onSuccess: () => {
@@ -59,8 +74,9 @@ export function AuthoringPage({ workId }: { workId: string }) {
 
   const adopt = useMutation({
     mutationFn: async () => {
-      if (!jobId) throw new Error('no preview');
-      return api.works.adoptPreview({ workId, jobId });
+      const latest = work.data?.latestPreviewJob;
+      if (!latest) throw new Error('no preview');
+      return api.works.adoptPreview({ workId, jobId: latest.id });
     },
     onSuccess: (result) => navigate({ to: '/play/$routeId', params: { routeId: result.routeId } }),
     onError: setError,
@@ -76,6 +92,17 @@ export function AuthoringPage({ workId }: { workId: string }) {
   return (
     <section className={styles.page}>
       <h1 className={styles.heading}>{t('authoring:page.heading')}</h1>
+      <LiveRegion
+        message={
+          job?.status === 'running'
+            ? t('authoring:preview.running')
+            : job?.status === 'done'
+              ? t('authoring:preview.done')
+              : job?.status === 'failed'
+                ? t('authoring:preview.failed')
+                : ''
+        }
+      />
       <ErrorNotice error={error ?? work.error} />
       <label className={styles.label}>
         {t('authoring:background.label')}
@@ -120,6 +147,12 @@ export function AuthoringPage({ workId }: { workId: string }) {
         </div>
       ) : null}
       {job?.status === 'running' ? <p className={styles.muted}>{t('authoring:preview.running')}</p> : null}
+      {job?.status === 'failed' ? (
+        <div className={styles.notice} role='alert'>
+          <p>{t(`errors:${job.error ?? 'unknown'}`, { code: job.error })}</p>
+          <p className={styles.muted}>{t('authoring:preview.failed')}</p>
+        </div>
+      ) : null}
       {preview ? (
         <article className={styles.card}>
           <h2>{t('authoring:preview.heading')}</h2>

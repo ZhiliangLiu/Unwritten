@@ -1,10 +1,12 @@
 import { Link, useNavigate } from '@tanstack/react-router';
+import { useEffect, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { queryKeys } from '../../shared/api/query.ts';
 import { useApi } from '../../shared/api/context.tsx';
 import { ErrorNotice } from '../../shared/ui/Notice.tsx';
 import { formatRelative } from '../../shared/lib/format.ts';
+import { reportSample } from '../../shared/lib/log.ts';
 import styles from '../../app/app.module.css';
 
 export function LibraryPage() {
@@ -12,6 +14,20 @@ export function LibraryPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const works = useQuery({ queryKey: queryKeys.works, queryFn: () => api.works.list() });
+  const startedAt = useRef<number | null>(null);
+  const reported = useRef(false);
+  useEffect(() => {
+    if (startedAt.current === null) startedAt.current = performance.now();
+  }, []);
+  useEffect(() => {
+    if (reported.current || (!works.data && !works.error)) return;
+    reported.current = true;
+    reportSample(api, {
+      metric: 'client.library_ready',
+      durationMs: performance.now() - (startedAt.current ?? performance.now()),
+      outcome: works.error ? 'error' : 'ok',
+    });
+  }, [api, works.data, works.error]);
   const create = useMutation({
     mutationFn: () => api.works.create({ workId: crypto.randomUUID() }),
     onSuccess: (work) => navigate({ to: '/works/$workId/edit', params: { workId: work.id } }),

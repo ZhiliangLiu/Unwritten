@@ -27,6 +27,10 @@ async function run(): Promise<void> {
   process.on('SIGTERM', () => void shutdown());
 }
 
+process.on('unhandledRejection', () => {
+  process.stderr.write('unwritten: unhandled background failure\n');
+});
+
 void run().catch(() => {
   process.stderr.write('unwritten: core failed to start\n');
   process.exit(1);

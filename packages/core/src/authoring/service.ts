@@ -27,9 +27,10 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
     const job = deps.db.select().from(jobs).where(eq(jobs.id, jobId)).get();
     if (!job || job.status !== 'running') return;
     const startedAt = performance.now();
+    const queuedAt = Date.now();
     deps.logger.sample({
       metric: 'preview.queue',
-      durationMs: startedAt - job.createdAt,
+      durationMs: Math.max(0, queuedAt - job.createdAt),
       outcome: 'ok',
       jobId,
       workId: job.workId,
@@ -220,7 +221,16 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
           jobId: input.jobId,
           workId: result.workId,
         });
-        void queue.add(() => runPreviewJob(input.jobId));
+        void queue
+          .add(() => runPreviewJob(input.jobId))
+          .catch(() => {
+            deps.db
+              .update(jobs)
+              .set({ status: 'failed', error: 'internal', updatedAt: Date.now() })
+              .where(and(eq(jobs.id, input.jobId), eq(jobs.status, 'running')))
+              .run();
+            deps.bus.publish({ type: 'job.updated', workId: result.workId, jobId: input.jobId, status: 'failed' });
+          });
       }
       return result.view;
     },

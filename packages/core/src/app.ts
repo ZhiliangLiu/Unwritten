@@ -100,10 +100,12 @@ export async function startCore(options: CliOptions, factories: ServiceFactories
       close() {
         if (closing) return closing;
         closing = (async () => {
-          if (server) {
-            await new Promise<void>((resolve) => server!.close(() => resolve()));
-          }
           shutdown.abort();
+          if (server) {
+            const closingServer = new Promise<void>((resolve) => server!.close(() => resolve()));
+            (server as { closeAllConnections?: () => void }).closeAllConnections?.();
+            await closingServer;
+          }
           await Promise.all([authoring.whenIdle(), play.whenIdle()]);
           opened?.close();
           logger.record({ level: 'info', module: 'core', event: 'core.stopped' });
