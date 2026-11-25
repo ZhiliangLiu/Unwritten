@@ -63,6 +63,7 @@ export function App() {
   );
 }
 
-export function bootstrap() {
-  return initI18n();
+export async function bootstrap() {
+  await initI18n();
+  await Promise.all([loadNamespace("library"), loadNamespace("authoring"), loadNamespace("play"), loadNamespace("settings")]);
 }
