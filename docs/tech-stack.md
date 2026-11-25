@@ -39,7 +39,7 @@
 | **tsdown** | core、desktop 的打包 | 基于 Rolldown，和 Vite 8 用同一套打包器；是 tsup 的继任者 |
 | **Lightning CSS** | CSS 转换 | 由 Vite 内置调用，负责 CSS Modules、嵌套语法和 `@custom-media` 断点（[主题与 token §4.4](./theme.md#44-层级不透明度断点)），不再需要 PostCSS |
 
-**内部包直接导出 TypeScript 源码。** `packages/contracts` 不单独构建，`exports` 直接指向 `src/*.ts`，由使用它的 Vite 和 tsdown 一起打包。这样不需要生成 `.d.ts`，也就避开了 TS 7 下生成声明文件的工具兼容问题。
+**内部包直接导出 TypeScript 源码。** `packages/contracts` 不单独构建，`exports` 直接指向 `src/*.ts`，由使用它的 Vite 和 tsdown 一起打包。这样不需要生成 `.d.ts`，也就避开了 TS 7 下生成声明文件的工具兼容问题。它有两个入口：`@unwritten/contracts` 是 client 与 core 之间的契约，`@unwritten/contracts/desktop` 是 core 与 desktop 之间的进程消息类型。desktop 只导入后者，打包时不会带上整份 oRPC 契约。
 
 ## 4. desktop
 
@@ -172,12 +172,12 @@ unwritten/
 ├─ packages/
 │  ├─ contracts/                  client、core、desktop 之间共用的契约，直接导出源码
 │  │  ├─ src/
-│  │  │  ├─ index.ts              导出整份契约
+│  │  │  ├─ index.ts              导出 client 与 core 之间的契约
 │  │  │  ├─ schemas/              Zod schema：作品、版本、回合、路线、设置……
 │  │  │  ├─ procedures/           oRPC 契约，按领域分文件
 │  │  │  ├─ events.ts             事件流的事件类型
 │  │  │  ├─ errors.ts             错误码
-│  │  │  └─ desktop.ts            core 与 desktop 之间的进程消息类型
+│  │  │  └─ desktop.ts            core 与 desktop 之间的进程消息类型，单独作为 `/desktop` 入口导出
 │  │  └─ package.json
 │  └─ core/
 │     ├─ src/
@@ -213,9 +213,9 @@ unwritten/
 
 **依赖方向：**
 
-- `apps/client` 只依赖 `packages/contracts`；
-- `packages/core` 依赖 `packages/contracts`；
-- `apps/desktop` 只依赖 `packages/contracts` 里的进程消息类型，负责启动 core 的构建产物，不导入 core 的代码。
+- `apps/client` 只依赖 `@unwritten/contracts`，不导入 `/desktop` 入口；
+- `packages/core` 依赖 `@unwritten/contracts` 的两个入口；
+- `apps/desktop` 只依赖 `@unwritten/contracts/desktop`，负责启动 core 的构建产物，不导入 core 的代码。
 
 这条规则由 oxlint 的 import 规则检查。
 
@@ -245,6 +245,6 @@ unwritten/
 | --- | --- | --- |
 | 刚克隆下来的仓库 | `pnpm install`，然后 `pnpm turbo run typecheck lint test build` | 全部通过；类型检查用的是 TS 7 |
 | 一个包的版本需要升级 | 只改 `pnpm-workspace.yaml` 的 catalog | 所有使用它的包一起升级，没有哪个包单独写死版本 |
-| client 的代码里写一行 `import … from '@unwritten/core'` | 运行 oxlint | 报错 |
+| client 的代码里写一行 `import … from '@unwritten/core'`；或者 desktop 的代码里导入 `@unwritten/contracts` 的主入口 | 运行 oxlint | 报错 |
 | 独立运行的 core | 用浏览器打开它打印出的地址 | 和桌面窗口的行为一致 |
 | 打包后的 macOS 应用 | 从访达启动，配置一个 `$VAR` 写法的 key，再查看全文检索 | key 能解析；中文的 trigram 检索能命中 |
