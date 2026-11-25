@@ -1,7 +1,23 @@
-export const contract = {};
+import { eventsContract } from "./procedures/events.ts";
+import { llmContract } from "./procedures/llm.ts";
+import { logContract } from "./procedures/log.ts";
+import { playContract } from "./procedures/play.ts";
+import { worksContract } from "./procedures/works.ts";
 
-export const DEFAULT_APPEARANCE = {};
+export const contract = {
+  llm: llmContract,
+  works: worksContract,
+  play: playContract,
+  events: eventsContract,
+  log: logContract,
+};
+export type Contract = typeof contract;
 
-export function appearanceAttributes(input: unknown) {
-  return input === undefined ? "" : "";
-}
+export * from "./errors.ts";
+export * from "./events.ts";
+export * from "./schemas/appearance.ts";
+export * from "./schemas/common.ts";
+export * from "./schemas/llm.ts";
+export * from "./schemas/log.ts";
+export * from "./schemas/play.ts";
+export * from "./schemas/works.ts";
