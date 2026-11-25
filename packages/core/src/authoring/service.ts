@@ -168,6 +168,36 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
     });
   };
 
+  const failBackgroundJob = (jobId: string, workId: string, startedAt: number) => {
+    deps.db
+      .update(jobs)
+      .set({ status: 'failed', error: 'internal', updatedAt: Date.now() })
+      .where(and(eq(jobs.id, jobId), eq(jobs.status, 'running')))
+      .run();
+    deps.bus.publish({ type: 'job.updated', workId, jobId, status: 'failed' });
+    deps.logger.record({
+      level: 'error',
+      module: 'authoring',
+      event: 'preview.job.failed',
+      jobId,
+      workId,
+      data: { code: 'internal' },
+    });
+    deps.logger.sample({
+      metric: 'preview.total',
+      durationMs: performance.now() - startedAt,
+      outcome: 'error',
+      jobId,
+      workId,
+      data: { code: 'internal' },
+    });
+  };
+
+  const startPreviewJob = (jobId: string, workId: string) => {
+    const startedAt = performance.now();
+    void queue.add(() => runPreviewJob(jobId)).catch(() => failBackgroundJob(jobId, workId, startedAt));
+  };
+
   return {
     generatePreview(input): PreviewJobView {
       const result = deps.db.transaction(
@@ -221,16 +251,7 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
           jobId: input.jobId,
           workId: result.workId,
         });
-        void queue
-          .add(() => runPreviewJob(input.jobId))
-          .catch(() => {
-            deps.db
-              .update(jobs)
-              .set({ status: 'failed', error: 'internal', updatedAt: Date.now() })
-              .where(and(eq(jobs.id, input.jobId), eq(jobs.status, 'running')))
-              .run();
-            deps.bus.publish({ type: 'job.updated', workId: result.workId, jobId: input.jobId, status: 'failed' });
-          });
+        startPreviewJob(input.jobId, result.workId);
       }
       return result.view;
     },

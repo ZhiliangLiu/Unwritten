@@ -5,6 +5,7 @@ import { queryKeys } from '../../shared/api/query.ts';
 import { useApi } from '../../shared/api/context.tsx';
 import { ErrorNotice } from '../../shared/ui/Notice.tsx';
 import styles from '../../app/app.module.css';
+import { beginEndpointEdit } from './endpoint-edit.ts';
 
 export function SettingsPage() {
   const api = useApi();
@@ -85,6 +86,7 @@ export function SettingsPage() {
       }),
     onSuccess: () => {
       setEditingId(null);
+      setEditKeyAction('keep');
       setEditKeyValue('');
       void queryClient.invalidateQueries({ queryKey: queryKeys.llm });
     },
@@ -203,9 +205,12 @@ export function SettingsPage() {
                 <button
                   className={`${styles.button} ${styles.secondary}`}
                   onClick={() => {
-                    setEditingId(endpoint.id);
-                    setEditName(endpoint.name);
-                    setEditModelId(endpoint.models[0]?.id ?? '');
+                    const next = beginEndpointEdit(endpoint);
+                    setEditingId(next.id);
+                    setEditName(next.name);
+                    setEditModelId(next.modelId);
+                    setEditKeyAction(next.keyAction);
+                    setEditKeyValue(next.keyValue);
                   }}
                 >
                   {t('settings:endpoint.edit')}

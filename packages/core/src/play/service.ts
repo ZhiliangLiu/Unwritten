@@ -361,6 +361,42 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService }): PlaySer
     });
   };
 
+  const failBackgroundRequest = (requestId: string, startedAt: number) => {
+    const request = deps.db.select().from(turnRequests).where(eq(turnRequests.id, requestId)).get();
+    if (!request?.routeId) return;
+    deps.db
+      .update(turnRequests)
+      .set({ status: 'failed', error: 'internal', updatedAt: Date.now() })
+      .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
+      .run();
+    deps.bus.publish({
+      type: 'turn_request.updated',
+      routeId: request.routeId,
+      requestId,
+      status: 'failed',
+    });
+    deps.logger.record({
+      level: 'error',
+      module: 'play',
+      event: 'turn.request.failed',
+      requestId,
+      data: { attempt: request.attempts, code: 'internal' },
+    });
+    deps.logger.sample({
+      metric: 'turn.total',
+      durationMs: performance.now() - startedAt,
+      outcome: 'error',
+      requestId,
+      attempt: request.attempts,
+      data: { code: 'internal' },
+    });
+  };
+
+  const startTurnRequest = (requestId: string) => {
+    const startedAt = performance.now();
+    void queue.add(() => runTurnRequest(requestId)).catch(() => failBackgroundRequest(requestId, startedAt));
+  };
+
   return {
     getRoute,
     submitAction(input: SubmitActionInput): TurnRequestView {
@@ -432,23 +468,7 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService }): PlaySer
           requestId: input.requestId,
           data: { attempt: 1 },
         });
-        void queue
-          .add(() => runTurnRequest(input.requestId))
-          .catch(() => {
-            const request = deps.db.select().from(turnRequests).where(eq(turnRequests.id, input.requestId)).get();
-            if (!request?.routeId) return;
-            deps.db
-              .update(turnRequests)
-              .set({ status: 'failed', error: 'internal', updatedAt: Date.now() })
-              .where(and(eq(turnRequests.id, input.requestId), eq(turnRequests.status, 'running')))
-              .run();
-            deps.bus.publish({
-              type: 'turn_request.updated',
-              routeId: request.routeId,
-              requestId: input.requestId,
-              status: 'failed',
-            });
-          });
+        startTurnRequest(input.requestId);
       }
       return result.view;
     },
@@ -500,23 +520,7 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService }): PlaySer
           requestId: input.requestId,
           data: { attempt: result.view.attempts },
         });
-        void queue
-          .add(() => runTurnRequest(input.requestId))
-          .catch(() => {
-            const request = deps.db.select().from(turnRequests).where(eq(turnRequests.id, input.requestId)).get();
-            if (!request?.routeId) return;
-            deps.db
-              .update(turnRequests)
-              .set({ status: 'failed', error: 'internal', updatedAt: Date.now() })
-              .where(and(eq(turnRequests.id, input.requestId), eq(turnRequests.status, 'running')))
-              .run();
-            deps.bus.publish({
-              type: 'turn_request.updated',
-              routeId: request.routeId,
-              requestId: input.requestId,
-              status: 'failed',
-            });
-          });
+        startTurnRequest(input.requestId);
       } else if (result.action === 'superseded') {
         deps.bus.publish({
           type: 'turn_request.updated',
