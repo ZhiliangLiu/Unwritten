@@ -25,7 +25,7 @@
 | contracts | Zod 4、oRPC contract 1 |
 | core | Hono 4 + @hono/node-server、oRPC server 1、Drizzle ORM 1 + drizzle-kit 1、`node:sqlite`、pi-ai + pi-agent-core 1、p-queue |
 | 测试 | Vitest 5（Node 环境 + 浏览器模式）、Playwright、Testing Library、axe-core、fast-check、MSW、pi-ai 的测试用伪服务商 |
-| 代码质量 | oxlint + oxlint-tsgolint、Prettier 3、Stylelint 18、husky + lint-staged、GitHub Actions |
+| 代码质量 | oxlint + oxlint-tsgolint、Prettier 3、Stylelint 18、lefthook、GitHub Actions |
 
 ## 3. 仓库与工具链
 
@@ -113,8 +113,22 @@ desktop 的主进程代码只有几百行：开窗口、启动和看护 core、�
 | oxlint 的 JS 插件 | `eslint-plugin-i18next`（禁止字面字符串）、`eslint-plugin-react-hooks`（React Compiler 规则），以及本仓库自写的规则（`style` 只允许自定义属性） | 能直接加载 ESLint 9 的插件 |
 | **Prettier 3** | 格式化 TypeScript、JSON、Markdown | 事实标准；它自带解析器，与项目的 TypeScript 版本无关 |
 | **Stylelint 18** | CSS 检查：只用 token、逻辑属性、禁止 `transition: all` | 插件：`stylelint-config-standard`、`stylelint-declaration-strict-value`、`stylelint-use-logical` |
-| **husky** + **lint-staged** | 提交前只检查改动过的文件 | 同类里使用最广 |
+| **lefthook** | 提交前只检查暂存的文件：oxlint、Stylelint、Prettier | 它把 hook 装进 `.git/hooks`，同一个仓库的 worktree 共用一份，新 worktree 不用重装；按 glob 分组、`{staged_files}`、跑完把改好的文件写回暂存区都是它自己的配置，不用再叠一层 lint-staged |
 | **GitHub Actions** | CI：类型检查、lint、测试，以及三个平台的打包 | Turborepo 的缓存让没改动的包跳过 |
+
+`lefthook.yml` 的 `pre-commit` 按顺序跑三件事，任何一件不过就拦下这次提交：
+
+| 步骤 | 命令 | 范围 |
+| --- | --- | --- |
+| 1 | `oxlint --fix` | 暂存的 TypeScript、JS 文件 |
+| 2 | `stylelint --fix` | 暂存的 `apps/client/src` 下的 CSS |
+| 3 | `prettier --write` | 暂存的、`pnpm format` 覆盖到的文件 |
+
+Prettier 放最后，因为它决定最终排版；前两步修出来的代码由它收口。三个阶段都开了 `stage_fixed`，改好的内容回到暂存区，不会留下没暂存的残留。
+
+提交前这一步跑的是不带 `--type-aware` 的 oxlint。类型感知要整个项目的上下文，放在提交路径上会慢到让人想按 `--no-verify`；它仍然归 `pnpm lint` 全量跑（[AGENTS.md §7](../AGENTS.md#7-贯穿性硬纪律)）。同理，类型检查和测试都不进 pre-commit。
+
+hook 用 `pnpm exec` 解析工具，所以没有 `node_modules` 的 worktree 里第一次提交会先补一次 `pnpm install`。hook 本身由根目录的 `prepare` 脚本在 `pnpm install` 之后安装：它把 `.git/hooks/pre-commit` 写成调用 lefthook 的入口，所以 hook 跟着依赖安装走，不需要单独记一条命令。
 
 ## 10. TypeScript 7 与工具链
 
@@ -210,6 +224,7 @@ unwritten/
 ├─ .oxlintrc.json
 ├─ .prettierrc.json
 ├─ stylelint.config.mjs
+├─ lefthook.yml                  提交前对暂存文件跑 oxlint、stylelint、Prettier
 └─ .node-version
 ```
 
@@ -237,6 +252,7 @@ unwritten/
 | Redux | 服务端数据交给 TanStack Query 之后，剩下的界面状态用 Zustand 就够了 |
 | Jest | Vitest 与 Vite 共用配置和转译，还有真实浏览器模式 |
 | ESLint + typescript-eslint | 还不支持 TS 7（§10） |
+| husky + lint-staged | lint-staged 只做暂存文件过滤，hook 还得另外装。husky 的 hook 脚本放在 `.husky/_`，那个目录由 husky 自己用 `.gitignore` 排除，不随仓库分发，所以每切一个 worktree 都要重装才生效，漏装时也不报错，表现为提交时什么都不跑。lefthook 直接写 `.git/hooks`，worktree 共用 |
 | Biome | 格式化和 lint 都不错，但插件生态不够，装不上 i18next 规则；类型感知规则也不如 oxlint-tsgolint 完整 |
 | Vercel AI SDK、LiteLLM | 见 [LLM 端点](./llm-endpoints.md)；LiteLLM 是 Python 库 |
 
@@ -247,5 +263,7 @@ unwritten/
 | 刚克隆下来的仓库 | `pnpm install`，然后 `pnpm turbo run typecheck lint test build` | 全部通过；类型检查用的是 TS 7 |
 | 一个包的版本需要升级 | 只改 `pnpm-workspace.yaml` 的 catalog | 所有使用它的包一起升级，没有哪个包单独写死版本 |
 | client 的代码里写一行 `import … from '@unwritten/core'`；或者 desktop 的代码里导入 `@unwritten/contracts` 的主入口 | 运行 oxlint | 报错 |
+| 暂存一个引号是双引号的文件，同一个提交里另有一个 `console.log` | 提交 | 引号被改成单引号并写回暂存区；提交被 `no-console` 拦下 |
+| 新建一个 worktree，什么都没装就提交 | 提交 | 先自动补一次 `pnpm install`，然后照常跑检查 |
 | 独立运行的 core | 用浏览器打开它打印出的地址 | 和桌面窗口的行为一致 |
 | 打包后的 macOS 应用 | 从访达启动，配置一个 `$VAR` 写法的 key，再查看全文检索 | key 能解析；中文的 trigram 检索能命中 |

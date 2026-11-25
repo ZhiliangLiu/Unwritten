@@ -17,12 +17,14 @@
     "check:docs": "node scripts/check-doc-links.mjs",
     "dev": "turbo run dev",
     "dev:core": "pnpm --filter @unwritten/core dev",
-    "dev:client": "pnpm --filter @unwritten/client dev"
+    "dev:client": "pnpm --filter @unwritten/client dev",
+    "prepare": "lefthook install"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "eslint-plugin-i18next": "catalog:",
     "eslint-plugin-react-hooks": "catalog:",
+    "lefthook": "catalog:",
     "oxlint": "catalog:",
     "oxlint-tsgolint": "catalog:",
     "prettier": "catalog:",
