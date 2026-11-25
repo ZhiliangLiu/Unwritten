@@ -33,7 +33,7 @@
 | --- | --- | --- |
 | **pnpm 12** | 包管理、workspaces | 依赖隔离严格，不会让一个包悄悄用到它没声明的依赖。catalog 让全仓的版本只有一处来源（thinkrail 用的也是 catalog） |
 | **Turborepo 2** | 任务编排与缓存 | `build`、`test`、`lint`、`typecheck` 按依赖顺序执行，结果可以缓存；同类工具里使用最广，比 Nx 轻 |
-| **TypeScript 7** | 类型检查 | 用 Go 重写的原生编译器，比 5.x、6.x 快一个数量级。用 `tsc -b` 配合项目引用做全仓类型检查。工具链的兼容情况见 §10 |
+| **TypeScript 7** | 类型检查 | 用 Go 重写的原生编译器，比 5.x、6.x 快一个数量级。用 Turbo 按包运行 `tsc --noEmit`，各包直接检查所用的 contracts 源码。工具链的兼容情况见 §10 |
 | **Node 24** | 开发和独立运行 core 时的运行时 | 和 Electron 45 内置的 Node 主版本一致，避免开发时和打包后的行为不同。版本写在 `.node-version` 和各包的 `engines` 里 |
 | **Vite 8** | client 的开发服务器与构建 | 事实标准；8.x 用 Rolldown 打包 |
 | **tsdown** | core、desktop 的打包 | 基于 Rolldown，和 Vite 8 用同一套打包器；是 tsup 的继任者 |
@@ -70,7 +70,7 @@ desktop 的主进程代码只有几百行：开窗口、启动和看护 core、�
 | **lucide-react** | 图标 | 见[设计准则 §7](./design-guidelines.md#7-图标) |
 | **jsdiff**（`diff`） | 文字差异 | 提案卡上的修改前后对比、开场核对 |
 
-不引入动画库。动效全部用 CSS transition 和 token 实现（[动效 §6](./motion.md#6-实现规则)）。将来出现松手后需要继续运动的手势时，再引入 Motion（原 Framer Motion）。
+不引入动画库。动效以 CSS transition 和 token 为基础，循环反馈和主题切换按动效文档实现（[动效 §6](./motion.md#6-实现规则)）。将来出现松手后需要继续运动的手势时，再引入 Motion（原 Framer Motion）。
 
 ## 6. contracts
 
@@ -86,7 +86,7 @@ desktop 的主进程代码只有几百行：开窗口、启动和看护 core、�
 | **Hono 4** + **@hono/node-server** | HTTP 服务：令牌与 Host 校验、静态文件（client 的构建产物）、挂载 oRPC | 基于 Web 标准的 Request 和 Response，中间件简洁，类型好；下载量和 Express 同一量级 |
 | **oRPC server 1** | 实现契约：调用和事件流 | 见 §6。事件用 oRPC 的事件流推送（HTTP 流式响应），和普通调用走同一套令牌鉴权（[架构总览 §3](./architecture.md#3-client-与-core-的通信)） |
 | **Drizzle ORM** + **drizzle-kit** | 表结构定义、查询、迁移 | TypeScript 原生，SQL 写法直观，同步驱动也有同步 API；原生支持 `node:sqlite`。FTS5 虚表和祖先链递归查询用 `sql` 模板直接写 |
-| **`node:sqlite`** | SQLite 驱动 | Node 内置，不用为 Electron 和 Node 两种运行时分别编译原生模块。Node 24 内置的 SQLite 编译时带了 FTS5，trigram 分词的中文检索可以直接用。如果 Electron 45 不提供这个模块，换成 better-sqlite3：Drizzle 下只改一行驱动 |
+| **`node:sqlite`** | SQLite 驱动 | Node 内置，不用为 Electron 和 Node 两种运行时分别编译原生模块。Node 24 内置的 SQLite 编译时带了 FTS5，trigram 分词的中文检索可以直接用。如果 Electron 45 不提供这个模块，使用 better-sqlite3，并验证 Drizzle 驱动、迁移和各平台原生模块打包 |
 | **pi-ai 1** + **pi-agent-core 1** | 调用模型、工具调用循环 | 选型理由见 [LLM 端点](./llm-endpoints.md) |
 | **pino 10** | 结构化日志 | Node 生态里最快、最主流的日志库。按天滚动写入数据目录的 `logs/`（`pino-roll`）。client 的日志通过接口转交 core，写进同一套日志 |
 | **p-queue** | 后台任务队列 | 回合摘要、生成任务的并发控制（[回合循环 §9](./turn-loop.md#9-后台摘要)） |
@@ -122,7 +122,7 @@ TypeScript 7 是用 Go 重写的原生编译器，不再提供旧的 JavaScript 
 
 | 环节 | 做法 |
 | --- | --- |
-| 类型检查 | `tsc -b`，使用 TS 7 原生编译器 |
+| 类型检查 | 各包运行 `tsc --noEmit`，使用 TS 7 原生编译器 |
 | 转译 | Vite 和 tsdown 用 Oxc 转译，与 TypeScript 版本无关 |
 | lint | oxlint，类型感知部分由 oxlint-tsgolint 提供，它本身就建立在 TS 7 之上 |
 | 格式化 | Prettier 自带解析器 |

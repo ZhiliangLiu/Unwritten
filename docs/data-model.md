@@ -71,7 +71,7 @@ work_versions (
 - **故事事实表：** 实体、称呼、事实、知情、状态栏定义中所有作者设定的行（`origin_turn_id` 为空的行）一起复制，换上新的 `version_id`，其余列原样保留：
   - `entities`、`facts` 的主键是 `(version_id, id)`，`id` 不变；
   - `entity_names`、`knowledge` 通过 `entity_id`、`fact_id` 引用前两张表，引用值不变；
-  - `state_defs` 的主键是 `(version_id, key)`，`key` 不变。
+  - `state_defs` 的主键是 `(version_id, id)`，`id` 和 `key` 不变。
 
   所以复制后各行之间的引用不需要改写，同一个人物在草稿、试玩快照和发布版本里都是同一个 id。
 - **meta：** `opening_candidates` 和 `wizard_step` 只属于草稿，不复制；`opening` 只复制已采用的那一份。
@@ -96,7 +96,7 @@ turns (
   playthrough_id TEXT NOT NULL REFERENCES playthroughs ON DELETE CASCADE,
   parent_id     TEXT REFERENCES turns,  -- 开场为空
   depth         INTEGER NOT NULL,       -- 开场为 0
-  action        JSON,                   -- 玩家行动的原话：{kind: option | free, text}；开场为空
+  action        JSON,                   -- 行动原话、推荐项序号（若有）及已回答的澄清；开场为空
   prose         TEXT NOT NULL,          -- 正文，段落之间用空行分隔
   options       JSON NOT NULL,          -- 下一步的推荐行动
   scene         JSON NOT NULL,          -- 这一回合结束时的地点、在场者、故事时间
@@ -123,6 +123,8 @@ saves (
 )
 ```
 
+父回合、路线 head 和存档指向的回合必须属于同一开局。core 在事务内验证跨表归属；事实、称呼、知情与状态引用必须属于该版本，游玩产生的引用对象必须位于当前祖先链或同一批合法写入中。
+
 一个“回合”包含玩家的一次行动和 AI 对它的完整回应；开场是根回合，没有玩家行动。游玩流程里的各种操作，在这棵树上都只需要一两步：
 
 | 操作 | 在树上做什么 |
@@ -136,9 +138,11 @@ saves (
 | 重新开局 | 新建 `playthroughs`，使用作品当前的发布版本 |
 | 路线结束 | head 回合的 `ending` 为 1。路线是否结束直接由 head 推导，不单独存一个状态 |
 
+自动保存输入和创建手动存档都携带预期 head；过期时不写入。存档只指向已提交的回合，草稿输入只属于当前决定点，推进或采用候选时一并清空。
+
 **不变量：已提交回合的正文、选项、场景，以及它产生的事实，一律不再修改。** 作者直接编辑文字只发生在草稿的开场里，不会发生在路线中。
 
-“最近游玩的路线”就是 `updated_at` 最大的那条。作品库卡片上的“最近事件”取自 head 回合的摘要（§6）。
+“最近游玩的路线”取路线表 `updated_at` 最大的一条。创建路线、提交行动结果或采用候选时更新时间；读取、改名、保存输入和后台摘要不改变排序。作品库卡片上的“最近事件”取自 head 回合中主角已确认的事件。没有可显示的事件时，使用路线名或主角视角的场景标签。§6 的后台摘要只供叙述者检索。
 
 ## 4. 故事事实
 
@@ -192,6 +196,7 @@ knowledge (
   fact_id       TEXT NOT NULL,
   holder_id     TEXT NOT NULL,     -- 知情者（实体 id；玩家即主角实体）
   level         TEXT NOT NULL,     -- heard | suspects | confirmed | misled
+  perceived_statement TEXT,       -- 未确认时主角实际听见、推测或相信的说法
   via_id        TEXT,              -- 从谁那里得知
   origin_turn_id TEXT REFERENCES turns ON DELETE CASCADE,
   source_para   INTEGER
@@ -201,6 +206,7 @@ CREATE UNIQUE INDEX knowledge_unique
 
 state_defs (
   version_id    TEXT NOT NULL REFERENCES work_versions ON DELETE CASCADE,
+  id            TEXT NOT NULL,
   key           TEXT NOT NULL,
   label         TEXT NOT NULL,
   display       TEXT NOT NULL,     -- number | stage | text
@@ -208,17 +214,20 @@ state_defs (
   reveal        TEXT,              -- 玩家什么时候能看见（作者原文）
   origin_turn_id TEXT REFERENCES turns ON DELETE CASCADE,  -- 空 = 作者定义；否则 = AI 在该回合新增的栏目
   rev           INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (version_id, key)
+  PRIMARY KEY (version_id, id)
 )
+CREATE UNIQUE INDEX state_defs_key_by_origin
+  ON state_defs (version_id, key, ifnull(origin_turn_id, ''));
 
 state_values (
   version_id    TEXT NOT NULL REFERENCES work_versions ON DELETE CASCADE,
   turn_id       TEXT NOT NULL REFERENCES turns ON DELETE CASCADE,
-  key           TEXT NOT NULL,
+  state_def_id  TEXT NOT NULL,
   value         TEXT,
   visible       INTEGER NOT NULL,  -- 此刻是否显示给玩家
   closed        INTEGER NOT NULL DEFAULT 0,  -- 事情已了结，栏目收起
-  PRIMARY KEY (version_id, turn_id, key)
+  PRIMARY KEY (version_id, turn_id, state_def_id),
+  FOREIGN KEY (version_id, state_def_id) REFERENCES state_defs ON DELETE CASCADE
 )
 ```
 
@@ -231,9 +240,11 @@ state_values (
 - `key` 不为空的事实，按 `(kind, subject_id, object_id, key)` 分组，后面的覆盖前面的。
 - `event` 不设 `key`，只累加。已经发生的事就是历史，不会被撤销；要让它“没发生过”，只能是换一种发展，而那是树上的另一个节点。
 - `knowledge` 按 `(fact_id, holder_id)` 分组，后面的覆盖前面的。
-- `state_values` 按 `key` 分组，后面的覆盖前面的。
+- `state_values` 按 `state_def_id` 分组，后面的覆盖前面的。
 - “后面”指所在回合的 `depth` 更大。作者设定的行视为 `depth = -1`，所以总是最先被覆盖。
 - **同一组在同一个回合里最多只有一行。** `facts`、`entity_names`、`knowledge` 的唯一索引和 `state_values` 的主键保证这一点，所以“取 depth 最大的那一行”的结果总是唯一的。
+
+**栏目身份。** 栏目的 `id` 是存储身份，`key` 是 narrator 在当前路线引用的名称。新增时拒绝与当前投影或同批新增栏目重名。不同开局、兄弟分支和候选可以各自新增同名栏目。状态值引用当前投影中的栏目 id，或同批新建栏目的 id。
 
 **状态栏目显示给谁。** 三个字段按以下优先级决定：
 
@@ -285,10 +296,10 @@ WITH RECURSIVE path(id, parent_id, depth) AS (
 | 视角 | 给谁用 | 能看见什么 |
 | --- | --- | --- |
 | 叙述者 | 回合循环的只读工具 | 路线上所有可见的行，并标注每件事谁知道 |
-| 主角 | client 的状态栏、手记、人物称呼；回合校验中的泄露检查 | 只有主角知情的事实、主角知道的称呼，以及未标幕后、当前设为显示的状态值 |
+| 主角 | client 的状态栏、手记、人物称呼；回合校验中的泄露检查 | 只有主角知情的事实、主角知道的称呼，以及未标幕后、当前设为显示的状态值。未确认的知情只投影 `perceived_statement`、知情程度和可公开的出处，不投影事实原句或其他幕后字段 |
 | 作者 | 创作工作站 | 草稿里的作者设定；幕后设定折叠时，秘密只显示无剧透标题 |
 
-**手记不单独建表。** 它直接从“主角的知情记录 + 出处段落”生成，按人物、地点、事件分组；点出处就跳回本路线的原文。采用另一版回应后，head 变了，手记跟着变，不需要同步任何东西。
+**手记不单独建表。** 它直接从主角视角的知情记录和出处生成，按人物、地点、事件分组；有出处时可跳回本路线原文。初始已知且没有出处的条目不显示跳转。只有确认知情的记录可以使用事实陈述；听说、猜测和误信只显示主角实际听见或相信的说法。没有保存该说法时，不生成手记条目。采用另一版回应后，head 变了，手记跟着变，不需要同步任何东西。
 
 > 已知限制：祖先链用递归查询，适合几百个回合的路线。路线深到上千回合、查询明显变慢时，改用闭包表保存祖先关系。
 
@@ -342,5 +353,6 @@ SQLite 默认不执行外键约束。core 打开每个数据库连接时都执�
 | 从什么情况开始 | 操作 | 应当看到的结果 |
 | --- | --- | --- |
 | 两部作品各有一个同名角色；同一部作品的两次开局里，这个角色又有不同的称呼 | 在每条路线里分别查询这个名字 | 查到的都是本作品、本路线的那个人物，以及对应的原文 |
+| 同一个发布版本的两条兄弟路线 | 分别新增相同 key 的状态栏目，并设置不同的值 | 两条路线均保存成功，各自只显示自己的栏目和值 |
 | 一条路线在第 5 回合存档后继续走 | 从存档另开，采取不同行动，然后在两条路线里各查第 5 回合之后的事 | 第 5 回合以前的事实两边都能看见，之后的事实只在各自的路线里可见 |
 | 作者改了某个人物并发布新版本 | 分别续玩旧路线、从旧存档另开、新开一局 | 前两种用旧版本的人物，新开局用新版本的人物 |

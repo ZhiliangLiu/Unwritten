@@ -28,7 +28,7 @@
 - 断点用 `@custom-media --uw-compact` 和 `--uw-wide`，不在媒体查询里写死数值。
 - **新增 token 的流程：** 在同一次改动里完成以下三件事，然后跑 token 契约测试。
   1. 在 `tokens.css` 或两个主题文件里同时加上；
-  2. 更新 `docs/theme.md` 的对应表格；
+  2. 更新对应的设计文档。动效 token 写在 `docs/motion.md`，其他 token 写在 `docs/theme.md`；
   3. 颜色类 token 补上对比度检查。
 - 卡片、按钮、输入框始终保留一条边框，不需要显示时设为 `transparent`，以便在强制颜色模式下仍有轮廓（[a11y §7](../../docs/a11y.md#7-系统偏好)）。
 
@@ -50,7 +50,7 @@
 - core 返回的错误按 `code` 查 `errors:<code>`，不显示 core 的 `message`。
 - 作品内容、AI 输出、玩家输入是数据，原样显示，不过 `t()`。
 - 日期、数字、相对时间用 `Intl.*` 格式化。
-- 输入框处理 Enter 时，先判断输入法是否正在组字（`isComposing`）。
+- 输入框处理 Enter 时，按 i18n 文档的 composition 状态和 `isComposing` 判断是否正在组字。
 
 ## 5. 可访问性
 

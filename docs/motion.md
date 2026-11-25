@@ -96,7 +96,7 @@
 | 窄窗口下的工作站 | 从右侧整体滑入，覆盖在主区之上 | 滑回右侧 | `transition-dialog`、`-dialog-exit` |
 | 页面切换 | 外壳不动；新内容淡入并上移 `distance-md` | 旧内容直接移除，不播放离开动画，免得用户等待 | `transition-dialog` |
 | 新剧情到达 | 整段正文作为一个块淡入，并上移 `distance-sm`；间隔 `delay-stagger` 后，状态栏和推荐行动淡入 | 无 | `transition-reading` |
-| 生成中 | 预览文字随生成直接追加，不逐字动画；预览下方是“生成中”标记，透明度缓慢呼吸 | 提交后，预览原地换成正式回合，不再播放一次进入动画 | `animation-pulse` |
+| 生成中 | 显示“生成中”标记，透明度缓慢呼吸 | 提交后移除标记，按“新剧情到达”显示正式回合 | `animation-pulse` |
 | 自动跟随 | 玩家停在最新位置时，新内容出现后平滑滚动，让它进入视野 | 玩家往上翻过时不滚动，改为淡入一个“回到最新”按钮 | `transition-popup` |
 | 换一种发展的比较 | 原版和候选之间交叉淡入淡出 | 同左 | `duration-base` |
 | 状态栏数值变化 | 变化的那一项底色变为 `accent-soft`，在 `duration-highlight` 内淡回 | 无 | `duration-highlight` |
