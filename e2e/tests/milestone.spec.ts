@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { startFakeOpenAiServer } from '../../packages/core/src/test-support/fake-openai-server.ts';
-import { proposePreviewStep, proposeTurnStep } from '../../packages/core/src/test-support/llm-steps.ts';
+import { pingStep, proposePreviewStep, proposeTurnStep } from '../../packages/core/src/test-support/llm-steps.ts';
 
 const corePath = fileURLToPath(new URL('../../packages/core/dist/main.js', import.meta.url));
 
@@ -41,7 +41,7 @@ async function stop(process: ChildProcess): Promise<void> {
 
 test.beforeAll(async () => {
   dataDir = mkdtempSync(join(tmpdir(), 'unwritten-full-'));
-  server = await startFakeOpenAiServer();
+  server = await startFakeOpenAiServer({ apiKey: 'right' });
   const started = await boot();
   core = started.process;
   url = started.url;
@@ -59,6 +59,13 @@ test('从界面配置模型、创作、连续游玩并重启续玩', async ({ pa
   await page.getByLabel('端点名称').fill('测试端点');
   await page.getByLabel('接口地址').fill(server.baseUrl);
   await page.getByLabel('模型 ID').fill('test-model');
+  await page.getByLabel('API key').fill('wrong');
+  await page.getByRole('button', { name: '测试连接' }).click();
+  await expect(page.getByText('模型服务拒绝了凭据。请检查 API key。')).toBeVisible();
+  await page.getByLabel('API key').fill('right');
+  server.enqueue(pingStep());
+  await page.getByRole('button', { name: '测试连接' }).click();
+  await expect(page.getByText('连接成功，工具调用可用')).toBeVisible();
   await page.getByRole('button', { name: '保存端点' }).click();
   await expect(page.getByRole('heading', { name: '测试端点' })).toBeVisible();
 
@@ -80,6 +87,24 @@ test('从界面配置模型、创作、连续游玩并重启续玩', async ({ pa
   await page.getByRole('button', { name: '生成开场预览' }).click();
   await expect(page.getByRole('heading', { name: '预览开场' })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('雨声盖住钟声。')).toBeVisible();
+  await page.getByRole('textbox', { name: /故事背景/ }).fill('改过的背景');
+  await page.getByRole('button', { name: '保存背景' }).click();
+  await expect(page.getByRole('button', { name: '采用开场并存入作品库' })).toBeDisabled();
+  await page.getByRole('textbox', { name: /故事背景/ }).fill('雨夜修钟铺');
+  server.enqueue(
+    proposePreviewStep({
+      title: '雨夜修钟铺',
+      blurb: '一个雨夜，你在钟铺里等一个人。',
+      publicSetting: '老城的钟铺，雨下了一整夜。',
+      prose: '雨声盖住钟声。你抬头看向门口。\n\n门铃响了。',
+      options: ['去开门', '继续修钟'],
+      place: '钟铺',
+      time: '深夜',
+      language: 'zh-CN',
+    }),
+  );
+  await page.getByRole('button', { name: '生成开场预览' }).click();
+  await expect(page.getByRole('button', { name: '采用开场并存入作品库' })).toBeEnabled({ timeout: 20_000 });
   await page.getByRole('button', { name: '采用开场并存入作品库' }).click();
 
   await expect(page.getByText('雨声盖住钟声。')).toBeVisible();
@@ -116,4 +141,13 @@ test('从界面配置模型、创作、连续游玩并重启续玩', async ({ pa
   );
   await page.getByRole('button', { name: '重试这次行动' }).click();
   await expect(page.getByText('灯灭了，钟铺里只剩雨声。')).toBeVisible({ timeout: 20_000 });
+
+  const input = page.getByRole('textbox', { name: '你的行动' });
+  await input.fill('组字中');
+  await input.dispatchEvent('compositionstart');
+  await input.press('Enter');
+  await page.waitForTimeout(300);
+  await expect(page.getByText('正在写下一段')).toHaveCount(0);
+  await input.dispatchEvent('compositionend');
+  await input.fill('');
 });

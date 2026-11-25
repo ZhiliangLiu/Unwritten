@@ -71,7 +71,11 @@ export function PlayPage({ routeId }: { routeId: string }) {
         requestId: active.id,
         attempt: active.attempt,
       });
-    } else if (route.data.pending?.id === active.id && route.data.pending.status === 'failed') {
+    } else if (
+      route.data.pending?.id === active.id &&
+      route.data.pending.status === 'failed' &&
+      route.data.pending.attempts === active.attempt
+    ) {
       reportedRequest.current = key;
       reportSample(api, {
         metric: 'client.turn_visible',
@@ -115,7 +119,12 @@ export function PlayPage({ routeId }: { routeId: string }) {
           </article>
         ))}
       </div>
-      {pending?.status === 'running' ? <p className={styles.muted}>{t('play:pending.running')}</p> : null}
+      {pending?.status === 'running' ? (
+        <div className={styles.chapter}>
+          <p className={styles.action}>{pending.action.text}</p>
+          <p className={styles.muted}>{t('play:pending.running')}</p>
+        </div>
+      ) : null}
       {pending?.status === 'failed' ? (
         <div className={styles.card}>
           <p>{t('play:pending.failed')}</p>
