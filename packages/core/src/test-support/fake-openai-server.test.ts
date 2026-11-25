@@ -84,7 +84,8 @@ describe("startFakeOpenAiServer", () => {
     const server = await startFakeOpenAiServer({ apiKey });
     try {
       server.enqueue({ kind: "drop_mid_stream" });
-      await expect(post(server.baseUrl, { model: "fake", stream: true, messages: [] })).rejects.toThrow();
+      const response = await post(server.baseUrl, { model: "fake", stream: true, messages: [] });
+      await expect(response.text()).rejects.toThrow();
     } finally {
       await server.close();
     }
