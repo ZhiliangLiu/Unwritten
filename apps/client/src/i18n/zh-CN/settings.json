@@ -1,6 +1,11 @@
 {
   "page": { "heading": "模型设置" },
   "current": { "heading": "默认模型", "empty": "尚未配置默认模型" },
+  "problem": {
+    "syntax": "配置文件第 {{line}} 行第 {{column}} 列无法解析。",
+    "schema": "配置项 {{path}} 不符合要求。",
+    "tooNew": "这份配置来自更新的版本，请升级应用。"
+  },
   "endpoint": {
     "add": "添加端点",
     "edit": "修改端点",
@@ -11,6 +16,8 @@
     "keyHelp": "留空保留已保存的 key。",
     "keyRemove": "移除已保存的 key",
     "keySet": "已配置",
+    "keyKeep": "保留已保存的 key",
+    "keySetAction": "设置新 key",
     "keyMissing": "未配置",
     "keyEnvMissing": "找不到配置的环境变量",
     "test": "测试连接",

@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { queryKeys } from '../../shared/api/query.ts';
 import { useApi } from '../../shared/api/context.tsx';
 import { ErrorNotice, LiveRegion } from '../../shared/ui/Notice.tsx';
 import { useEnterToSubmit } from '../../shared/hooks/useEnterToSubmit.ts';
+import { reportSample } from '../../shared/lib/log.ts';
 import styles from '../../app/app.module.css';
 
 export function PlayPage({ routeId }: { routeId: string }) {
@@ -13,39 +14,75 @@ export function PlayPage({ routeId }: { routeId: string }) {
   const queryClient = useQueryClient();
   const [text, setText] = useState('');
   const [error, setError] = useState<unknown>(null);
-  const [announcement, setAnnouncement] = useState('');
+  const startedAt = useRef<number | null>(null);
+  const activeRequest = useRef<{ id: string; attempt: number } | null>(null);
+  const reportedRequest = useRef<string | null>(null);
   const route = useQuery({
     queryKey: queryKeys.route(routeId),
     queryFn: () => api.play.getRoute({ routeId }),
-    refetchInterval: 1_000,
   });
 
   const submit = useMutation({
-    mutationFn: (input: { text: string; optionIndex: number | null }) =>
-      api.play.submitAction({
-        requestId: crypto.randomUUID(),
+    mutationFn: (input: { text: string; optionIndex: number | null }) => {
+      const requestId = crypto.randomUUID();
+      startedAt.current = performance.now();
+      activeRequest.current = { id: requestId, attempt: 1 };
+      return api.play.submitAction({
+        requestId,
         routeId,
         expectedHeadTurnId: route.data?.headTurnId ?? '',
         action: { text: input.text, optionIndex: input.optionIndex },
-      }),
+      });
+    },
     onSuccess: () => {
       setText('');
-      setAnnouncement(t('play:pending.running'));
       void queryClient.invalidateQueries({ queryKey: queryKeys.route(routeId) });
     },
     onError: setError,
   });
 
   const retry = useMutation({
-    mutationFn: (requestId: string) => api.play.retry({ requestId }),
+    mutationFn: (requestId: string) => {
+      startedAt.current = performance.now();
+      activeRequest.current = { id: requestId, attempt: (route.data?.pending?.attempts ?? 1) + 1 };
+      return api.play.retry({ requestId });
+    },
     onSuccess: () => {
-      setAnnouncement(t('play:pending.running'));
       void queryClient.invalidateQueries({ queryKey: queryKeys.route(routeId) });
     },
     onError: setError,
   });
 
   const enter = useEnterToSubmit(() => submit.mutate({ text: text.trim(), optionIndex: null }));
+
+  useEffect(() => {
+    const active = activeRequest.current;
+    if (!active || !route.data || startedAt.current === null) return;
+    const key = `${active.id}:${active.attempt}`;
+    if (reportedRequest.current === key) return;
+    const latest = route.data.turns.at(-1);
+    if (latest?.originRequest?.id === active.id && latest.originRequest.attempt === active.attempt) {
+      reportedRequest.current = key;
+      reportSample(api, {
+        metric: 'client.turn_visible',
+        durationMs: performance.now() - startedAt.current,
+        outcome: 'ok',
+        workId: route.data.workId,
+        requestId: active.id,
+        attempt: active.attempt,
+      });
+    } else if (route.data.pending?.id === active.id && route.data.pending.status === 'failed') {
+      reportedRequest.current = key;
+      reportSample(api, {
+        metric: 'client.turn_visible',
+        durationMs: performance.now() - startedAt.current,
+        outcome: 'error',
+        workId: route.data.workId,
+        requestId: active.id,
+        attempt: active.attempt,
+      });
+    }
+  }, [api, route.data, route.data?.pending?.id, route.data?.pending?.status]);
 
   if (!route.data) return <p className={styles.muted}>{t('common:status.loading')}</p>;
   const latest = route.data.turns.at(-1);
@@ -56,7 +93,17 @@ export function PlayPage({ routeId }: { routeId: string }) {
     <section className={styles.page}>
       <h1 className={styles.heading}>{route.data.workTitle ?? t('play:turn.opening')}</h1>
       <ErrorNotice error={error ?? route.error} />
-      <LiveRegion message={announcement} />
+      <LiveRegion
+        message={
+          pending?.status === 'running'
+            ? t('play:pending.running')
+            : pending?.status === 'failed'
+              ? t('play:pending.failed')
+              : latest?.originRequest
+                ? t('play:pending.complete')
+                : ''
+        }
+      />
       <div className={styles.history}>
         {route.data.turns.map((turn) => (
           <article className={styles.chapter} key={turn.id} lang={route.data.language}>

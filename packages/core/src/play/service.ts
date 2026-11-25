@@ -92,6 +92,15 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService }): PlaySer
   const runTurnRequest = async (requestId: string): Promise<void> => {
     const request = deps.db.select().from(turnRequests).where(eq(turnRequests.id, requestId)).get();
     if (!request || request.status !== 'running' || !request.routeId) return;
+    const attemptStartedAt = performance.now();
+    const queuedAt = Date.now();
+    deps.logger.sample({
+      metric: 'turn.queue',
+      durationMs: Math.max(0, queuedAt - request.updatedAt),
+      outcome: 'ok',
+      requestId,
+      attempt: request.attempts,
+    });
     const route = deps.db.select().from(routes).where(eq(routes.id, request.routeId)).get();
     if (!route) return;
     const playthrough = deps.db.select().from(playthroughs).where(eq(playthroughs.id, route.playthroughId)).get();
@@ -109,8 +118,17 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService }): PlaySer
         .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
         .run();
       deps.bus.publish({ type: 'turn_request.updated', routeId: route.id, requestId, status: 'failed' });
+      deps.logger.sample({
+        metric: 'turn.total',
+        durationMs: performance.now() - attemptStartedAt,
+        outcome: 'error',
+        requestId,
+        attempt: request.attempts,
+        data: { code: 'llm_not_configured' },
+      });
       return;
     }
+    const contextStartedAt = performance.now();
     const context = buildNarratorContext({
       meta,
       chain,
@@ -118,6 +136,14 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService }): PlaySer
       model,
       estimateTokens: (text) => deps.llm.estimateTokens(text),
       toolSchemaText: `${JSON.stringify(PROPOSE_TURN_PARAMETERS)}${PROPOSE_TURN_DESCRIPTION}`,
+    });
+    deps.logger.sample({
+      metric: 'turn.context',
+      durationMs: performance.now() - contextStartedAt,
+      outcome: context.ok ? 'ok' : 'error',
+      requestId,
+      attempt: request.attempts,
+      data: context.ok ? { includedTurns: context.includedTurns, omittedTurns: context.omittedTurns } : {},
     });
     const log: TurnRequestLog = [];
     if (!context.ok) {
@@ -127,6 +153,14 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService }): PlaySer
         .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
         .run();
       deps.bus.publish({ type: 'turn_request.updated', routeId: route.id, requestId, status: 'failed' });
+      deps.logger.sample({
+        metric: 'turn.total',
+        durationMs: performance.now() - attemptStartedAt,
+        outcome: 'error',
+        requestId,
+        attempt: request.attempts,
+        data: { code: context.code },
+      });
       return;
     }
 
@@ -138,7 +172,15 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService }): PlaySer
       description: PROPOSE_TURN_DESCRIPTION,
       parameters: PROPOSE_TURN_PARAMETERS,
       async execute(args) {
+        const validateStartedAt = performance.now();
         const parsed = parseProposeTurnArgs(args, parentScene);
+        deps.logger.sample({
+          metric: 'turn.validate',
+          durationMs: performance.now() - validateStartedAt,
+          outcome: parsed.ok ? 'ok' : 'error',
+          requestId,
+          attempt: request.attempts,
+        });
         log.push({ tool: PROPOSE_TURN_TOOL_NAME, ok: parsed.ok, errors: parsed.ok ? [] : parsed.errors });
         if (parsed.ok) {
           proposed = parsed;
@@ -183,54 +225,91 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService }): PlaySer
         requestId,
         data: { attempt: request.attempts, code: errorCode },
       });
+      deps.logger.sample({
+        metric: 'turn.total',
+        durationMs: performance.now() - attemptStartedAt,
+        outcome: errorCode === 'interrupted' ? 'interrupted' : 'error',
+        requestId,
+        attempt: request.attempts,
+        data: { code: errorCode },
+      });
       return;
     }
 
     const proposal = (parsedProposal as Extract<ReturnType<typeof parseProposeTurnArgs>, { ok: true }>).value;
-    const committed = deps.db.transaction(
-      (tx) => {
-        const current = tx.select().from(routes).where(eq(routes.id, route.id)).get();
-        if (!current || current.headTurnId !== request.expectedHeadTurnId) {
-          tx.update(turnRequests)
-            .set({ status: 'superseded', log, updatedAt: now })
+    const commitStartedAt = performance.now();
+    let committed: { superseded: boolean; turnId: string | null };
+    try {
+      committed = deps.db.transaction(
+        (tx) => {
+          const current = tx.select().from(routes).where(eq(routes.id, route.id)).get();
+          if (!current || current.headTurnId !== request.expectedHeadTurnId) {
+            tx.update(turnRequests)
+              .set({ status: 'superseded', log, updatedAt: now })
+              .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
+              .run();
+            return { superseded: true, turnId: null };
+          }
+          const parent = tx.select().from(turns).where(eq(turns.id, parentId)).get();
+          if (!parent) throw new Error('parent turn disappeared');
+          const turnId = randomUUID();
+          tx.insert(turns)
+            .values({
+              id: turnId,
+              playthroughId: route.playthroughId,
+              parentId,
+              depth: parent.depth + 1,
+              action: request.action,
+              prose: proposal.prose,
+              options: proposal.options,
+              scene: proposal.scene,
+              ending: 0,
+              status: 'committed',
+              createdAt: now,
+            })
+            .run();
+          const routeUpdate = tx
+            .update(routes)
+            .set({ headTurnId: turnId, updatedAt: now, draftInput: null })
+            .where(and(eq(routes.id, route.id), eq(routes.headTurnId, request.expectedHeadTurnId ?? '')))
+            .run();
+          if (routeUpdate.changes !== 1) throw new Error('route head changed');
+          const requestUpdate = tx
+            .update(turnRequests)
+            .set({ status: 'done', resultTurnId: turnId, log, updatedAt: now })
             .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
             .run();
-          return { superseded: true, turnId: null };
-        }
-        const parent = tx.select().from(turns).where(eq(turns.id, parentId)).get();
-        if (!parent) throw new Error('parent turn disappeared');
-        const turnId = randomUUID();
-        tx.insert(turns)
-          .values({
-            id: turnId,
-            playthroughId: route.playthroughId,
-            parentId,
-            depth: parent.depth + 1,
-            action: request.action,
-            prose: proposal.prose,
-            options: proposal.options,
-            scene: proposal.scene,
-            ending: 0,
-            status: 'committed',
-            createdAt: now,
-          })
-          .run();
-        const routeUpdate = tx
-          .update(routes)
-          .set({ headTurnId: turnId, updatedAt: now, draftInput: null })
-          .where(and(eq(routes.id, route.id), eq(routes.headTurnId, request.expectedHeadTurnId ?? '')))
-          .run();
-        if (routeUpdate.changes !== 1) throw new Error('route head changed');
-        const requestUpdate = tx
-          .update(turnRequests)
-          .set({ status: 'done', resultTurnId: turnId, log, updatedAt: now })
-          .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
-          .run();
-        if (requestUpdate.changes !== 1) throw new Error('request is no longer running');
-        return { superseded: false, turnId };
-      },
-      { behavior: 'immediate' },
-    );
+          if (requestUpdate.changes !== 1) throw new Error('request is no longer running');
+          return { superseded: false, turnId };
+        },
+        { behavior: 'immediate' },
+      );
+    } catch {
+      const failedAt = Date.now();
+      deps.db
+        .update(turnRequests)
+        .set({ status: 'failed', error: 'save', log, updatedAt: failedAt })
+        .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
+        .run();
+      deps.bus.publish({ type: 'turn_request.updated', routeId: route.id, requestId, status: 'failed' });
+      deps.logger.sample({
+        metric: 'turn.commit',
+        durationMs: performance.now() - commitStartedAt,
+        outcome: 'error',
+        requestId,
+        attempt: request.attempts,
+        data: { code: 'save' },
+      });
+      deps.logger.sample({
+        metric: 'turn.total',
+        durationMs: performance.now() - attemptStartedAt,
+        outcome: 'error',
+        requestId,
+        attempt: request.attempts,
+        data: { code: 'save' },
+      });
+      return;
+    }
 
     if (committed.superseded) {
       deps.bus.publish({ type: 'turn_request.updated', routeId: route.id, requestId, status: 'superseded' });
@@ -241,8 +320,29 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService }): PlaySer
         requestId,
         data: { attempt: request.attempts },
       });
+      deps.logger.sample({
+        metric: 'turn.commit',
+        durationMs: performance.now() - commitStartedAt,
+        outcome: 'interrupted',
+        requestId,
+        attempt: request.attempts,
+      });
+      deps.logger.sample({
+        metric: 'turn.total',
+        durationMs: performance.now() - attemptStartedAt,
+        outcome: 'interrupted',
+        requestId,
+        attempt: request.attempts,
+      });
       return;
     }
+    deps.logger.sample({
+      metric: 'turn.commit',
+      durationMs: performance.now() - commitStartedAt,
+      outcome: 'ok',
+      requestId,
+      attempt: request.attempts,
+    });
     deps.bus.publish({ type: 'turn.committed', routeId: route.id, turnId: committed.turnId! });
     deps.bus.publish({ type: 'turn_request.updated', routeId: route.id, requestId, status: 'done' });
     deps.logger.record({
@@ -251,6 +351,13 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService }): PlaySer
       event: 'turn.request.done',
       requestId,
       data: { attempt: request.attempts, turnId: committed.turnId },
+    });
+    deps.logger.sample({
+      metric: 'turn.total',
+      durationMs: performance.now() - attemptStartedAt,
+      outcome: 'ok',
+      requestId,
+      attempt: request.attempts,
     });
   };
 
@@ -325,7 +432,23 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService }): PlaySer
           requestId: input.requestId,
           data: { attempt: 1 },
         });
-        void queue.add(() => runTurnRequest(input.requestId));
+        void queue
+          .add(() => runTurnRequest(input.requestId))
+          .catch(() => {
+            const request = deps.db.select().from(turnRequests).where(eq(turnRequests.id, input.requestId)).get();
+            if (!request?.routeId) return;
+            deps.db
+              .update(turnRequests)
+              .set({ status: 'failed', error: 'internal', updatedAt: Date.now() })
+              .where(and(eq(turnRequests.id, input.requestId), eq(turnRequests.status, 'running')))
+              .run();
+            deps.bus.publish({
+              type: 'turn_request.updated',
+              routeId: request.routeId,
+              requestId: input.requestId,
+              status: 'failed',
+            });
+          });
       }
       return result.view;
     },
@@ -377,7 +500,23 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService }): PlaySer
           requestId: input.requestId,
           data: { attempt: result.view.attempts },
         });
-        void queue.add(() => runTurnRequest(input.requestId));
+        void queue
+          .add(() => runTurnRequest(input.requestId))
+          .catch(() => {
+            const request = deps.db.select().from(turnRequests).where(eq(turnRequests.id, input.requestId)).get();
+            if (!request?.routeId) return;
+            deps.db
+              .update(turnRequests)
+              .set({ status: 'failed', error: 'internal', updatedAt: Date.now() })
+              .where(and(eq(turnRequests.id, input.requestId), eq(turnRequests.status, 'running')))
+              .run();
+            deps.bus.publish({
+              type: 'turn_request.updated',
+              routeId: request.routeId,
+              requestId: input.requestId,
+              status: 'failed',
+            });
+          });
       } else if (result.action === 'superseded') {
         deps.bus.publish({
           type: 'turn_request.updated',

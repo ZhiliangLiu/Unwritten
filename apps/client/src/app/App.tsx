@@ -29,6 +29,7 @@ export function App() {
       while (!cancelled) {
         try {
           const iterator = await api.events.subscribe();
+          await queryClient.invalidateQueries();
           for await (const event of iterator) {
             if (event.type === 'llm.config_changed') void queryClient.invalidateQueries({ queryKey: queryKeys.llm });
             if (event.type === 'works.changed') {
@@ -42,8 +43,12 @@ export function App() {
               void queryClient.invalidateQueries({ queryKey: queryKeys.works });
             }
           }
+          if (cancelled) return;
+          await queryClient.invalidateQueries();
+          await new Promise((resolve) => setTimeout(resolve, 1_000));
         } catch {
           if (cancelled) return;
+          await queryClient.invalidateQueries();
           await new Promise((resolve) => setTimeout(resolve, 2_000));
         }
       }

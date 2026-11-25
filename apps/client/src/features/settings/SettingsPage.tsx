@@ -16,8 +16,15 @@ export function SettingsPage() {
   const [modelId, setModelId] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [makeDefault, setMakeDefault] = useState(true);
-  const [testResult, setTestResult] = useState<{ ok: boolean; code: string | null } | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; code: string | null; detail: string | null } | null>(
+    null,
+  );
   const [error, setError] = useState<unknown>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editModelId, setEditModelId] = useState('');
+  const [editKeyAction, setEditKeyAction] = useState<'keep' | 'set' | 'remove'>('keep');
+  const [editKeyValue, setEditKeyValue] = useState('');
 
   const test = useMutation({
     mutationFn: () =>
@@ -26,7 +33,7 @@ export function SettingsPage() {
         modelId,
         key: apiKey.trim() ? { action: 'set', value: apiKey.trim() } : { action: 'none' },
       }),
-    onSuccess: (result) => setTestResult({ ok: result.ok, code: result.code }),
+    onSuccess: (result) => setTestResult({ ok: result.ok, code: result.code, detail: result.detail }),
     onError: setError,
   });
 
@@ -56,7 +63,31 @@ export function SettingsPage() {
         purpose: 'default',
         model: { endpointId, modelId: model },
       }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.llm }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.llm });
+    },
+    onError: setError,
+  });
+
+  const update = useMutation({
+    mutationFn: (endpointId: string) =>
+      api.llm.endpoints.update({
+        baseRevision: config.data?.revision ?? 'absent',
+        endpointId,
+        name: editName,
+        modelId: editModelId,
+        key:
+          editKeyAction === 'keep'
+            ? { action: 'keep' }
+            : editKeyAction === 'set'
+              ? { action: 'set', value: editKeyValue.trim() }
+              : { action: 'remove' },
+      }),
+    onSuccess: () => {
+      setEditingId(null);
+      setEditKeyValue('');
+      void queryClient.invalidateQueries({ queryKey: queryKeys.llm });
+    },
     onError: setError,
   });
 
@@ -68,12 +99,31 @@ export function SettingsPage() {
         <h2>{t('settings:current.heading')}</h2>
         {config.data?.defaultModel ? (
           <p>
-            {config.data.defaultModel.endpointId} · {config.data.defaultModel.modelId}
+            {config.data.endpoints.find((endpoint) => endpoint.id === config.data?.defaultModel?.endpointId)?.name ??
+              config.data.defaultModel.endpointId}{' '}
+            · {config.data.defaultModel.modelId}
           </p>
         ) : (
           <p className={styles.muted}>{t('settings:current.empty')}</p>
         )}
       </div>
+      {config.data?.problem ? (
+        <div className={styles.notice} role='alert'>
+          {config.data.problem.kind === 'syntax' ? (
+            <p>
+              {t('settings:problem.syntax', {
+                line: config.data.problem.line,
+                column: config.data.problem.column,
+              })}
+            </p>
+          ) : null}
+          {config.data.problem.kind === 'schema' ? (
+            <p>{t('settings:problem.schema', { path: config.data.problem.path })}</p>
+          ) : null}
+          {config.data.problem.kind === 'too_new' ? <p>{t('settings:problem.tooNew')}</p> : null}
+          {'message' in config.data.problem ? <p className={styles.detail}>{config.data.problem.message}</p> : null}
+        </div>
+      ) : null}
       <form
         className={styles.form}
         onSubmit={(event) => {
@@ -117,11 +167,14 @@ export function SettingsPage() {
           </button>
         </div>
         {testResult ? (
-          <p className={styles.muted}>
-            {t(testResult.ok ? 'settings:endpoint.testOk' : `errors:${testResult.code ?? 'unknown'}`, {
-              code: testResult.code,
-            })}
-          </p>
+          <>
+            <p className={styles.muted}>
+              {t(testResult.ok ? 'settings:endpoint.testOk' : `errors:${testResult.code ?? 'unknown'}`, {
+                code: testResult.code,
+              })}
+            </p>
+            {testResult.detail ? <p className={styles.detail}>{testResult.detail}</p> : null}
+          </>
         ) : null}
       </form>
       <div className={styles.cards}>
@@ -140,12 +193,76 @@ export function SettingsPage() {
               )}
             </p>
             {endpoint.models[0] ? (
-              <button
-                className={`${styles.button} ${styles.secondary}`}
-                onClick={() => setDefault.mutate({ endpointId: endpoint.id, model: endpoint.models[0]!.id })}
-              >
-                {t('settings:endpoint.default')}
-              </button>
+              <div className={styles.row}>
+                <button
+                  className={`${styles.button} ${styles.secondary}`}
+                  onClick={() => setDefault.mutate({ endpointId: endpoint.id, model: endpoint.models[0]!.id })}
+                >
+                  {t('settings:endpoint.default')}
+                </button>
+                <button
+                  className={`${styles.button} ${styles.secondary}`}
+                  onClick={() => {
+                    setEditingId(endpoint.id);
+                    setEditName(endpoint.name);
+                    setEditModelId(endpoint.models[0]?.id ?? '');
+                  }}
+                >
+                  {t('settings:endpoint.edit')}
+                </button>
+              </div>
+            ) : null}
+            {editingId === endpoint.id ? (
+              <div className={styles.form}>
+                <label className={styles.label}>
+                  {t('settings:endpoint.name')}
+                  <input
+                    className={styles.input}
+                    value={editName}
+                    onChange={(event) => setEditName(event.target.value)}
+                  />
+                </label>
+                <label className={styles.label}>
+                  {t('settings:endpoint.modelId')}
+                  <input
+                    className={styles.input}
+                    value={editModelId}
+                    onChange={(event) => setEditModelId(event.target.value)}
+                  />
+                </label>
+                <label className={styles.label}>
+                  {t('settings:endpoint.key')}
+                  <select
+                    className={styles.input}
+                    value={editKeyAction}
+                    onChange={(event) => setEditKeyAction(event.target.value as 'keep' | 'set' | 'remove')}
+                  >
+                    <option value='keep'>{t('settings:endpoint.keyKeep')}</option>
+                    <option value='set'>{t('settings:endpoint.keySetAction')}</option>
+                    <option value='remove'>{t('settings:endpoint.keyRemove')}</option>
+                  </select>
+                </label>
+                {editKeyAction === 'set' ? (
+                  <input
+                    className={styles.input}
+                    type='password'
+                    value={editKeyValue}
+                    onChange={(event) => setEditKeyValue(event.target.value)}
+                  />
+                ) : null}
+                <div className={styles.row}>
+                  <button
+                    className={styles.button}
+                    onClick={() => update.mutate(endpoint.id)}
+                    disabled={update.isPending}
+                  >
+                    {t('settings:endpoint.save')}
+                  </button>
+                  <button className={`${styles.button} ${styles.secondary}`} onClick={() => setEditingId(null)}>
+                    {t('common:action.cancel')}
+                  </button>
+                </div>
+              </div>
             ) : null}
           </article>
         ))}

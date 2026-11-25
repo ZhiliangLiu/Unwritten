@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
 import { startFakeOpenAiServer } from './test-support/fake-openai-server.ts';
 import { proposePreviewStep, proposeTurnStep } from './test-support/llm-steps.ts';
@@ -92,6 +93,13 @@ describe('core integration', () => {
       expect(core.services.play.getRoute({ routeId: adopted.routeId }).turns).toHaveLength(2);
 
       await core.close();
+      const diagnostics = new DatabaseSync(join(dataDir, 'diagnostics.db'));
+      const samples = diagnostics
+        .prepare("select metric, duration_ms from performance_samples where metric like 'turn.%'")
+        .all() as Array<{ metric: string; duration_ms: number }>;
+      diagnostics.close();
+      const metrics = new Set(samples.map((row) => row.metric));
+      expect(metrics).toEqual(new Set(['turn.queue', 'turn.context', 'turn.validate', 'turn.commit', 'turn.total']));
       core = await boot(dataDir, clientDir);
       const restored = core.services.play.getRoute({ routeId: adopted.routeId });
       expect(restored.turns).toHaveLength(2);
