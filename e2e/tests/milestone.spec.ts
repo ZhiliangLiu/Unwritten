@@ -101,4 +101,19 @@ test('从界面配置模型、创作、连续游玩并重启续玩', async ({ pa
   await page.getByRole('link', { name: '继续游玩' }).click();
   await expect(page.getByText('你推开门。雨里没有人。')).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('推门')).toBeVisible();
+
+  server.enqueue({ kind: 'http_error', status: 500, message: 'boom' });
+  await page.getByRole('textbox', { name: '你的行动' }).fill('关灯');
+  await page.getByRole('textbox', { name: '你的行动' }).press('Enter');
+  await expect(page.getByText('本段未完成').first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('关灯').first()).toBeVisible();
+  server.enqueue(
+    proposeTurnStep({
+      prose: '灯灭了，钟铺里只剩雨声。',
+      options: ['离开钟铺', '留下'],
+      scene: { place: '钟铺', time: '深夜', present: [] },
+    }),
+  );
+  await page.getByRole('button', { name: '重试这次行动' }).click();
+  await expect(page.getByText('灯灭了，钟铺里只剩雨声。')).toBeVisible({ timeout: 20_000 });
 });
