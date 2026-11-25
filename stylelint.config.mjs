@@ -71,4 +71,10 @@ export default {
     "apps/client/src/theme/media.css",
     "apps/client/src/theme/themes/*.css",
   ],
+  overrides: [
+    {
+      files: ["apps/client/src/theme/global.css"],
+      rules: { "declaration-property-value-no-unknown": null },
+    },
+  ],
 };

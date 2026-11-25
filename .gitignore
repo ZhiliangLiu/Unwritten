@@ -46,3 +46,6 @@ Thumbs.db
 /apps/client/src/theme/tokens.css
 /apps/client/src/theme/media.css
 /apps/client/src/theme/themes/*.css
+
+# Vitest 浏览器附件
+.vitest/

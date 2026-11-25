@@ -1,0 +1,36 @@
+@import url("./tokens.css");
+@import url("./media.css");
+@import url("./themes/light.css");
+@import url("./themes/dark.css");
+
+html {
+  background-color: var(--uw-color-bg);
+  color: var(--uw-color-text);
+  font-family: var(--uw-font-ui);
+  line-height: var(--uw-leading-ui);
+  line-break: strict;
+  scroll-padding-block-start: var(--uw-size-toolbar);
+}
+
+@supports (text-autospace: normal) {
+  html {
+    text-autospace: normal;
+    text-spacing-trim: normal;
+  }
+}
+
+body {
+  margin: 0;
+  font-size: var(--uw-text-md);
+}
+
+:focus-visible {
+  outline: var(--uw-focus-ring-width) solid var(--uw-color-focus-ring);
+  outline-offset: var(--uw-focus-ring-offset);
+}
+
+em,
+strong {
+  font-style: normal;
+  font-weight: var(--uw-weight-semibold);
+}
