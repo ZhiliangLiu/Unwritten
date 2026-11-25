@@ -1,0 +1,11 @@
+{
+  "app": { "name": "Unwritten" },
+  "nav": { "library": "作品库", "settings": "设置" },
+  "action": { "cancel": "取消", "retry": "重试" },
+  "status": { "loading": "正在加载", "saved": "已保存" },
+  "error": { "details": "详细信息" },
+  "noToken": {
+    "heading": "请从启动时给出的地址打开",
+    "description": "请从 core 启动时给出的地址重新打开。使用桌面版时，请重启应用。"
+  }
+}
