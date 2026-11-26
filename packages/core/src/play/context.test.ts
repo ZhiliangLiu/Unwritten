@@ -153,6 +153,34 @@ describe('buildNarratorContext', () => {
     }
   });
 
+  it('摘要行放不下就停，不跳过去放更早的回合', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    try {
+      const seeded = seedStory(opened.db, {
+        turns: [
+          { prose: '开场正文' },
+          { prose: '第一回合正文', action: '一' },
+          { prose: '第二回合正文', action: '二' },
+          { prose: '第三回合正文', action: '潮'.repeat(2000) },
+          { prose: '第四回合正文', action: '四' },
+        ],
+        entities: [{ key: 'lin', kind: 'character', name: '主角', protagonist: true }],
+      });
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1200);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.summaryLines).toBe(0);
+        expect(result.omittedTurns).toBe(4);
+        expect(result.prompt).not.toContain('T2 玩家行动：二');
+        expect(result.prompt).toContain('另有 4 个更早的回合未列出');
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
   it('编号只给出现在上下文里的实体', () => {
     const temp = makeTempDataDir();
     const opened = openDatabase(join(temp.dir, 'library.db'));

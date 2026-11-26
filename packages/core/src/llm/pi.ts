@@ -175,10 +175,10 @@ function toolsOf(tools: LlmTool[]) {
 export async function completeOnce(
   target: RuntimeTarget,
   transport: Transport,
-  input: { system: string; user: string; tools: LlmTool[]; maxTokens: number },
+  input: { system: string; user: string; tools: LlmTool[]; maxTokens: number; onOutput?: () => void },
 ): Promise<CompletionOutcome> {
   const { models, model } = build(target);
-  const message = await models.completeSimple(
+  const stream = models.streamSimple(
     model,
     {
       systemPrompt: input.system,
@@ -195,7 +195,10 @@ export async function completeOnce(
       maxTokens: input.maxTokens,
     },
   );
-  return outcomeOf(message);
+  for await (const event of stream) {
+    if (event.type.endsWith('_delta')) input.onOutput?.();
+  }
+  return outcomeOf(await stream.result());
 }
 
 export interface AgentSession {

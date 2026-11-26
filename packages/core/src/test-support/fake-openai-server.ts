@@ -3,7 +3,7 @@ import type { Socket } from 'node:net';
 
 export type FakeStep =
   | { kind: 'tool_call'; name: string; arguments: string }
-  | { kind: 'text'; text: string }
+  | { kind: 'text'; text: string; chunkDelayMs?: number }
   | { kind: 'thinking_then_tool_call'; thinking: string; chunkDelayMs: number; name: string; arguments: string }
   | { kind: 'http_error'; status: number; message: string }
   | { kind: 'redirect'; status: 301 | 302 | 303 | 307 | 308; location: string }
@@ -112,13 +112,13 @@ function sendToolCall(
   response.end();
 }
 
-function sendText(
+async function sendText(
   response: ServerResponse,
   step: Extract<FakeStep, { kind: 'text' }>,
   model: string,
   stream: boolean,
   promptTokens: number,
-): void {
+): Promise<void> {
   const usage = {
     prompt_tokens: promptTokens,
     completion_tokens: estimateTokens(step.text),
@@ -141,6 +141,7 @@ function sendText(
   sendSse(response, chunk(model, { role: 'assistant', content: '' }));
   for (let index = 0; index < step.text.length; index += 40) {
     sendSse(response, chunk(model, { content: step.text.slice(index, index + 40) }));
+    if (step.chunkDelayMs) await new Promise((resolve) => setTimeout(resolve, step.chunkDelayMs));
   }
   sendSse(response, chunk(model, {}, 'stop'));
   sendSse(response, { ...chunk(model, {}), choices: [], usage });
@@ -270,7 +271,7 @@ export function startFakeOpenAiServer(options?: { apiKey?: string }): Promise<Fa
       return;
     }
     if (step.kind === 'text') {
-      sendText(response, step, model, stream, promptTokens);
+      await sendText(response, step, model, stream, promptTokens);
       return;
     }
     if (step.kind === 'thinking_then_tool_call') {

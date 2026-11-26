@@ -54,8 +54,7 @@ export function buildJournal(p: StoryProjection, routeId: string): JournalView {
     if (kindDiff !== 0) return kindDiff;
     const leftFirst = left.lines[0];
     const rightFirst = right.lines[0];
-    if (!leftFirst) return 1;
-    if (!rightFirst) return -1;
+    if (!leftFirst || !rightFirst) return (leftFirst ? 0 : 1) - (rightFirst ? 0 : 1);
     return sourceDepth(leftFirst) - sourceDepth(rightFirst) || sourcePara(leftFirst) - sourcePara(rightFirst);
   });
 

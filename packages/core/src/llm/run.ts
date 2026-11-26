@@ -3,7 +3,7 @@ import { createGuardedFetch, createFetchRecorder, unguardedFetch } from './fetch
 import { classifyFailure } from './classify.ts';
 import { scrubSecrets } from '../log/scrub.ts';
 import { completeOnce, createAgentSession, type CompletionOutcome, type RuntimeTarget } from './pi.ts';
-import type { LlmCompleteInput, LlmCompleteResult, LlmRunInput, LlmRunResult } from './types.ts';
+import type { LlmCompleteInput, LlmCompleteResult, LlmRunInput, LlmRunRef, LlmRunResult } from './types.ts';
 import { LlmRunError } from './types.ts';
 import type { Database } from '../store/db.ts';
 import { llmCalls } from '../store/schema.ts';
@@ -55,6 +55,120 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+interface Watchdog {
+  readonly startedAt: number;
+  readonly firstOutputAt: number | null;
+  readonly timedOut: boolean;
+  onOutput(): void;
+  clear(): void;
+}
+
+function startWatchdog(timeouts: LlmTimeouts, controller: AbortController): Watchdog {
+  const startedAt = performance.now();
+  let firstOutputAt: number | null = null;
+  let timedOut = false;
+  const expire = () => {
+    timedOut = true;
+    controller.abort();
+  };
+  let firstTimer: ReturnType<typeof setTimeout> | null = setTimeout(expire, timeouts.firstOutputMs);
+  let stallTimer: ReturnType<typeof setTimeout> | null = null;
+  const clear = () => {
+    if (firstTimer) clearTimeout(firstTimer);
+    if (stallTimer) clearTimeout(stallTimer);
+    firstTimer = null;
+    stallTimer = null;
+  };
+  return {
+    startedAt,
+    get firstOutputAt() {
+      return firstOutputAt;
+    },
+    get timedOut() {
+      return timedOut;
+    },
+    onOutput() {
+      if (firstOutputAt === null) {
+        firstOutputAt = performance.now();
+        if (firstTimer) clearTimeout(firstTimer);
+        firstTimer = null;
+      }
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(expire, timeouts.stallMs);
+    },
+    clear,
+  };
+}
+
+const EMPTY_USAGE = { input: 0, output: 0, cacheRead: 0, cost: 0, costFromProvider: false };
+
+function recordCall(
+  deps: RunnerDeps,
+  call: {
+    callId: string;
+    purpose: LlmRunInput['purpose'];
+    ref: LlmRunRef;
+    target: RuntimeTarget;
+    outcome: CompletionOutcome | null;
+    code: LlmRunError['code'] | undefined;
+    watchdog: Watchdog;
+  },
+): void {
+  const { callId, ref, target, outcome, code, watchdog } = call;
+  const usage = outcome?.usage ?? EMPTY_USAGE;
+  const status = code === undefined ? 'ok' : code === 'interrupted' ? 'aborted' : 'error';
+  deps.db
+    .insert(llmCalls)
+    .values({
+      id: callId,
+      purpose: call.purpose,
+      workId: ref.workId,
+      provider: target.endpointId,
+      model: target.modelId,
+      refKind: ref.kind,
+      refId: ref.id,
+      inputTokens: outcome ? usage.input : null,
+      outputTokens: outcome ? usage.output : null,
+      cacheReadTokens: outcome ? usage.cacheRead : null,
+      cost: outcome ? usage.cost : null,
+      costFromProvider: outcome ? (usage.costFromProvider ? 1 : 0) : null,
+      durationMs: Math.round(performance.now() - watchdog.startedAt),
+      status,
+      error: code ?? null,
+      createdAt: Date.now(),
+    })
+    .run();
+
+  const requestId = ref.kind === 'turn_request' ? ref.id : undefined;
+  const jobId = ref.kind === 'job' ? ref.id : undefined;
+  deps.logger.record({
+    level: code ? 'warn' : 'info',
+    module: 'llm',
+    event: 'llm.call',
+    callId,
+    requestId,
+    jobId,
+    data: { status, code: code ?? null, attempt: ref.attempt, thinking: target.params.thinking },
+  });
+  if (watchdog.firstOutputAt !== null) {
+    deps.logger.sample({
+      metric: 'llm.first_output',
+      durationMs: watchdog.firstOutputAt - watchdog.startedAt,
+      outcome: code === undefined ? 'ok' : code === 'interrupted' ? 'interrupted' : 'error',
+      callId,
+      requestId,
+      jobId,
+      attempt: ref.attempt,
+    });
+  }
+}
+
+function abortSignalFor(controller: AbortController, deps: RunnerDeps, signal: AbortSignal | undefined): AbortSignal {
+  const signals = [controller.signal, deps.shutdown];
+  if (signal) signals.push(signal);
+  return AbortSignal.any(signals);
+}
+
 interface AttemptResult {
   ok: boolean;
   code?: LlmRunError['code'];
@@ -70,36 +184,15 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
     const recorder = createFetchRecorder();
     const guardedFetch = createGuardedFetch(unguardedFetch(), recorder);
     const controller = new AbortController();
-    const signals = [controller.signal, deps.shutdown];
-    if (input.signal) signals.push(input.signal);
-    const signal = AbortSignal.any(signals);
+    const signal = abortSignalFor(controller, deps, input.signal);
     const callId = randomUUID();
-    const startedAt = performance.now();
-    let firstOutputAt: number | null = null;
-    let firstTimer: ReturnType<typeof setTimeout> | null = null;
-    let stallTimer: ReturnType<typeof setTimeout> | null = null;
-    const state = { terminated: false, gotOutput: false, tooManyRounds: false, timedOut: false, rounds: 0 };
-
-    const clearTimers = () => {
-      if (firstTimer) clearTimeout(firstTimer);
-      if (stallTimer) clearTimeout(stallTimer);
-      firstTimer = null;
-      stallTimer = null;
-    };
+    const watchdog = startWatchdog(timeouts, controller);
+    const state = { terminated: false, gotOutput: false, tooManyRounds: false, rounds: 0 };
 
     const onActivity = (kind: 'output' | 'turn_end') => {
       if (kind === 'output') {
         state.gotOutput = true;
-        if (firstOutputAt === null) {
-          firstOutputAt = performance.now();
-          if (firstTimer) clearTimeout(firstTimer);
-          firstTimer = null;
-        }
-        if (stallTimer) clearTimeout(stallTimer);
-        stallTimer = setTimeout(() => {
-          state.timedOut = true;
-          controller.abort();
-        }, timeouts.stallMs);
+        watchdog.onOutput();
         return;
       }
       state.rounds += 1;
@@ -108,11 +201,6 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
         controller.abort();
       }
     };
-
-    firstTimer = setTimeout(() => {
-      state.timedOut = true;
-      controller.abort();
-    }, timeouts.firstOutputMs);
 
     const wrappedTools = input.tools.map((tool) => {
       if (tool.name !== input.requiredToolName) return tool;
@@ -153,7 +241,7 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
     } catch (error) {
       thrown = error instanceof Error ? error.message : String(error);
     } finally {
-      clearTimers();
+      watchdog.clear();
     }
 
     const errorMessage = thrown ?? outcome?.errorMessage ?? '';
@@ -163,56 +251,13 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
       code = classifyFailure({
         httpStatus: recorder.lastStatus,
         redirected: recorder.redirected,
-        timedOut: state.timedOut,
+        timedOut: watchdog.timedOut,
         aborted: Boolean(input.signal?.aborted || deps.shutdown.aborted),
         errorMessage,
       });
     } else if (!state.terminated) code = 'invalid_output';
 
-    const usage = outcome?.usage ?? { input: 0, output: 0, cacheRead: 0, cost: 0, costFromProvider: false };
-    const status = code === undefined ? 'ok' : code === 'interrupted' ? 'aborted' : 'error';
-    deps.db
-      .insert(llmCalls)
-      .values({
-        id: callId,
-        purpose: input.purpose,
-        workId: input.ref.workId,
-        provider: target.endpointId,
-        model: target.modelId,
-        refKind: input.ref.kind,
-        refId: input.ref.id,
-        inputTokens: outcome ? usage.input : null,
-        outputTokens: outcome ? usage.output : null,
-        cacheReadTokens: outcome ? usage.cacheRead : null,
-        cost: outcome ? usage.cost : null,
-        costFromProvider: outcome ? (usage.costFromProvider ? 1 : 0) : null,
-        durationMs: Math.round(performance.now() - startedAt),
-        status,
-        error: code ?? null,
-        createdAt: Date.now(),
-      })
-      .run();
-
-    deps.logger.record({
-      level: code ? 'warn' : 'info',
-      module: 'llm',
-      event: 'llm.call',
-      callId,
-      requestId: input.ref.kind === 'turn_request' ? input.ref.id : undefined,
-      jobId: input.ref.kind === 'job' ? input.ref.id : undefined,
-      data: { status, code: code ?? null, attempt: input.ref.attempt, thinking: target.params.thinking },
-    });
-    if (firstOutputAt !== null) {
-      deps.logger.sample({
-        metric: 'llm.first_output',
-        durationMs: firstOutputAt - startedAt,
-        outcome: code === undefined ? 'ok' : code === 'interrupted' ? 'interrupted' : 'error',
-        callId,
-        requestId: input.ref.kind === 'turn_request' ? input.ref.id : undefined,
-        jobId: input.ref.kind === 'job' ? input.ref.id : undefined,
-        attempt: input.ref.attempt,
-      });
-    }
+    recordCall(deps, { callId, purpose: input.purpose, ref: input.ref, target, outcome, code, watchdog });
 
     return {
       ok: code === undefined,
@@ -245,8 +290,6 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
   };
 }
 
-const EMPTY_COMPLETE_USAGE = { input: 0, output: 0, cacheRead: 0, cost: 0, costFromProvider: false };
-
 export function createCompleter(deps: RunnerDeps): (input: LlmCompleteInput) => Promise<LlmCompleteResult> {
   const timeouts = { ...DEFAULT_TIMEOUTS, ...deps.timeouts };
 
@@ -256,18 +299,11 @@ export function createCompleter(deps: RunnerDeps): (input: LlmCompleteInput) => 
 
     for (let index = 0; index < 2; index += 1) {
       const callId = randomUUID();
-      const startedAt = performance.now();
       const recorder = createFetchRecorder();
       const guardedFetch = createGuardedFetch(unguardedFetch(), recorder);
       const controller = new AbortController();
-      const signals = [controller.signal, deps.shutdown];
-      if (input.signal) signals.push(input.signal);
-      const signal = AbortSignal.any(signals);
-      let timedOut = false;
-      const timer = setTimeout(() => {
-        timedOut = true;
-        controller.abort();
-      }, timeouts.firstOutputMs);
+      const signal = abortSignalFor(controller, deps, input.signal);
+      const watchdog = startWatchdog(timeouts, controller);
 
       let outcome: CompletionOutcome | null = null;
       let thrown: string | null = null;
@@ -285,12 +321,13 @@ export function createCompleter(deps: RunnerDeps): (input: LlmCompleteInput) => 
             user: input.prompt,
             tools: [],
             maxTokens: input.maxOutputTokens,
+            onOutput: () => watchdog.onOutput(),
           },
         );
       } catch (error) {
         thrown = error instanceof Error ? error.message : String(error);
       } finally {
-        clearTimeout(timer);
+        watchdog.clear();
       }
 
       const errorMessage = thrown ?? outcome?.errorMessage ?? '';
@@ -299,7 +336,7 @@ export function createCompleter(deps: RunnerDeps): (input: LlmCompleteInput) => 
         code = classifyFailure({
           httpStatus: recorder.lastStatus,
           redirected: recorder.redirected,
-          timedOut,
+          timedOut: watchdog.timedOut,
           aborted: Boolean(input.signal?.aborted || deps.shutdown.aborted),
           errorMessage,
         });
@@ -307,39 +344,7 @@ export function createCompleter(deps: RunnerDeps): (input: LlmCompleteInput) => 
         code = 'invalid_output';
       }
 
-      const usage = outcome?.usage ?? EMPTY_COMPLETE_USAGE;
-      const status = code === undefined ? 'ok' : code === 'interrupted' ? 'aborted' : 'error';
-      deps.db
-        .insert(llmCalls)
-        .values({
-          id: callId,
-          purpose: input.purpose,
-          workId: input.ref.workId,
-          provider: target.endpointId,
-          model: target.modelId,
-          refKind: input.ref.kind,
-          refId: input.ref.id,
-          inputTokens: outcome ? usage.input : null,
-          outputTokens: outcome ? usage.output : null,
-          cacheReadTokens: outcome ? usage.cacheRead : null,
-          cost: outcome ? usage.cost : null,
-          costFromProvider: outcome ? (usage.costFromProvider ? 1 : 0) : null,
-          durationMs: Math.round(performance.now() - startedAt),
-          status,
-          error: code ?? null,
-          createdAt: Date.now(),
-        })
-        .run();
-
-      deps.logger.record({
-        level: code ? 'warn' : 'info',
-        module: 'llm',
-        event: 'llm.call',
-        callId,
-        requestId: input.ref.kind === 'turn_request' ? input.ref.id : undefined,
-        jobId: input.ref.kind === 'job' ? input.ref.id : undefined,
-        data: { status, code: code ?? null, attempt: input.ref.attempt, thinking: target.params.thinking },
-      });
+      recordCall(deps, { callId, purpose: input.purpose, ref: input.ref, target, outcome, code, watchdog });
 
       if (code === undefined) return { text: (outcome?.text ?? '').trim() };
 

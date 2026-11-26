@@ -29,17 +29,17 @@ export interface WriteChangesResult {
 }
 
 export function writeChanges(tx: StoryTx, input: WriteChangesInput): WriteChangesResult {
-  const resolve = (ref: EntityRef): string => {
-    if ('existing' in ref) return ref.existing;
-    const id = input.createdIds.get(ref.created);
-    if (!id) throw new Error(`missing created entity for line ${ref.created}`);
+  const createdId = (line: number): string => {
+    const id = input.createdIds.get(line);
+    if (!id) throw new Error(`missing created entity for line ${line}`);
     return id;
   };
+  const resolve = (ref: EntityRef): string => ('existing' in ref ? ref.existing : createdId(ref.created));
 
   const entityRows = input.entityVersionIds.flatMap((versionId) =>
     input.changes.entities.map((entity) => ({
       versionId,
-      id: input.createdIds.get(entity.line) ?? '',
+      id: createdId(entity.line),
       kind: entity.kind,
       name: entity.name,
       profile: { text: entity.profile },
@@ -50,7 +50,7 @@ export function writeChanges(tx: StoryTx, input: WriteChangesInput): WriteChange
   if (entityRows.length) tx.insert(entities).values(entityRows).run();
 
   const protagonist = input.changes.entities.find((entity) => entity.protagonist);
-  const protagonistId = input.protagonistId ?? (protagonist ? (input.createdIds.get(protagonist.line) ?? null) : null);
+  const protagonistId = input.protagonistId ?? (protagonist ? createdId(protagonist.line) : null);
   if (!protagonistId) throw new Error('protagonist entity missing');
 
   const nameRows = new Map<
@@ -75,7 +75,7 @@ export function writeChanges(tx: StoryTx, input: WriteChangesInput): WriteChange
   }
   for (const entity of input.changes.entities) {
     if (!entity.knownAs) continue;
-    addName(input.createdIds.get(entity.line) ?? '', entity.knownAs, protagonistId, entity.para);
+    addName(createdId(entity.line), entity.knownAs, protagonistId, entity.para);
   }
   for (const name of input.changes.names) {
     addName(resolve(name.entity), name.name, resolve(name.holder), name.para);
@@ -103,9 +103,7 @@ export function writeChanges(tx: StoryTx, input: WriteChangesInput): WriteChange
     factIds.set(fact.line, id);
     const data = fact.data ? { ...fact.data } : null;
     if (data && typeof data.via === 'string' && data.via.startsWith('created:')) {
-      const line = Number(data.via.slice('created:'.length));
-      const created = input.createdIds.get(line);
-      if (created) data.via = created;
+      data.via = createdId(Number(data.via.slice('created:'.length)));
     }
     factRows.push({
       versionId: input.versionId,
