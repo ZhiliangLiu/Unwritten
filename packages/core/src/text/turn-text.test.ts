@@ -35,6 +35,23 @@ describe('parseJsonLines', () => {
     const result = parseJsonLines('[1,2]', 'changes');
     expect(result.ok).toBe(false);
   });
+
+  it('一行 JSON 数组展开成多行，行号按展开后的行数排', () => {
+    expect(parseJsonLines('[{"a":1},{"b":2}]', 'changes')).toEqual({
+      ok: true,
+      value: [
+        { line: 1, value: { a: 1 } },
+        { line: 2, value: { b: 2 } },
+      ],
+    });
+  });
+
+  it('数组里的元素仍必须是对象，且行号与后续行不重复', () => {
+    expect(parseJsonLines('[{"a":1},"b"]\n{"c":3}', 'changes')).toEqual({
+      ok: false,
+      errors: ['第 2 行 changes：必须是对象'],
+    });
+  });
 });
 
 describe('parseOptionLines', () => {
@@ -42,6 +59,13 @@ describe('parseOptionLines', () => {
 
   it('解析合格选项', () => {
     expect(parseOptionLines('{"text":"推门"}\n{"text":"离开"}', limits)).toEqual({
+      ok: true,
+      value: [{ text: '推门' }, { text: '离开' }],
+    });
+  });
+
+  it('一行 JSON 数组等价于每个选项各占一行', () => {
+    expect(parseOptionLines('[{"text":"推门"},{"text":"离开"}]', limits)).toEqual({
       ok: true,
       value: [{ text: '推门' }, { text: '离开' }],
     });

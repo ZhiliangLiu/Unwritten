@@ -23,10 +23,20 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function expandArrayLine(raw: string): string[] {
+  if (!raw.trim().startsWith('[')) return [raw];
+  try {
+    const value: unknown = JSON.parse(raw);
+    return Array.isArray(value) ? value.map((item) => JSON.stringify(item)) : [raw];
+  } catch {
+    return [raw];
+  }
+}
+
 export function parseJsonLines(text: string, label: string): ParseResult<JsonLine[]> {
   const result: JsonLine[] = [];
   const errors: string[] = [];
-  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const lines = text.replace(/\r\n?/g, '\n').split('\n').flatMap(expandArrayLine);
   lines.forEach((raw, index) => {
     if (!raw.trim()) return;
     const line = index + 1;
