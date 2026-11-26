@@ -45,7 +45,6 @@
 .edit {
   display: grid;
   gap: var(--uw-space-3);
-  padding-block: var(--uw-space-3);
 }
 
 .editFields {
@@ -68,6 +67,8 @@
 }
 
 .modelItem + .modelItem {
+  margin-block-start: var(--uw-space-4);
+  padding-block-start: var(--uw-space-4);
   border-block-start: var(--uw-border-width) solid var(--uw-color-border);
 }
 

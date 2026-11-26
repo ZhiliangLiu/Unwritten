@@ -1,6 +1,6 @@
 import { Field } from '@base-ui/react/field';
 import { NumberField as BaseNumberField } from '@base-ui/react/number-field';
-import styles from './NumberField.module.css';
+import styles from './Field.module.css';
 
 export function NumberField({
   label,
@@ -25,7 +25,6 @@ export function NumberField({
     <Field.Root className={styles.field} disabled={disabled}>
       <Field.Label className={styles.label}>{label}</Field.Label>
       <BaseNumberField.Root
-        className={styles.root}
         value={value}
         onValueChange={(next) => onValueChange(next)}
         min={min}
@@ -33,7 +32,7 @@ export function NumberField({
         step={step}
         disabled={disabled}
       >
-        <BaseNumberField.Input className={styles.input} />
+        <BaseNumberField.Input className={`${styles.control} ${styles.singleLine} ${styles.mono}`} />
       </BaseNumberField.Root>
       {description ? <Field.Description className={styles.description}>{description}</Field.Description> : null}
     </Field.Root>

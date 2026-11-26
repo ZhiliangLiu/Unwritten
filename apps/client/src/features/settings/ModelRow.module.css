@@ -1,7 +1,6 @@
 .row {
   display: grid;
   gap: var(--uw-space-3);
-  padding-block: var(--uw-space-4);
 }
 
 .header {

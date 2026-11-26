@@ -1,5 +1,5 @@
 import { Field } from '@base-ui/react/field';
-import styles from './TextField.module.css';
+import styles from './Field.module.css';
 
 export function TextField({
   label,
@@ -28,7 +28,7 @@ export function TextField({
     <Field.Root className={styles.field} disabled={disabled} invalid={Boolean(error)}>
       <Field.Label className={styles.label}>{label}</Field.Label>
       <Field.Control
-        className={`${styles.control} ${mono ? styles.mono : ''}`}
+        className={`${styles.control} ${styles.singleLine} ${mono ? styles.mono : ''}`}
         value={value}
         onValueChange={onValueChange}
         placeholder={placeholder}

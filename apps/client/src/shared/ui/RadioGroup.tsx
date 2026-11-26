@@ -3,6 +3,7 @@ import { RadioGroup as BaseRadioGroup } from '@base-ui/react/radio-group';
 import { useId } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Icon } from './Icon.tsx';
+import fieldStyles from './Field.module.css';
 import styles from './RadioGroup.module.css';
 
 export function RadioGroup({
@@ -24,8 +25,8 @@ export function RadioGroup({
   const segmented = appearance === 'segmented';
 
   return (
-    <div className={styles.field}>
-      <div className={styles.label} id={labelId}>
+    <div className={fieldStyles.field}>
+      <div className={fieldStyles.label} id={labelId}>
         {label}
       </div>
       <BaseRadioGroup
