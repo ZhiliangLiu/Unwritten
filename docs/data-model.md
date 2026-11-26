@@ -166,7 +166,7 @@ entity_names (
   name          TEXT NOT NULL,
   holder_id     TEXT,              -- 谁这样称呼他；空 = 公开称呼
   origin_turn_id TEXT REFERENCES turns ON DELETE CASCADE,
-  source_para   INTEGER            -- 出处：origin_turn 正文的第几段
+  source_para   INTEGER            -- 出处：origin_turn 正文的第几段，从 1 起，按空行切分
 )
 -- SQLite 的唯一约束把 NULL 当作互不相同，可空列先用 ifnull 归一，否则重复行照样写得进去
 CREATE UNIQUE INDEX entity_names_unique
@@ -176,7 +176,7 @@ facts (
   version_id    TEXT NOT NULL REFERENCES work_versions ON DELETE CASCADE,
   id            TEXT NOT NULL,
   origin_turn_id TEXT REFERENCES turns ON DELETE CASCADE,  -- 空 = 作者设定
-  source_para   INTEGER,
+  source_para   INTEGER,           -- 出处段号，从 1 起
   kind          TEXT NOT NULL,     -- event | trait | relation | promise | secret | scene_hit
   subject_id    TEXT,
   object_id     TEXT,
@@ -199,7 +199,7 @@ knowledge (
   perceived_statement TEXT,       -- 未确认时主角实际听见、推测或相信的说法
   via_id        TEXT,              -- 从谁那里得知
   origin_turn_id TEXT REFERENCES turns ON DELETE CASCADE,
-  source_para   INTEGER
+  source_para   INTEGER            -- 出处段号，从 1 起
 )
 CREATE UNIQUE INDEX knowledge_unique
   ON knowledge (version_id, fact_id, holder_id, ifnull(origin_turn_id, ''));
@@ -234,7 +234,7 @@ state_values (
 
 **知情记录只在认知变化时写。** 某人对某条事实没有任何知情记录，就是不知道；“被误导”（`misled`）和“尚未知道”是两种不同的状态，分开记录。
 
-**主角也是一个实体。** 玩家知道什么，就是主角知道什么，所以知情者永远是实体 id，不需要另设“玩家”这种特殊身份。主角的姓名如果留给玩家填写，就在开场回合里写一条 `entity_names`。
+**主角也是一个实体。** 玩家知道什么，就是主角知道什么，所以知情者永远是实体 id，不需要另设“玩家”这种特殊身份。主角的姓名如果留给玩家填写，就在开场回合里写一条 `entity_names`。每个版本恰好有一个 `is_protagonist = 1` 的实体；开场回合为主角写一条主角自己持有的称呼，所以主角总知道自己的名字。
 
 **覆盖规则。**
 
@@ -265,6 +265,8 @@ state_values (
 1. `state_defs.hidden` 为 1 的栏目永远不显示给玩家，任何状态变化都不能把它设为显示；
 2. 其余栏目此刻是否显示，由最近一次状态变化的 `visible` 决定；`closed` 为 1 时栏目收起，但来历仍留在手记里；
 3. `state_defs.reveal` 是作者写的揭晓条件原文。它交给 narrator 判断什么时候把 `visible` 设为 1，由评测保证，不做确定性校验。
+
+**采用开场时的归属。** 作者采用的开场预览里新出现的实体，视为作者认可的设定：`origin_turn_id` 为空，同一个 `id` 同时写进草稿和发布版本，所以将来从同一个开场重新开局时，固定人物不会丢。开场里的称呼、事件、特征、关系、约定和知情挂在根回合上，因为它们是这一局开场时发生的经历。
 
 **几个典型的事实：**
 

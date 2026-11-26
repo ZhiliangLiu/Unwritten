@@ -68,7 +68,11 @@ performance_samples (
 | `llm.first_output` | 当次模型调用发出 | 收到首个输出事件。没有收到输出的调用通过 `llm_calls` 查询 |
 | `preview.total`、`turn.total` | core 接受该次生成尝试 | 结果提交、失败或中断，含正常退出时取消的排队尝试 |
 | `preview.queue`、`turn.queue` | 尝试入队 | 开始处理该尝试 |
-| `turn.context` | 开始读取并构建续写上下文 | 上下文可提交给模型，或构建失败。成功时附纳入的回合数和估算的上下文 token 数 |
+| `turn.context` | 开始读取并构建续写上下文 | 上下文可提交给模型，或构建失败。成功时附纳入的回合数、估算的上下文 token 数、索引列出的实体数和摘要行数 |
+| `story.projection` | 开始读取一条路线可见的故事事实 | 投影可用。附实体、事实、知情的条数 |
+| `story.tool` | 模型调用一次只读工具 | 工具返回结果或错误。附工具名和返回的记录条数 |
+| `summary.total` | 摘要任务开始处理 | 摘要写入、失败或回合已不存在 |
+| `settings.update` | core 收到外观偏好的修改 | 写入完成或失败 |
 | `preview.validate`、`turn.validate` | 开始校验一次模型提案 | 得到校验结果，包括须修正的情况 |
 | `preview.commit`、`turn.commit` | 开始提交通过校验的结果 | 提交事务成功、回滚或因决定点变化而放弃。单独登记失败状态不计入这一项 |
 | `client.library_ready` | 导航进入作品库 | 作品列表、空库或读取失败状态首次渲染 |

@@ -4,6 +4,8 @@
 
 - [docs/AGENTS.md](docs/AGENTS.md)：设计文档的写作规范。
 - [apps/client/AGENTS.md](apps/client/AGENTS.md)：client 的样式、动效、文案与可访问性规则。
+- [packages/core/AGENTS.md](packages/core/AGENTS.md)：core 的模块边界、事务、模型调用、日志与测试规则。
+- [tasks/AGENTS.md](tasks/AGENTS.md)：任务拆解与判据的写作规范。
 
 **称呼约定。** 本文的“维护者”指拥有本仓库、负责拍板的人。“用户”指产品的使用者，包括作者和玩家。维护者不叫“用户”，也不叫“作者”。
 

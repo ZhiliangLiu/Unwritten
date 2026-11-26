@@ -28,7 +28,7 @@
       "api": "openai-completions",
       "baseUrl": "http://127.0.0.1:11434/v1",
       "models": [
-        { "id": "qwen3:14b", "contextWindow": 32768, "maxTokens": 8192, "tools": true, "reasoning": true, "vision": false }
+        { "id": "qwen3:14b", "contextWindow": 32768, "maxTokens": 8192, "tools": true, "reasoning": true, "thinkingFormat": "qwen-chat-template", "vision": false }
       ]
     }
   ],
@@ -152,6 +152,8 @@ OpenCode Go 是可选的服务商。创作与游玩可以使用其他满足用�
 
 **能力字段。** 探测结果通常不全：上下文窗口有时能拿到，是否支持工具和推理很少能拿到。没拿到的字段留空（表示未知），由用户填写。输出上限默认取上下文窗口的四分之一，并限制在 256 到 16,384 之间（同 thinkrail 的 `defaultMaxTokens`）。
 
+**思考写法。** 不同服务端用不同的请求字段开关思考：OpenAI 用 `reasoning_effort`，DashScope 等 Qwen 服务用 `enable_thinking`，vLLM、SGLang 上的 Qwen 模型用 `chat_template_kwargs.enable_thinking`，DeepSeek 用 `thinking: {type}`，OpenRouter 用 `reasoning: {effort}`，智谱用 `thinking: {type}`。所以每个模型有一个能力字段 `thinkingFormat`，取 `auto`、`openai`、`qwen`、`qwen-chat-template`、`deepseek`、`openrouter`、`zai` 之一，默认 `auto`。`auto` 交给 pi-ai 按地址识别（pi-ai `api/openai-completions.js` 的 `detectCompat`），识别不出时按 `openai` 写法。没有这个字段，自建服务上“关闭思考”根本发不出去。
+
 查找模型失败或服务不提供列表时，可手动填写模型 id 和已知能力，再用测试连接检查。
 
 **保存前的校验**（同 thinkrail 的 `validateDraft`）：
@@ -161,7 +163,8 @@ OpenCode Go 是可选的服务商。创作与游玩可以使用其他满足用�
 - 至少选一个模型；
 - 模型 id 不能为空，也不能重复；
 - 数值必须是正整数；
-- 能力字段只能是“是”“否”或“未知”。
+- 能力字段只能是“是”“否”或“未知”；
+- 思考写法只能是上文“思考写法”一段列出的七个值之一。
 
 **测试连接。** 用选中的模型发一个最小请求：只带一个空的 `ping` 工具，并要求模型调用它。这一个请求能同时验证 key、模型 id 和工具调用能力，确认收到有效工具调用后，将 `tools` 写为“是”。网络、鉴权或单次未调用只显示本次结果，不更改已保存的能力值。只消耗几十个 token。
 
@@ -187,8 +190,8 @@ OpenCode Go 是可选的服务商。创作与游玩可以使用其他满足用�
 
 | 参数 | 取值 | 交给 pi-ai |
 | --- | --- | --- |
-| `thinking` | `off`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max` | `reasoning`；`off` 时不传 |
-| `thinkingBudget` | 正整数，单位 token | `thinkingBudgets` 里与 `thinking` 同档的那一项；只对按 token 计思考预算的服务商生效 |
+| `thinking` | `off`、`minimal`、`low`、`medium`、`high`、`xhigh`、`max` | `reasoning`；按模型的思考写法发出，见下文 |
+| `thinkingBudget` | 正整数，单位 token | 只对 `qwen` 写法发送，字段名 `thinking_budget` |
 | `temperature` | 0 到 2 | `temperature` |
 | `topP` | 大于 0、不超过 1 | `samplingParams.top_p` |
 | `topK` | 正整数 | `samplingParams.top_k` |
@@ -196,7 +199,10 @@ OpenCode Go 是可选的服务商。创作与游玩可以使用其他满足用�
 
 - **没填的参数不发送**，由服务端的默认值决定。
 - **思考档位只对能力字段 `reasoning` 为“是”或“未知”的模型开放。** 为“否”时拒绝保存非 `off` 的档位；换成这样的模型时，分配里的思考参数一并清除。`thinkingBudget` 只在选了档位时有效。
+- **没设档位和设为关闭是两回事。** 用途没设 `thinking` 时，请求里不带任何思考字段，由服务端决定。设为 `off` 时，按模型的思考写法明确发出关闭：`openai` 写法发 `reasoning_effort: "none"`，`qwen` 写法发 `enable_thinking: false`，`qwen-chat-template` 写法发 `chat_template_kwargs.enable_thinking: false`，`deepseek` 和 `zai` 写法发 `thinking: {"type": "disabled"}`，`openrouter` 写法发 `reasoning: {"effort": "none"}`。默认会思考的模型只有这样才能关掉。
+- **思考预算只对 `qwen` 写法发送**，字段名 `thinking_budget`。其他写法没有通用的预算字段，设置页把预算栏置灰并写明原因；接口收到时以 `thinking_unsupported` 拒绝。
 - **`topP`、`topK`、`minP` 只有 OpenAI 兼容协议会发送**，因为 pi-ai 只在这类协议上合并 `samplingParams`。`anthropic-messages` 端点上设置页不提供这三项，并写明原因。
+- **同时设了思考档位和采样参数时，设置页提示：** 开启思考后，部分服务会忽略或拒绝采样参数，请用测试连接确认。采样参数只有在服务端真正兑现时才算生效，所以验收看的是服务商收到的请求体，不是界面上的值。
 - **测试连接可以按用途发起**：用该用途实际的模型和参数，发 §6 同样的最小请求。服务商拒绝某个参数组合时，显示它的错误类别，分配保持不变。
 - 参数和模型一样，从下一个请求开始生效。
 
@@ -231,7 +237,7 @@ llm_calls (
   work_id            TEXT REFERENCES works ON DELETE SET NULL,
   provider           TEXT NOT NULL,
   model              TEXT NOT NULL,
-  ref_kind           TEXT,           -- turn_request | job | chat_message
+  ref_kind           TEXT,           -- turn_request | job | chat_message | turn
   ref_id             TEXT,
   input_tokens       INTEGER,
   output_tokens      INTEGER,
@@ -245,7 +251,7 @@ llm_calls (
 )
 ```
 
-- **调用记录保存用量、耗时与结果。** 诊断库里的首输出耗时用调用 ID 与本表关联。模型请求和回复属于作品与对话数据，诊断库只收集[运行诊断与性能记录](./diagnostics.md)规定的字段。
+- **调用记录保存用量、耗时与结果。** 诊断库里的首输出耗时用调用 ID 与本表关联。模型请求和回复属于作品与对话数据，诊断库只收集[运行诊断与性能记录](./diagnostics.md)规定的字段。回合摘要的调用以回合为引用（`ref_kind = turn`）。
 - **设置页显示用量**，按用途和作品汇总最近 7 天和 30 天的数据。记录只关联仍存在的作品；调用未结束时删除作品，补写记录时也不再关联该作品。作品删除后，记录仍计入用途总量，不再归入单部作品。
 - core 启动时删除 90 天以前的记录。
 
@@ -259,8 +265,11 @@ llm_calls (
 | `llm.providers.setKey` | 设置或移除内置服务商的 key |
 | `llm.endpoints.probe` | 探测一个地址，返回模型列表或失败类别 |
 | `llm.endpoints.create` | 新增自定义端点，重发复用创建请求分配的端点 id |
-| `llm.endpoints.update` | 修改自定义端点：只能改名称、key、模型列表和能力字段。地址变化时拒绝，要作为新端点添加；跨源时返回 `endpoint_origin_changed`（§3） |
+| `llm.endpoints.update` | 修改自定义端点的名称和 key。地址变化时拒绝，要作为新端点添加；跨源时返回 `endpoint_origin_changed`（§3） |
 | `llm.endpoints.remove` | 删除自定义端点 |
+| `llm.models.add` | 给自定义端点加一个模型 |
+| `llm.models.update` | 修改模型的能力字段：`reasoning`、`thinkingFormat` |
+| `llm.models.remove` | 删除模型；端点下最后一个模型不能删（`last_model`）。引用它的用途分配一并清除 |
 | `llm.test` | 测试连接；可指定一个模型，也可指定一个用途，按该用途的模型和生成参数测试 |
 | `llm.purposes.get`、`llm.purposes.set` | 读取和修改用途分配，包括每个用途的生成参数 |
 | `llm.usage.summary` | 用量汇总 |
