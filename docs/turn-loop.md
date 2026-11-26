@@ -132,7 +132,7 @@ turn_requests (
 | `trait` | subject、key、statement、para | 人物特征的变化 |
 | `relation` | subject、object、key、relation_type、strength、stage、via、statement、para | |
 | `promise` | subject、object、key、status、statement、para | |
-| `knowledge` | fact、holder、level、perceived_statement、via、para | `fact` 写事实编号，或者本次 `changes` 里前面某一行的行号 |
+| `knowledge` | fact、holder、level、perceived_statement、via、para | `fact` 写事实编号，或者本次某行事实自己起的 id |
 | `state` | key、value、visible、closed | 数字、阶段、文字栏目的新值，`value` 的写法随显示方式而定。清单栏目不写 `value`，只用这一行改 `visible`、`closed`。`closed` 为 `"true"` 时栏目收起（事情已了结）。显示方式和可见性的优先级见[数据模型 §4](./data-model.md#4-故事事实) |
 | `state_item` | key、item、status | 清单栏目里的一项：新增，或者改变状态。`status` 为 `open`、`done`、`failed`、`gone` 之一 |
 | `new_state` | key、label、display、hidden、min、max、unit、stages | AI 新增的状态栏目。`min`、`max`、`unit` 只用于数字栏目；`stages` 只用于阶段栏目，阶段名用 `\|` 隔开，按先后排列 |
@@ -140,7 +140,7 @@ turn_requests (
 | `scene_hit` | scene、para | 触发了哪个关键场面 |
 | `secret` | subject、title、statement、reveal、knowers、para | 游玩中创造的秘密。`title` 是无剧透的标题；`knowers` 写一开始就知道的人（逗号分隔的名字或编号），core 为他们展开 `level` 为 `confirmed` 的知情记录：他们是秘密本来的知情者，不是听说或猜测 |
 
-`para` 是这条变化在 `prose` 里的出处段号。例如：
+`para` 是这条变化在 `prose` 里的出处段号。事件、特征、关系、约定这些事实行，要用在某条 `knowledge` 里时，在那行加一个自己起的 `"id"`（如 `"f1"`），`knowledge` 的 `fact` 写这个 id。id 只在本条 `changes` 里有效，每行不能重复，也不能以 `#` 或 `@` 开头（那是 core 发的编号，混用会让引用指向错的东西）。行号不作引用：模型看不见行号，只能数，数错一次整条提交就被拒。例如：
 
 ```
 {"type":"new_entity","kind":"character","name":"沈岚","known_as":"撑伞的女人","profile":"三十岁上下，说话很慢","para":"2"}
@@ -158,7 +158,7 @@ turn_requests (
 | --- | --- | --- |
 | 时效 | 续写与重写的 head 和预期值相同；开场时该开局尚无根回合 | 请求标为 `superseded`，不提交 |
 | 格式 | 每一行 `changes` 都符合 schema；段号不超出正文的段数；至少有一个选项（结局除外） | 返回给模型修正 |
-| 引用 | 名字能在可见范围内唯一对应到一个实体，或者是本次新增的；编号必须是本次请求里出现过的；按名称引用的已有实体也必须已经在本次请求中下发 | 返回给模型修正，附上候选 |
+| 引用 | 名字能在可见范围内唯一对应到一个实体，或者是本次新增的；编号或本次给事实行起的 id 必须是本次请求里出现过的；按名称引用的已有实体也必须已经在本次请求中下发 | 返回给模型修正，附上候选 |
 | 新人物去重 | 和可见的同类实体同名时，必须用编号声明“就是此人”，或在档案里写明区别 | 返回给模型修正 |
 | 知情 | 获知者必须在本回合在场，或者写明从谁那里得知。`secret` 的 `knowers` 除外：他们是秘密本来的知情者，不是在本回合得知的 | 返回给模型修正 |
 | 不泄露 | 正文、选项、提醒、显示中的状态值里，如果出现主角尚不知道的名字，本次 `changes` 必须在该段或之前给主角加上这个称呼。幕后栏目不能设为显示 | 返回给模型修正 |

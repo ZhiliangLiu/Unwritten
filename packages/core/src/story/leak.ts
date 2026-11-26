@@ -17,13 +17,14 @@ function replaceKnown(text: string, known: Set<string>): string {
   return result;
 }
 
-function firstUnknown(text: string, known: Set<string>, candidates: Set<string>): string | null {
+function firstUnknown(text: string, known: Set<string>, candidates: Set<string>): string[] {
   const masked = replaceKnown(text, known);
+  const found: string[] = [];
   for (const candidate of candidates) {
     if (Array.from(candidate).length < STORY_LIMITS.nameMinLengthForLeakCheck) continue;
-    if (!known.has(candidate) && masked.includes(candidate)) return candidate;
+    if (!known.has(candidate) && masked.includes(candidate)) found.push(candidate);
   }
-  return null;
+  return found;
 }
 
 export function findLeaks(input: {
@@ -61,25 +62,31 @@ export function findLeaks(input: {
     if (entity.knownAs) candidates.add(entity.knownAs);
   }
 
+  const knownAsOf = new Map<string, string>();
+  for (const entity of input.changes.entities) {
+    if (entity.knownAs && entity.knownAs !== entity.name) knownAsOf.set(entity.name, entity.knownAs);
+  }
+  const advice = (name: string): string => {
+    const prefer = knownAsOf.get(name);
+    if (prefer) return `正文写到它时用「${prefer}」，它已经登记为主角此刻的叫法。`;
+    return '先在这一段或之前用 name 给主角加上这个称呼，或者换成主角知道的叫法。';
+  };
+
   const errors: string[] = [];
   input.paragraphs.forEach((paragraph, index) => {
     const para = index + 1;
     const atParagraph = new Set(known);
     for (const entry of timing) if (entry.para <= para) atParagraph.add(entry.name);
-    const leaked = firstUnknown(paragraph, atParagraph, candidates);
-    if (leaked) {
-      errors.push(
-        `第 ${para} 段出现了主角还不知道的名字「${leaked}」。先在这一段或之前用 name 给主角加上这个称呼，或者换成主角知道的叫法。`,
-      );
+    for (const leaked of firstUnknown(paragraph, atParagraph, candidates)) {
+      errors.push(`第 ${para} 段出现了主角还不知道的名字「${leaked}」。${advice(leaked)}`);
     }
   });
 
   const atOptions = new Set(known);
   for (const entry of timing) atOptions.add(entry.name);
   input.options.forEach((option, index) => {
-    const leaked = firstUnknown(option, atOptions, candidates);
-    if (leaked) {
-      errors.push(`第 ${index + 1} 个推荐行动出现了主角还不知道的名字「${leaked}」。`);
+    for (const leaked of firstUnknown(option, atOptions, candidates)) {
+      errors.push(`第 ${index + 1} 个推荐行动出现了主角还不知道的名字「${leaked}」。${advice(leaked)}`);
     }
   });
   return errors;

@@ -120,6 +120,25 @@ describe('findLeaks', () => {
     }
   });
 
+  it('同一段里的遗漏名字一次报全，并指向已登记的叫法', () => {
+    const changes: ValidatedChanges = {
+      ...EMPTY_CHANGES,
+      entities: [
+        { line: 1, kind: 'item', name: '密信', knownAs: '那封信', profile: '', para: 1, protagonist: false },
+        { line: 2, kind: 'item', name: '黑豆仓', knownAs: '半仓黑豆', profile: '', para: 1, protagonist: false },
+      ],
+    };
+    const errors = findLeaks({
+      projection: null,
+      changes,
+      paragraphs: ['你把密信塞回袋中，又看了一眼黑豆仓'],
+      options: [],
+    });
+    expect(errors).toHaveLength(2);
+    expect(errors.join('\n')).toContain('那封信');
+    expect(errors.join('\n')).toContain('半仓黑豆');
+  });
+
   it('开场里主角自己的名字不算泄露', () => {
     const { temp, opened } = setup();
     try {

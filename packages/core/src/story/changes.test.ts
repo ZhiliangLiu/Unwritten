@@ -267,7 +267,7 @@ describe('parseChanges', () => {
     }
   });
 
-  it('L 引用必须指向本次的事实行', () => {
+  it('行号引用被拒绝', () => {
     const { temp, opened } = setup();
     try {
       const seeded = seedNorthCape(opened.db);
@@ -279,10 +279,234 @@ describe('parseChanges', () => {
         turnContext(opened.db, seeded.versionId, seeded.headTurnId),
       );
       expect(result.ok).toBe(false);
-      if (!result.ok) expect(result.errors.some((error) => error.includes('不是本次的事实行'))).toBe(true);
+      if (!result.ok) expect(result.errors[0]).toContain('changes.fact');
     } finally {
       opened.close();
       temp.cleanup();
+    }
+  });
+
+  it('续写也能引用本次事实行自己起的 id', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedNorthCape(opened.db);
+      const result = parseChanges(
+        changeLines(
+          {
+            type: 'event',
+            subject: '@2',
+            statement: '她把伞递给他',
+            witnesses: '@1,@2',
+            para: '1',
+            id: '递伞',
+          },
+          { type: 'knowledge', fact: '递伞', holder: '@1', level: 'confirmed', para: '1' },
+        ),
+        turnContext(opened.db, seeded.versionId, seeded.headTurnId),
+      );
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.knowledge[0]?.fact).toEqual({ line: 1 });
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('id 写在非事实行上时点明位置', () => {
+    const result = parseChanges(
+      changeLines(
+        {
+          type: 'new_entity',
+          kind: 'character',
+          name: '驿丞',
+          known_as: '',
+          profile: '',
+          para: '1',
+          protagonist: 'true',
+        },
+        { type: 'new_entity', kind: 'item', name: '密信', known_as: '那封信', profile: '', para: '1', id: 'f1' },
+        { type: 'knowledge', fact: 'f1', holder: '驿丞', level: 'confirmed', para: '1' },
+      ),
+      opening(),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors[0]).toContain('第 2 行的 new_entity 上');
+      expect(result.errors[0]).toContain('id 只能起在');
+    }
+  });
+
+  it('id 写成数字时按字符串处理', () => {
+    const result = parseChanges(
+      [
+        '{"type":"new_entity","kind":"character","name":"驿丞","known_as":"","profile":"","para":"1","protagonist":"true"}',
+        '{"type":"event","subject":"驿丞","statement":"驿丞拆开密信","witnesses":"驿丞","para":"1","id":1}',
+        '{"type":"knowledge","fact":"1","holder":"驿丞","level":"confirmed","para":"1"}',
+      ].join('\n'),
+      opening(),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.knowledge[0]?.fact).toEqual({ line: 2 });
+  });
+
+  it('id 不能占用 core 发的编号前缀', () => {
+    const result = parseChanges(
+      changeLines(
+        {
+          type: 'new_entity',
+          kind: 'character',
+          name: '驿丞',
+          known_as: '',
+          profile: '',
+          para: '1',
+          protagonist: 'true',
+        },
+        { type: 'event', subject: '驿丞', statement: '驿丞拆开密信', witnesses: '驿丞', para: '1', id: '#1' },
+      ),
+      opening(),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors[0]).toContain('不能以 # 或 @ 开头');
+  });
+
+  it('没有事实行时，报错说明先写事实', () => {
+    const result = parseChanges(
+      changeLines(
+        {
+          type: 'new_entity',
+          kind: 'character',
+          name: '驿丞',
+          known_as: '',
+          profile: '',
+          para: '1',
+          protagonist: 'true',
+        },
+        { type: 'knowledge', fact: 'f1', holder: '驿丞', level: 'confirmed', para: '1' },
+      ),
+      opening(),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors[0]).toContain('没有事实行可引用');
+  });
+
+  it('事实行都没起 id 时，报错说明怎么起', () => {
+    const result = parseChanges(
+      changeLines(
+        {
+          type: 'new_entity',
+          kind: 'character',
+          name: '驿丞',
+          known_as: '',
+          profile: '',
+          para: '1',
+          protagonist: 'true',
+        },
+        { type: 'event', subject: '驿丞', statement: '驿丞拆开密信', witnesses: '驿丞', para: '1' },
+        { type: 'knowledge', fact: 'L2', holder: '驿丞', level: 'confirmed', para: '1' },
+      ),
+      opening(),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors[0]).toContain('还没起 id');
+  });
+
+  it('开场的事实行用自己起的 id 引用', () => {
+    const result = parseChanges(
+      changeLines(
+        {
+          type: 'new_entity',
+          kind: 'character',
+          name: '驿丞',
+          known_as: '',
+          profile: '',
+          para: '1',
+          protagonist: 'true',
+        },
+        { type: 'new_entity', kind: 'item', name: '密信', known_as: '密信', profile: '', para: '1' },
+        {
+          type: 'event',
+          subject: '驿丞',
+          object: '密信',
+          statement: '驿丞拆开密信',
+          witnesses: '驿丞',
+          para: '1',
+          id: '读信',
+        },
+        { type: 'knowledge', fact: '读信', holder: '驿丞', level: 'confirmed', para: '1' },
+      ),
+      opening(),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.knowledge[0]?.fact).toEqual({ line: 3 });
+  });
+
+  it('引用不存在的事实 id 时列出本次可用的 id', () => {
+    const result = parseChanges(
+      changeLines(
+        {
+          type: 'new_entity',
+          kind: 'character',
+          name: '驿丞',
+          known_as: '',
+          profile: '',
+          para: '1',
+          protagonist: 'true',
+        },
+        { type: 'event', subject: '驿丞', statement: '驿丞拆开密信', witnesses: '驿丞', para: '1', id: '读信' },
+        { type: 'knowledge', fact: '读信2', holder: '驿丞', level: 'confirmed', para: '1' },
+      ),
+      opening(),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors[0]).toContain('本次可用的事实 id：读信');
+  });
+
+  it('两行事实用了同一个 id 时被拒绝', () => {
+    const result = parseChanges(
+      changeLines(
+        {
+          type: 'new_entity',
+          kind: 'character',
+          name: '驿丞',
+          known_as: '',
+          profile: '',
+          para: '1',
+          protagonist: 'true',
+        },
+        { type: 'event', subject: '驿丞', statement: '驿丞拆开密信', witnesses: '驿丞', para: '1', id: '一' },
+        { type: 'trait', subject: '驿丞', key: '警觉', statement: '他起了戒心', para: '1', id: '一' },
+      ),
+      opening(),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.some((error) => error.includes('changes.id'))).toBe(true);
+  });
+
+  it('开场引用找不到的名字时列出本次新增的人物和事物', () => {
+    const result = parseChanges(
+      changeLines(
+        {
+          type: 'new_entity',
+          kind: 'character',
+          name: '驿丞',
+          known_as: '',
+          profile: '',
+          para: '1',
+          protagonist: 'true',
+        },
+        { type: 'new_entity', kind: 'item', name: '密信', known_as: '那封信', profile: '', para: '1' },
+        { type: 'new_entity', kind: 'item', name: '黑豆', known_as: '黑豆', profile: '', para: '1' },
+        { type: 'event', subject: '天子', statement: '天子已死', witnesses: '驿丞', para: '1' },
+      ),
+      opening(),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      const message = result.errors.join('\n');
+      expect(message).toContain('找不到「天子」');
+      expect(message).toContain('密信');
+      expect(message).toContain('那封信');
+      expect(message.split('黑豆').length).toBe(2);
     }
   });
 

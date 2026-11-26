@@ -45,6 +45,7 @@ export const OPENING_CHANGE_TYPES = [
   'promise',
   'knowledge',
 ] as const;
+const FACT_LINE_TYPES: readonly string[] = ['event', 'trait', 'relation', 'promise'];
 
 type ChangeLine = { line: number; value: Record<string, unknown> };
 type NewEntity = NewEntityChange & { distinct: boolean };
@@ -209,6 +210,63 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
     }
   }
 
+  const factLines = lines.filter((item) => FACT_LINE_TYPES.includes(String(item.value.type)));
+  const factLineIds = new Map<string, number>();
+  const misplacedIds = new Map<string, { line: number; type: string }>();
+  for (const item of lines) {
+    const rawId = item.value.id;
+    if (!FACT_LINE_TYPES.includes(String(item.value.type))) {
+      if (typeof rawId === 'string' || typeof rawId === 'number') {
+        const id = String(rawId).trim();
+        if (id) misplacedIds.set(id, { line: item.line, type: String(item.value.type) });
+      }
+      continue;
+    }
+    const id =
+      typeof rawId === 'number'
+        ? String(rawId)
+        : stringField(item.value, 'id', item.line, errors, { max: STORY_LIMITS.keyMax });
+    if (!id) continue;
+    if (id.startsWith('#') || id.startsWith('@')) {
+      errors.push(`第 ${item.line} 行 changes.id：「${id}」不能以 # 或 @ 开头，那是 core 发的编号。`);
+      continue;
+    }
+    const same = factLineIds.get(id);
+    if (same !== undefined) {
+      errors.push(`第 ${item.line} 行 changes.id：和第 ${same} 行用了同一个 id，每行事实的 id 不能重复。`);
+      continue;
+    }
+    factLineIds.set(id, item.line);
+  }
+
+  const factIdHint = (token: string): string => {
+    const misplaced = misplacedIds.get(token);
+    if (misplaced) {
+      return `「${token}」写在第 ${misplaced.line} 行的 ${misplaced.type} 上；id 只能起在 ${FACT_LINE_TYPES.join('、')} 行。`;
+    }
+    if (factLineIds.size > 0) return `本次可用的事实 id：${[...factLineIds.keys()].join('、')}。`;
+    if (factLines.length > 0) return '本次的事实行都还没起 id：给要引用的那行加上 "id":"f1"，再用 "fact":"f1" 引用。';
+    return '本次没有事实行可引用：先写 event、trait、relation 或 promise，再用 "id" 让 knowledge 指向它。';
+  };
+
+  const resolveFact = (line: number, raw: unknown): FactRef | null => {
+    if (typeof raw !== 'string' || !raw.trim()) {
+      errors.push(`第 ${line} 行 changes.fact：不能为空。`);
+      return null;
+    }
+    const token = raw.trim();
+    const created = factLineIds.get(token);
+    if (created !== undefined) return { line: created };
+    if (ctx.codebook) {
+      const resolved = ctx.codebook.resolveFact(token);
+      if (resolved.ok) return { existing: resolved.id };
+      errors.push(`第 ${line} 行 changes.fact：${resolved.error}${factIdHint(token)}`);
+      return null;
+    }
+    errors.push(`第 ${line} 行 changes.fact：找不到「${token}」。${factIdHint(token)}`);
+    return null;
+  };
+
   const resolveEntity = (field: unknown, line: number, label: string): EntityRef | null => {
     if (typeof field !== 'string' || !field.trim()) {
       errors.push(`第 ${line} 行 changes.${label}：不能为空`);
@@ -218,7 +276,17 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
     const created = newNameLines.get(token);
     if (created !== undefined) return { created };
     if (!ctx.codebook) {
-      errors.push(`第 ${line} 行 changes.${label}：找不到「${token}」。只能引用本次新增的实体。`);
+      const names = [
+        ...new Set(
+          [...newEntities.values()].flatMap((entity) =>
+            entity.knownAs ? [entity.name, entity.knownAs] : [entity.name],
+          ),
+        ),
+      ];
+      const hint = names.length
+        ? `本次新增的人物和事物：${names.join('、')}。改用其中已有的名字，或为它新增一行。`
+        : '';
+      errors.push(`第 ${line} 行 changes.${label}：找不到「${token}」。${hint}`);
       return null;
     }
     const resolved: Resolved = ctx.codebook.resolveEntity(token);
@@ -432,30 +500,7 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
       continue;
     }
     if (type === 'knowledge') {
-      const factRaw = item.value.fact;
-      let fact: FactRef | null = null;
-      if (typeof factRaw === 'string') {
-        const token = factRaw.trim();
-        const lineMatch = /^L(\d+)$/.exec(token);
-        if (lineMatch) {
-          const sourceLine = Number(lineMatch[1]);
-          const source = lines.find((candidate) => candidate.line === sourceLine);
-          const sourceKind = source?.value.type;
-          if (!source || !['event', 'trait', 'relation', 'promise'].includes(String(sourceKind))) {
-            errors.push(`第 ${line} 行 changes.fact：L${sourceLine} 不是本次的事实行。`);
-          } else {
-            fact = { line: sourceLine };
-          }
-        } else if (ctx.codebook) {
-          const resolvedFact = ctx.codebook.resolveFact(token);
-          if (resolvedFact.ok) fact = { existing: resolvedFact.id };
-          else errors.push(`第 ${line} 行 changes.fact：${resolvedFact.error}`);
-        } else {
-          errors.push(`第 ${line} 行 changes.fact：找不到「${token}」。`);
-        }
-      } else {
-        errors.push(`第 ${line} 行 changes.fact：不能为空。`);
-      }
+      const fact = resolveFact(line, item.value.fact);
       const holder = resolveEntity(item.value.holder, line, 'holder');
       const level = stringField(item.value, 'level', line, errors, { required: true });
       if (level && !['heard', 'suspects', 'confirmed', 'misled'].includes(level)) {
