@@ -33,7 +33,7 @@ function fakeServices(overrides: Partial<Services> = {}): Services {
       get: () => {
         throw new Error('not used');
       },
-      saveBackground: () => {
+      saveDraft: () => {
         throw new Error('not used');
       },
       delete: () => {
@@ -299,7 +299,7 @@ describe('createHttpApp', () => {
         logger: runtimeLogger,
         library: {
           ...fakeServices().library,
-          saveBackground: () => {
+          saveDraft: () => {
             const cause = Object.assign(new Error(errorMarker), { code: 'ERR_SQLITE_ERROR', errcode: 13 });
             throw new Error('Query failed', { cause });
           },
@@ -313,21 +313,21 @@ describe('createHttpApp', () => {
           headers: headers({ 'content-type': 'application/json' }),
         });
       const input = { workId, baseContentRev: 0, background: bodyMarker };
-      const failure = await request('works/saveBackground', JSON.stringify({ json: input }));
+      const failure = await request('works/saveDraft', JSON.stringify({ json: input }));
       expect(failure.status).toBe(507);
       const { json } = (await failure.json()) as { json: { code: string; data: { diagnosticId: string } } };
       expect(json.code).toBe('storage_full');
       expect(JSON.stringify(json)).not.toContain(errorMarker);
 
       const invalid = await request(
-        'works/saveBackground',
+        'works/saveDraft',
         JSON.stringify({ json: { ...input, background: bodyMarker.repeat(20_000) } }),
       );
       expect(invalid.status).toBe(400);
       expect(await invalid.json()).toMatchObject({
         json: { code: 'background_too_long', data: { diagnosticId: expect.any(String) } },
       });
-      const malformed = await request('works/saveBackground', '{');
+      const malformed = await request('works/saveDraft', '{');
       expect(malformed.status).toBe(400);
       expect(await malformed.json()).toMatchObject({
         json: { code: 'invalid_input', data: { diagnosticId: expect.any(String) } },
@@ -344,14 +344,14 @@ describe('createHttpApp', () => {
       expect(JSON.parse(String(entries[0]?.data))).toEqual({
         code: 'storage_full',
         stage: 'operation',
-        procedure: 'works.saveBackground',
+        procedure: 'works.saveDraft',
         errorType: 'sqlite',
         sqliteCode: 13,
       });
       expect(JSON.parse(String(entries[1]?.data))).toEqual({
         code: 'background_too_long',
         stage: 'input',
-        procedure: 'works.saveBackground',
+        procedure: 'works.saveDraft',
         issueCount: 1,
       });
       expect(JSON.parse(String(entries[2]?.data))).toEqual({ code: 'invalid_input', stage: 'transport' });

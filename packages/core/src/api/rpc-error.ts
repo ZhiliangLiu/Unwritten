@@ -9,7 +9,7 @@ import type { Logger } from '../log/logger.ts';
 function inputError(procedure: string | undefined, validation: ValidationError | undefined): ErrorCode {
   for (const issue of validation?.issues ?? []) {
     if (!('code' in issue) || issue.code !== 'too_big') continue;
-    if (procedure === 'works.saveBackground' && issue.path?.[0] === 'background') return 'background_too_long';
+    if (procedure === 'works.saveDraft' && issue.path?.[0] === 'background') return 'background_too_long';
     if (procedure === 'play.submitAction' && issue.path?.[0] === 'action' && issue.path[1] === 'text') {
       return 'action_too_long';
     }

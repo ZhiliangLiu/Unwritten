@@ -29,7 +29,7 @@ function fakeServices(): Services {
       get: () => {
         throw new Error('not used');
       },
-      saveBackground: () => {
+      saveDraft: () => {
         throw new Error('not used');
       },
       delete: () => {

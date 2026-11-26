@@ -34,6 +34,7 @@ export const ERROR_CODES = [
   'rate_limited',
   'context_overflow',
   'context_too_small',
+  'work_setting_too_long',
   'network',
   'unreachable',
   'timeout',

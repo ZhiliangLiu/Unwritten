@@ -14,20 +14,23 @@ import { GeneratingMarker } from '../../shared/ui/GeneratingMarker.tsx';
 import { LiveRegion } from '../../shared/ui/LiveRegion.tsx';
 import { TextArea } from '../../shared/ui/TextArea.tsx';
 import styles from './BackgroundEditor.module.css';
+import { sameDraft, type DraftContent } from './draft.ts';
 
 export const AUTOSAVE_DELAY_MS = 800;
 
 export function BackgroundEditor({
   work,
-  value,
-  onValueChange,
+  draft,
+  savedDraft,
+  onDraftChange,
   onGenerate,
   generating,
   previewJob,
 }: {
   work: WorkDetail;
-  value: string;
-  onValueChange: (value: string) => void;
+  draft: DraftContent;
+  savedDraft: DraftContent;
+  onDraftChange: (draft: DraftContent) => void;
   onGenerate: (contentRev: number) => void;
   generating: boolean;
   previewJob: PreviewJobView | null;
@@ -38,17 +41,20 @@ export function BackgroundEditor({
   const startedAt = useRef<number | null>(null);
   const reportedJob = useRef<string | null>(null);
 
-  const save = async (next: string) => {
+  const save = async (next: DraftContent) => {
     const contentRev =
       queryClient.getQueryData<WorkDetail>(queryKeys.work(work.id))?.draft.contentRev ?? work.draft.contentRev;
     try {
-      const result = await api.works.saveBackground({
+      const result = await api.works.saveDraft({
         workId: work.id,
         baseContentRev: contentRev,
-        background: next,
+        background: next.background,
+        anchors: next.anchors,
       });
       queryClient.setQueryData<WorkDetail>(queryKeys.work(work.id), (old) =>
-        old ? { ...old, draft: { contentRev: result.contentRev, background: next } } : old,
+        old
+          ? { ...old, draft: { contentRev: result.contentRev, background: next.background, anchors: next.anchors } }
+          : old,
       );
     } catch (error) {
       if (errorCode(error) === 'stale_revision') {
@@ -58,12 +64,15 @@ export function BackgroundEditor({
     }
   };
 
+  const filledAnchors = Object.values(draft.anchors).filter((value) => value.trim().length > 0).length;
+
   const autosave = useAutosave({
-    value,
-    savedValue: work.draft.background,
+    value: draft,
+    savedValue: savedDraft,
     save,
     delayMs: AUTOSAVE_DELAY_MS,
     enabled: true,
+    isEqual: sameDraft,
   });
 
   useEffect(() => {
@@ -89,7 +98,7 @@ export function BackgroundEditor({
     startedAt.current = performance.now();
     await autosave.flush();
     const latest = queryClient.getQueryData<WorkDetail>(queryKeys.work(work.id));
-    if (!latest || latest.draft.background !== value) return;
+    if (!latest || !sameDraft(latest.draft, draft)) return;
     onGenerate(latest.draft.contentRev);
   };
 
@@ -114,16 +123,51 @@ export function BackgroundEditor({
         label={t('authoring:background.label')}
         description={t('authoring:background.help')}
         placeholder={t('authoring:background.placeholder')}
-        value={value}
-        onValueChange={onValueChange}
+        value={draft.background}
+        onValueChange={(next) => onDraftChange({ ...draft, background: next })}
         minRows={4}
       />
+      <details className={styles.anchors}>
+        <summary className={styles.anchorsSummary}>
+          {filledAnchors > 0
+            ? t('authoring:anchors.headingFilled', { count: filledAnchors })
+            : t('authoring:anchors.heading')}
+        </summary>
+        <div className={styles.anchorsBody}>
+          <p className={styles.anchorsHelp}>{t('authoring:anchors.help')}</p>
+          <TextArea
+            label={t('authoring:anchors.narration.label')}
+            placeholder={t('authoring:anchors.narration.placeholder')}
+            value={draft.anchors.narrationDirective}
+            onValueChange={(next) =>
+              onDraftChange({ ...draft, anchors: { ...draft.anchors, narrationDirective: next } })
+            }
+            minRows={2}
+          />
+          <TextArea
+            label={t('authoring:anchors.content.label')}
+            placeholder={t('authoring:anchors.content.placeholder')}
+            value={draft.anchors.contentPolicy}
+            onValueChange={(next) => onDraftChange({ ...draft, anchors: { ...draft.anchors, contentPolicy: next } })}
+            minRows={2}
+          />
+          <TextArea
+            label={t('authoring:anchors.improvisation.label')}
+            placeholder={t('authoring:anchors.improvisation.placeholder')}
+            value={draft.anchors.improvisationScope}
+            onValueChange={(next) =>
+              onDraftChange({ ...draft, anchors: { ...draft.anchors, improvisationScope: next } })
+            }
+            minRows={2}
+          />
+        </div>
+      </details>
       <div className={styles.actions}>
         <Button
           variant='primary'
           icon={Play}
           busy={generating}
-          disabled={generating || value.trim().length === 0}
+          disabled={generating || draft.background.trim().length === 0}
           onClick={() => void generate()}
         >
           {t('authoring:preview.generate')}

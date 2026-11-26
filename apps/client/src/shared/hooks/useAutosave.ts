@@ -9,7 +9,9 @@ export function useAutosave<T>(input: {
   save: (value: T) => Promise<void>;
   delayMs: number;
   enabled: boolean;
+  isEqual?: (value: T, saved: T) => boolean;
 }): { status: AutosaveStatus; error: unknown; flush(): Promise<void> } {
+  const isEqual = input.isEqual ?? Object.is;
   const latestRef = useRef(input);
   const chainRef = useRef<Promise<void>>(Promise.resolve());
   const lastSavedRef = useRef(input.savedValue);
@@ -30,7 +32,8 @@ export function useAutosave<T>(input: {
     const run = chainRef.current.then(async () => {
       const current = latestRef.current;
       const value = current.value;
-      if (Object.is(value, lastSavedRef.current)) return;
+      const same = current.isEqual ?? Object.is;
+      if (same(value, lastSavedRef.current)) return;
       setPhase('saving');
       setError(null);
       try {
@@ -59,7 +62,7 @@ export function useAutosave<T>(input: {
   }, [clearTimer, runSave]);
 
   useEffect(() => {
-    if (!input.enabled || Object.is(input.value, input.savedValue)) return;
+    if (!input.enabled || isEqual(input.value, input.savedValue)) return;
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
       void runSave();
@@ -70,19 +73,19 @@ export function useAutosave<T>(input: {
         timerRef.current = null;
       }
     };
-  }, [input.delayMs, input.enabled, input.savedValue, input.value, runSave]);
+  }, [input.delayMs, input.enabled, input.savedValue, input.value, isEqual, runSave]);
 
   useEffect(() => {
     return () => {
       if (timerRef.current !== null) clearTimeout(timerRef.current);
       const current = latestRef.current;
-      if (!current.enabled || Object.is(current.value, current.savedValue)) return;
+      if (!current.enabled || (current.isEqual ?? Object.is)(current.value, current.savedValue)) return;
       chainRef.current = chainRef.current.then(() => current.save(current.value)).catch(() => {});
     };
   }, []);
 
   const unsaved =
-    !Object.is(input.value, input.savedValue) && (lastSaved === null || !Object.is(input.value, lastSaved.value));
+    !isEqual(input.value, input.savedValue) && (lastSaved === null || !isEqual(input.value, lastSaved.value));
   const status: AutosaveStatus =
     unsaved && input.enabled && phase !== 'saving' && phase !== 'error' ? 'pending' : phase;
 

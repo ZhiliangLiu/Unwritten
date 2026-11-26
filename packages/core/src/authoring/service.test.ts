@@ -1,11 +1,13 @@
 import { join } from 'node:path';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { createEventBus } from '../events/bus.ts';
 import type { LogEvent, Logger, PerformanceSample } from '../log/logger.ts';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
 import { createScriptedLlm } from '../test-support/scripted-llm.ts';
 import { openDatabase } from '../store/db.ts';
+import { workVersions } from '../store/schema.ts';
+import type { VersionMeta } from '../store/meta.ts';
 import { createLibraryService } from '../library/service.ts';
 import { createAuthoringService } from './service.ts';
 
@@ -60,7 +62,7 @@ describe('createAuthoringService', () => {
     const { temp, opened, llm, library, authoring } = setup();
     try {
       library.create({ workId });
-      library.saveBackground({ workId, baseContentRev: 0, background: '雨夜修钟铺' });
+      library.saveDraft({ workId, baseContentRev: 0, background: '雨夜修钟铺' });
       llm.enqueue({ args: previewArgs });
       const view = authoring.generatePreview({ workId, jobId, contentRev: 1 });
       expect(view.status).toBe('running');
@@ -75,8 +77,34 @@ describe('createAuthoringService', () => {
       const playable = library.get({ workId });
       expect(playable.status).toBe('playable');
       expect(playable.routeId).toBe(adopted.routeId);
-      expect(() => library.saveBackground({ workId, baseContentRev: 2, background: '改稿' })).toThrow();
+      expect(() => library.saveDraft({ workId, baseContentRev: 2, background: '改稿' })).toThrow();
       expect(authoring.adoptPreview({ workId, jobId }).routeId).toBe(adopted.routeId);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('作者锚点跟着草稿进入开场预览和发布版本', async () => {
+    const { temp, opened, llm, library, authoring } = setup();
+    try {
+      const anchors = {
+        narrationDirective: '用第二人称，句子短。',
+        contentPolicy: '不写血腥场面。',
+        improvisationScope: '路人的名字可以现造。',
+      };
+      library.create({ workId });
+      library.saveDraft({ workId, baseContentRev: 0, background: '雨夜修钟铺', anchors });
+      llm.enqueue({ args: previewArgs });
+      authoring.generatePreview({ workId, jobId, contentRev: 1 });
+      await authoring.whenIdle();
+      expect(llm.runs[0]?.prompt).toContain('【叙事要求】\n用第二人称，句子短。');
+      expect(llm.runs[0]?.prompt).toContain('【内容边界】\n不写血腥场面。');
+      expect(llm.runs[0]?.prompt).toContain('【即兴范围】\n路人的名字可以现造。');
+
+      authoring.adoptPreview({ workId, jobId });
+      const published = opened.db.select().from(workVersions).where(eq(workVersions.kind, 'published')).get();
+      expect(published && (published.meta as VersionMeta).anchors).toEqual(anchors);
     } finally {
       opened.close();
       temp.cleanup();
@@ -87,7 +115,7 @@ describe('createAuthoringService', () => {
     const { temp, opened, llm, library, authoring, events, samples } = setup();
     try {
       library.create({ workId });
-      library.saveBackground({ workId, baseContentRev: 0, background: '钟楼的信' });
+      library.saveDraft({ workId, baseContentRev: 0, background: '钟楼的信' });
       llm.enqueue({ args: previewArgs });
       expect(authoring.generatePreview({ workId, jobId, contentRev: 1 }).status).toBe('running');
       library.delete({ workId });
@@ -114,7 +142,7 @@ describe('createAuthoringService', () => {
     const { temp, opened, llm, library, authoring, events, samples } = setup();
     try {
       library.create({ workId });
-      library.saveBackground({ workId, baseContentRev: 0, background: '钟楼的信' });
+      library.saveDraft({ workId, baseContentRev: 0, background: '钟楼的信' });
       opened.db.run(sql`create trigger reject_preview_status before update of status on jobs
         begin select raise(abort, 'write rejected'); end`);
       llm.enqueue({ args: previewArgs });
@@ -142,7 +170,7 @@ describe('createAuthoringService', () => {
     const { temp, opened, llm, library, authoring } = setup();
     try {
       library.create({ workId });
-      library.saveBackground({ workId, baseContentRev: 0, background: '雨夜' });
+      library.saveDraft({ workId, baseContentRev: 0, background: '雨夜' });
       llm.enqueue({ args: previewArgs });
       authoring.generatePreview({ workId, jobId, contentRev: 1 });
       await authoring.whenIdle();
@@ -158,11 +186,11 @@ describe('createAuthoringService', () => {
     const { temp, opened, llm, library, authoring } = setup();
     try {
       library.create({ workId });
-      library.saveBackground({ workId, baseContentRev: 0, background: '旧背景' });
+      library.saveDraft({ workId, baseContentRev: 0, background: '旧背景' });
       llm.enqueue({ args: previewArgs });
       authoring.generatePreview({ workId, jobId, contentRev: 1 });
       await authoring.whenIdle();
-      library.saveBackground({ workId, baseContentRev: 1, background: '新背景' });
+      library.saveDraft({ workId, baseContentRev: 1, background: '新背景' });
       expect(() => authoring.adoptPreview({ workId, jobId })).toThrow();
     } finally {
       opened.close();
@@ -174,7 +202,7 @@ describe('createAuthoringService', () => {
     const { temp, opened, llm, library, authoring } = setup();
     try {
       library.create({ workId });
-      library.saveBackground({ workId, baseContentRev: 0, background: '雨夜' });
+      library.saveDraft({ workId, baseContentRev: 0, background: '雨夜' });
       llm.enqueue(
         {
           args: {
@@ -198,7 +226,7 @@ describe('createAuthoringService', () => {
     const { temp, opened, llm, library, authoring } = setup();
     try {
       library.create({ workId });
-      library.saveBackground({ workId, baseContentRev: 0, background: '雨夜' });
+      library.saveDraft({ workId, baseContentRev: 0, background: '雨夜' });
       llm.enqueue({
         args: {
           ...previewArgs,
@@ -248,7 +276,7 @@ describe('createAuthoringService', () => {
     const { temp, opened, llm, library, authoring } = setup();
     try {
       library.create({ workId });
-      library.saveBackground({ workId, baseContentRev: 0, background: '雨夜' });
+      library.saveDraft({ workId, baseContentRev: 0, background: '雨夜' });
       llm.enqueue({ args: previewArgs });
       authoring.generatePreview({ workId, jobId, contentRev: 1 });
       await authoring.whenIdle();
@@ -269,7 +297,7 @@ describe('createAuthoringService', () => {
     const { temp, opened, llm, library, authoring } = setup();
     try {
       library.create({ workId });
-      library.saveBackground({ workId, baseContentRev: 0, background: '雨夜' });
+      library.saveDraft({ workId, baseContentRev: 0, background: '雨夜' });
       llm.setResolved(null);
       expect(() => authoring.generatePreview({ workId, jobId, contentRev: 1 })).toThrow();
     } finally {
@@ -282,7 +310,7 @@ describe('createAuthoringService', () => {
     const { temp, opened, library, authoring } = setup();
     try {
       library.create({ workId });
-      library.saveBackground({ workId, baseContentRev: 0, background: '雨夜' });
+      library.saveDraft({ workId, baseContentRev: 0, background: '雨夜' });
       const now = Date.now();
       opened.db.run(
         `insert into jobs (id, work_id, kind, status, input, created_at, updated_at)

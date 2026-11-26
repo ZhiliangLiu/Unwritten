@@ -11,7 +11,7 @@ import type { PreviewField } from './preview-tool.ts';
 import { PREVIEW_SYSTEM_PROMPT, buildPreviewPrompt } from './preview-prompt.ts';
 import { jobs, playthroughs, routes, turns, workVersions, works } from '../store/schema.ts';
 import type { PreviewJobResult, VersionMeta } from '../store/meta.ts';
-import { PUBLIC_SETTING_PLAN_ITEM_ID } from '../store/meta.ts';
+import { PUBLIC_SETTING_PLAN_ITEM_ID, readAnchors } from '../store/meta.ts';
 import { indexTurnProse } from '../store/prose-index.ts';
 import { allocateEntityIds, writeChanges } from '../story/writer.ts';
 import type { ValidatedChanges } from '../story/types.ts';
@@ -99,7 +99,7 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
       await deps.llm.run({
         purpose: 'narrator',
         system: PREVIEW_SYSTEM_PROMPT,
-        prompt: buildPreviewPrompt(job.input.background),
+        prompt: buildPreviewPrompt({ background: job.input.background, anchors: readAnchors(job.input) }),
         tools: [tool],
         requiredToolName: PREVIEW_TOOL_NAME,
         sessionId: job.workId,
@@ -276,7 +276,7 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
               workId: input.workId,
               kind: 'preview',
               status: 'running',
-              input: { contentRev: input.contentRev, background },
+              input: { contentRev: input.contentRev, background, anchors: readAnchors(draft.meta as VersionMeta) },
               createdAt: now,
               updatedAt: now,
             })
@@ -338,6 +338,7 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
           const adoptedRouteId = randomUUID();
           const meta: VersionMeta = {
             background: (draft.meta as VersionMeta).background,
+            anchors: readAnchors(draft.meta as VersionMeta),
             plan: {
               items: [{ id: PUBLIC_SETTING_PLAN_ITEM_ID, text: preview.publicSetting, source: 'ai' }],
             },

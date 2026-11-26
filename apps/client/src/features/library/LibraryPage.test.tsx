@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { EMPTY_WORK_ANCHORS } from '@unwritten/contracts';
 import type { WorkDetail, WorkSummary } from '@unwritten/contracts';
 import { createFakeApi } from '../../shared/test/fake-api.ts';
 import type { FakeApiCall } from '../../shared/test/fake-api.ts';
@@ -28,7 +29,7 @@ function detail(): WorkDetail {
     blurb: null,
     status: 'draft',
     routeId: null,
-    draft: { contentRev: 1, background: '一段背景' },
+    draft: { contentRev: 1, background: '一段背景', anchors: EMPTY_WORK_ANCHORS },
     latestPreviewJob: null,
   };
 }

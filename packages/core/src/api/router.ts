@@ -38,9 +38,7 @@ export function createRouter(services: Services) {
       list: base.works.list.handler(({ context }) => context.services.library.list()),
       create: base.works.create.handler(({ input, context }) => context.services.library.create(input)),
       get: base.works.get.handler(({ input, context }) => context.services.library.get(input)),
-      saveBackground: base.works.saveBackground.handler(({ input, context }) =>
-        context.services.library.saveBackground(input),
-      ),
+      saveDraft: base.works.saveDraft.handler(({ input, context }) => context.services.library.saveDraft(input)),
       generatePreview: base.works.generatePreview.handler(({ input, context }) =>
         context.services.authoring.generatePreview(input),
       ),

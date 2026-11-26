@@ -1,17 +1,18 @@
 import { and, desc, eq } from 'drizzle-orm';
-import type {
-  PreviewJobView,
-  SaveBackgroundInput,
-  SaveBackgroundOutput,
-  WorkDetail,
-  WorkIdInput,
-  WorkSummary,
+import {
+  EMPTY_WORK_ANCHORS,
+  type PreviewJobView,
+  type SaveDraftInput,
+  type SaveDraftOutput,
+  type WorkDetail,
+  type WorkIdInput,
+  type WorkSummary,
 } from '@unwritten/contracts';
 import { appError } from '../errors.ts';
 import type { CoreDeps, LibraryService } from '../services.ts';
 import type { Database } from '../store/db.ts';
 import { jobs, playthroughs, routes, workVersions, works } from '../store/schema.ts';
-import type { VersionMeta } from '../store/meta.ts';
+import { readAnchors, type VersionMeta } from '../store/meta.ts';
 
 export function workLabel(title: string | null, background: string): string {
   if (title) return title;
@@ -90,7 +91,11 @@ export function createLibraryService(deps: CoreDeps): LibraryService {
       blurb: row.blurb,
       status: summary.status,
       routeId: summary.routeId,
-      draft: { contentRev: draft.contentRev, background: (draft.meta as VersionMeta).background },
+      draft: {
+        contentRev: draft.contentRev,
+        background: (draft.meta as VersionMeta).background,
+        anchors: readAnchors(draft.meta as VersionMeta),
+      },
       latestPreviewJob: job ? previewJobView(job) : null,
     };
   };
@@ -134,7 +139,7 @@ export function createLibraryService(deps: CoreDeps): LibraryService {
       return getWork(input);
     },
     get: getWork,
-    saveBackground(input: SaveBackgroundInput): SaveBackgroundOutput {
+    saveDraft(input: SaveDraftInput): SaveDraftOutput {
       const result = deps.db.transaction(
         (tx) => {
           const work = tx.select().from(works).where(eq(works.id, input.workId)).get();
@@ -143,12 +148,19 @@ export function createLibraryService(deps: CoreDeps): LibraryService {
           const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
           if (!draft) throw appError('not_found', 'draft not found');
           const meta = draft.meta as VersionMeta;
-          if (meta.background === input.background) return { contentRev: draft.contentRev, changed: false };
+          const anchors = input.anchors ?? EMPTY_WORK_ANCHORS;
+          const saved = readAnchors(meta);
+          const unchanged =
+            meta.background === input.background &&
+            saved.narrationDirective === anchors.narrationDirective &&
+            saved.contentPolicy === anchors.contentPolicy &&
+            saved.improvisationScope === anchors.improvisationScope;
+          if (unchanged) return { contentRev: draft.contentRev, changed: false };
           if (draft.contentRev !== input.baseContentRev) throw appError('stale_revision', 'draft revision is stale');
           const now = Date.now();
           const contentRev = draft.contentRev + 1;
           tx.update(workVersions)
-            .set({ meta: { ...meta, background: input.background }, contentRev, updatedAt: now })
+            .set({ meta: { ...meta, background: input.background, anchors }, contentRev, updatedAt: now })
             .where(eq(workVersions.id, draft.id))
             .run();
           tx.update(works).set({ updatedAt: now }).where(eq(works.id, work.id)).run();
@@ -161,7 +173,7 @@ export function createLibraryService(deps: CoreDeps): LibraryService {
         deps.logger.record({
           level: 'info',
           module: 'library',
-          event: 'work.background.saved',
+          event: 'work.draft.saved',
           workId: input.workId,
           data: { contentRev: result.contentRev },
         });

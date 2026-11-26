@@ -1,4 +1,4 @@
-import type { StoredAction, VersionMeta } from '../store/meta.ts';
+import { readAnchors, type StoredAction, type VersionMeta } from '../store/meta.ts';
 import type { ResolvedModel } from '../llm/types.ts';
 import { NARRATOR_SYSTEM_PROMPT } from './narrator-prompt.ts';
 import type { CodeBook } from '../story/codebook.ts';
@@ -26,8 +26,9 @@ export type NarratorContext =
       summaryLines: number;
       indexEntities: number;
       contextTokens: number;
+      anchorTokens: number;
     }
-  | { ok: false; code: 'context_too_small' };
+  | { ok: false; code: 'context_too_small' | 'work_setting_too_long'; anchorTokens: number };
 
 function clip(value: string, max: number): string {
   const chars = Array.from(value);
@@ -55,21 +56,42 @@ function actionBlock(action: StoredAction): string {
 }
 
 export function buildNarratorContext(input: NarratorContextInput): NarratorContext {
+  const anchors = readAnchors(input.meta);
+  const narrationDirective = anchors.narrationDirective.trim();
+  const contentPolicy = anchors.contentPolicy.trim();
+  const improvisationScope = anchors.improvisationScope.trim();
+  const anchorTokens =
+    input.estimateTokens(narrationDirective) +
+    input.estimateTokens(contentPolicy) +
+    input.estimateTokens(improvisationScope);
   const head = input.projection.chain.at(-1);
-  if (!head) return { ok: false, code: 'context_too_small' };
+  if (!head) return { ok: false, code: 'context_too_small', anchorTokens };
   const publicSetting = input.meta.plan?.items.find((item) => item.id === 'public_setting')?.text ?? '';
   const language = input.meta.narration?.language ?? 'zh-CN';
   const protagonist = input.projection.entities.get(input.projection.protagonistId);
-  if (!protagonist) return { ok: false, code: 'context_too_small' };
+  if (!protagonist) return { ok: false, code: 'context_too_small', anchorTokens };
   const setting = publicSetting
     ? `【作品设定】\n${input.meta.background}\n\n【公开设定】\n${publicSetting}`
     : `【作品设定】\n${input.meta.background}`;
-  const narration = `【叙事要求】\n作品语言：${language}。正文和选项都用这种语言写。`;
+  const narration = [`【叙事要求】\n作品语言：${language}。正文和选项都用这种语言写。`, narrationDirective]
+    .filter(Boolean)
+    .join('\n');
+  const contentBlock = contentPolicy ? `【内容边界】\n${contentPolicy}` : '';
+  const improvisationBlock = improvisationScope ? `【即兴范围】\n${improvisationScope}` : '';
   const protagonistBlock = `【主角】\n@1 ${protagonist.name} · ${clip(protagonist.profile || '未写档案', 40)}`;
   const scene = renderSceneBlock(input.projection, input.codebook);
   const headBlock = turnBlock(head, true);
   const action = actionBlock(input.action);
-  const required = [setting, narration, protagonistBlock, scene, headBlock, action];
+  const required = [
+    setting,
+    improvisationBlock,
+    narration,
+    contentBlock,
+    protagonistBlock,
+    scene,
+    headBlock,
+    action,
+  ].filter(Boolean);
   const budget =
     input.model.contextWindow -
     input.model.maxOutputTokens -
@@ -79,7 +101,10 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
   const reserved =
     input.estimateTokens('另有 99999 个未出场的人物和地点，可用 list_catalog 查看。') +
     input.estimateTokens('【更早的回合】\n另有 99999 个更早的回合未列出，可用 search_story 或 read_turn 取回。');
-  if (requiredTokens + reserved > budget) return { ok: false, code: 'context_too_small' };
+  if (requiredTokens + reserved > budget) {
+    const withoutAnchors = requiredTokens - anchorTokens + reserved;
+    return { ok: false, code: withoutAnchors <= budget ? 'work_setting_too_long' : 'context_too_small', anchorTokens };
+  }
 
   let available = budget - requiredTokens - reserved;
   const promiseLines: string[] = [];
@@ -156,7 +181,9 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
   }
   summaryLines.reverse();
 
-  const parts: string[] = [setting, narration, protagonistBlock, scene];
+  const parts: string[] = [setting, improvisationBlock, narration, contentBlock, protagonistBlock, scene].filter(
+    Boolean,
+  );
   if (indexLines.length) parts.push(`【人物与事物索引】\n${indexLines.join('\n')}`);
   if (promiseLines.length) parts.push(`【未了结的约定】\n${promiseLines.join('\n')}`);
   if (summaryLines.length || omittedTurns > 0) {
@@ -177,5 +204,6 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
     summaryLines: summaryLines.length,
     indexEntities: indexLines.filter((line) => line.startsWith('- ')).length,
     contextTokens: input.estimateTokens(prompt),
+    anchorTokens,
   };
 }

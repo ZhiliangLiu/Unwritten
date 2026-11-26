@@ -14,8 +14,8 @@ import type {
   RetryInput,
   RouteIdInput,
   RouteView,
-  SaveBackgroundInput,
-  SaveBackgroundOutput,
+  SaveDraftInput,
+  SaveDraftOutput,
   SetPurposeInput,
   SubmitActionInput,
   TestConnectionInput,
@@ -60,7 +60,7 @@ export interface LibraryService {
   list(): WorkSummary[];
   create(input: WorkIdInput): WorkDetail;
   get(input: WorkIdInput): WorkDetail;
-  saveBackground(input: SaveBackgroundInput): SaveBackgroundOutput;
+  saveDraft(input: SaveDraftInput): SaveDraftOutput;
   delete(input: WorkIdInput): Record<string, never>;
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Preview, PreviewJobView, WorkDetail } from '@unwritten/contracts';
+import { EMPTY_WORK_ANCHORS } from '@unwritten/contracts';
+import type { Preview, PreviewJobView, WorkAnchors, WorkDetail } from '@unwritten/contracts';
 import { queryKeys } from '../../shared/api/query.ts';
 import { createFakeApi } from '../../shared/test/fake-api.ts';
 import type { FakeApiCall } from '../../shared/test/fake-api.ts';
@@ -41,7 +42,7 @@ function workDetail(overrides: Partial<WorkDetail> = {}): WorkDetail {
     blurb: null,
     status: 'draft',
     routeId: null,
-    draft: { contentRev: 3, background: '原来的背景。' },
+    draft: { contentRev: 3, background: '原来的背景。', anchors: EMPTY_WORK_ANCHORS },
     latestPreviewJob: null,
     ...overrides,
   };
@@ -52,10 +53,14 @@ function makeApi(initial: WorkDetail) {
   const fake = createFakeApi({
     'works.get': () => state.detail,
     'works.list': () => [],
-    'works.saveBackground': (input) => {
-      const { baseContentRev, background } = input as { baseContentRev: number; background: string };
+    'works.saveDraft': (input) => {
+      const { baseContentRev, background, anchors } = input as {
+        baseContentRev: number;
+        background: string;
+        anchors: WorkAnchors;
+      };
       const contentRev = baseContentRev + 1;
-      state.detail = { ...state.detail, draft: { contentRev, background } };
+      state.detail = { ...state.detail, draft: { contentRev, background, anchors } };
       return { contentRev };
     },
     'works.generatePreview': (input) => {
@@ -123,18 +128,48 @@ describe('AuthoringPage', () => {
     await screen.getByRole('textbox', { name: '故事背景' }).fill('最后一段背景。');
     await vi.waitFor(
       () => {
-        expect(callsTo(calls, 'works.saveBackground')).toHaveLength(1);
+        expect(callsTo(calls, 'works.saveDraft')).toHaveLength(1);
       },
       { timeout: 3_000 },
     );
     await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_DELAY_MS + 400));
-    const saved = callsTo(calls, 'works.saveBackground');
+    const saved = callsTo(calls, 'works.saveDraft');
     expect(saved).toHaveLength(1);
     expect(saved[0]?.input).toEqual({
       workId: detail.id,
       baseContentRev: 3,
       background: '最后一段背景。',
+      anchors: EMPTY_WORK_ANCHORS,
     });
+    await screen.unmount();
+  });
+
+  it('补充设定和背景一起保存', async () => {
+    const detail = workDetail();
+    const { screen, calls } = await renderAuthoring(detail);
+    await screen.getByRole('textbox', { name: '故事背景' }).fill('新写的背景。');
+    await screen.getByText('补充设定').click();
+    await expect.element(screen.getByRole('textbox', { name: '叙事要求' })).toBeVisible();
+    await screen.getByRole('textbox', { name: '叙事要求' }).fill('用第二人称写，句子短。');
+    await screen.getByRole('textbox', { name: '内容边界' }).fill('不写血腥场面。');
+    await screen.getByRole('textbox', { name: '即兴范围' }).fill('路人的名字可以现造。');
+    await vi.waitFor(
+      () => {
+        expect(callsTo(calls, 'works.saveDraft')).toHaveLength(1);
+      },
+      { timeout: 3_000 },
+    );
+    const saved = callsTo(calls, 'works.saveDraft');
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.input).toMatchObject({
+      background: '新写的背景。',
+      anchors: {
+        narrationDirective: '用第二人称写，句子短。',
+        contentPolicy: '不写血腥场面。',
+        improvisationScope: '路人的名字可以现造。',
+      },
+    });
+    await expect.element(screen.getByText('补充设定（已填 3 项）')).toBeVisible();
     await screen.unmount();
   });
 
@@ -144,12 +179,12 @@ describe('AuthoringPage', () => {
     await screen.getByRole('textbox', { name: '故事背景' }).fill('新写的背景。');
     await screen.getByRole('button', { name: '生成开场预览' }).click();
     await vi.waitFor(() => {
-      const saveIndex = calls.findIndex((call) => call.path === 'works.saveBackground');
+      const saveIndex = calls.findIndex((call) => call.path === 'works.saveDraft');
       const generateIndex = calls.findIndex((call) => call.path === 'works.generatePreview');
       expect(saveIndex).toBeGreaterThanOrEqual(0);
       expect(generateIndex).toBeGreaterThan(saveIndex);
     });
-    expect(callsTo(calls, 'works.saveBackground')[0]?.input).toMatchObject({ background: '新写的背景。' });
+    expect(callsTo(calls, 'works.saveDraft')[0]?.input).toMatchObject({ background: '新写的背景。' });
     expect(callsTo(calls, 'works.generatePreview')[0]?.input).toMatchObject({
       workId: detail.id,
       contentRev: 4,
@@ -159,7 +194,7 @@ describe('AuthoringPage', () => {
 
   it('过期的预览不能采用', async () => {
     const detail = workDetail({
-      draft: { contentRev: 5, background: '改过的背景。' },
+      draft: { contentRev: 5, background: '改过的背景。', anchors: EMPTY_WORK_ANCHORS },
       latestPreviewJob: job({ basedOnContentRev: 3 }),
     });
     const { screen } = await renderAuthoring(detail);
@@ -193,7 +228,7 @@ describe('AuthoringPage', () => {
     const { screen, state, queryClient } = await renderAuthoring(detail);
     const textarea = screen.getByRole('textbox', { name: '故事背景' });
     await textarea.fill('正在本地写的草稿。');
-    state.detail = { ...detail, draft: { contentRev: 7, background: '别处改过的背景。' } };
+    state.detail = { ...detail, draft: { contentRev: 7, background: '别处改过的背景。', anchors: EMPTY_WORK_ANCHORS } };
     await queryClient.invalidateQueries({ queryKey: queryKeys.work(detail.id) });
     await expect.element(textarea).toHaveValue('正在本地写的草稿。');
     await screen.unmount();
