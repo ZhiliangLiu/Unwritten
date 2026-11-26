@@ -1,6 +1,5 @@
 import type { Preview } from '@unwritten/contracts';
 import { LanguageTagSchema } from '@unwritten/contracts';
-import type { ParseResult } from '../text/turn-text.ts';
 import { normalizeProse, parseOptionLines, splitParagraphs } from '../text/turn-text.ts';
 import { parseChanges } from '../story/changes.ts';
 import { findLeaks } from '../story/leak.ts';
@@ -43,7 +42,7 @@ export const PREVIEW_TOOL_PARAMETERS = {
         '每行一个 JSON。引用人物或事物写名字；引用事实写本次第几行（如 L2）。para 是出处在正文里的段号，从 1 起。必须恰好有一行主角：\n' +
         '{"type":"new_entity","kind":"character","name":"主角的名字","known_as":"","profile":"一句话档案","para":"1","protagonist":"true"}\n' +
         '其余可用的类型：\n' +
-        '{"type":"new_entity","kind":"character|place|item|group|other","name":"真名","known_as":"主角此刻的称呼，不知道时留空","profile":"一句话档案","para":"1"}\n' +
+        '{"type":"new_entity","kind":"character|place|item|group|other","name":"真名","known_as":"主角此刻的称呼，正文或选项会写到它时必填","profile":"一句话档案","para":"1"}\n' +
         '{"type":"name","entity":"名字","name":"称呼","holder":"名字","para":"2"}\n' +
         '{"type":"event","subject":"名字","object":"名字","statement":"一句话","witnesses":"名字,名字","para":"2"}\n' +
         '{"type":"trait","subject":"名字","key":"特征名","statement":"一句话","para":"2"}\n' +
@@ -57,32 +56,54 @@ export const PREVIEW_TOOL_PARAMETERS = {
   additionalProperties: false,
 } as const;
 
-function stringArg(args: Record<string, unknown>, key: string, errors: string[]): string | null {
-  const value = args[key];
-  if (typeof value !== 'string') {
-    errors.push(`参数 ${key} 必须是字符串`);
-    return null;
-  }
-  return value;
-}
+export type PreviewField =
+  | 'title'
+  | 'blurb'
+  | 'public_setting'
+  | 'prose'
+  | 'options'
+  | 'place'
+  | 'time'
+  | 'language'
+  | 'present'
+  | 'changes'
+  | 'leak';
 
 export interface PreviewParseResult {
   preview: Preview;
   changes: ValidatedChanges;
 }
 
-export function parsePreviewArgs(args: Record<string, unknown>): ParseResult<PreviewParseResult> {
-  const errors: string[] = [];
-  const title = stringArg(args, 'title', errors)?.trim() ?? null;
-  const blurb = stringArg(args, 'blurb', errors)?.trim() ?? null;
-  const publicSetting = stringArg(args, 'public_setting', errors)?.trim() ?? null;
-  const proseRaw = stringArg(args, 'prose', errors);
-  const optionsRaw = stringArg(args, 'options', errors);
-  const place = stringArg(args, 'place', errors)?.trim() ?? null;
-  const time = stringArg(args, 'time', errors)?.trim() ?? null;
-  const language = stringArg(args, 'language', errors);
+export type PreviewParse =
+  { ok: true; value: PreviewParseResult } | { ok: false; errors: string[]; fields: PreviewField[] };
 
-  const required: Array<[string, string | null, number]> = [
+export function parsePreviewArgs(args: Record<string, unknown>): PreviewParse {
+  const errors: string[] = [];
+  const fields = new Set<PreviewField>();
+  const fail = (field: PreviewField, message: string) => {
+    fields.add(field);
+    errors.push(message);
+  };
+  const text = (field: PreviewField): string | null => {
+    const value = args[field];
+    if (typeof value !== 'string') {
+      fail(field, `参数 ${field} 必须是字符串`);
+      return null;
+    }
+    return value;
+  };
+  const failed = (): PreviewParse => ({ ok: false, errors, fields: [...fields] });
+
+  const title = text('title')?.trim() ?? null;
+  const blurb = text('blurb')?.trim() ?? null;
+  const publicSetting = text('public_setting')?.trim() ?? null;
+  const proseRaw = text('prose');
+  const optionsRaw = text('options');
+  const place = text('place')?.trim() ?? null;
+  const time = text('time')?.trim() ?? null;
+  const language = text('language');
+
+  const required: Array<[PreviewField, string | null, number]> = [
     ['title', title, PREVIEW_LIMITS.titleMax],
     ['blurb', blurb, PREVIEW_LIMITS.blurbMax],
     ['public_setting', publicSetting, PREVIEW_LIMITS.publicSettingMax],
@@ -91,8 +112,8 @@ export function parsePreviewArgs(args: Record<string, unknown>): ParseResult<Pre
   ];
   for (const [name, value, max] of required) {
     if (value === null) continue;
-    if (!value) errors.push(`参数 ${name} 不能为空`);
-    else if (Array.from(value).length > max) errors.push(`参数 ${name} 不能超过 ${max} 个字符`);
+    if (!value) fail(name, `参数 ${name} 不能为空`);
+    else if (Array.from(value).length > max) fail(name, `参数 ${name} 不能超过 ${max} 个字符`);
   }
 
   let prose = '';
@@ -100,10 +121,10 @@ export function parsePreviewArgs(args: Record<string, unknown>): ParseResult<Pre
     prose = normalizeProse(proseRaw);
     const paragraphs = prose.split(/\n{2,}/).filter((paragraph) => paragraph.length > 0);
     if (paragraphs.length < 1 || paragraphs.length > PREVIEW_LIMITS.paragraphsMax) {
-      errors.push(`参数 prose 的段落数必须在 1 到 ${PREVIEW_LIMITS.paragraphsMax} 之间`);
+      fail('prose', `参数 prose 的段落数必须在 1 到 ${PREVIEW_LIMITS.paragraphsMax} 之间`);
     }
     if (Array.from(prose).length > PREVIEW_LIMITS.proseMax) {
-      errors.push(`参数 prose 不能超过 ${PREVIEW_LIMITS.proseMax} 个字符`);
+      fail('prose', `参数 prose 不能超过 ${PREVIEW_LIMITS.proseMax} 个字符`);
     }
   }
 
@@ -114,22 +135,22 @@ export function parsePreviewArgs(args: Record<string, unknown>): ParseResult<Pre
       max: PREVIEW_LIMITS.optionsMax,
       textMax: PREVIEW_LIMITS.optionTextMax,
     });
-    if (!parsed.ok) errors.push(...parsed.errors);
+    if (!parsed.ok) for (const message of parsed.errors) fail('options', message);
     else options = parsed.value;
   }
 
-  const changesRaw = stringArg(args, 'changes', errors);
-  const presentRaw = stringArg(args, 'present', errors);
+  const changesRaw = text('changes');
+  const presentRaw = text('present');
 
   if (language !== null && !LanguageTagSchema.safeParse(language).success) {
-    errors.push('参数 language 必须是合法的语言标签');
+    fail('language', '参数 language 必须是合法的语言标签');
   }
 
-  if (errors.length) return { ok: false, errors };
+  if (errors.length) return failed();
   const paragraphs = splitParagraphs(prose);
   let changes: ValidatedChanges | null = null;
   if (changesRaw !== null && !changesRaw.trim()) {
-    errors.push('参数 changes 不能为空');
+    fail('changes', '参数 changes 不能为空');
   } else if (changesRaw !== null) {
     const parsedChanges = parseChanges(changesRaw, {
       mode: 'opening',
@@ -138,7 +159,7 @@ export function parsePreviewArgs(args: Record<string, unknown>): ParseResult<Pre
       paragraphCount: paragraphs.length,
       parentPresentIds: [],
     });
-    if (!parsedChanges.ok) errors.push(...parsedChanges.errors);
+    if (!parsedChanges.ok) for (const message of parsedChanges.errors) fail('changes', message);
     else changes = parsedChanges.value;
   }
   if (changes) {
@@ -147,7 +168,7 @@ export function parsePreviewArgs(args: Record<string, unknown>): ParseResult<Pre
       .map((item) => item.trim())
       .filter(Boolean);
     if (present.length > STORY_LIMITS.presentMax) {
-      errors.push(`参数 present：最多 ${STORY_LIMITS.presentMax} 个。`);
+      fail('present', `参数 present：最多 ${STORY_LIMITS.presentMax} 个。`);
     }
     const refs: Array<{ created: number }> = [];
     for (const token of present) {
@@ -156,23 +177,23 @@ export function parsePreviewArgs(args: Record<string, unknown>): ParseResult<Pre
       );
       const match = matches[0];
       if (matches.length !== 1 || !match) {
-        errors.push(`参数 present：找不到「${token}」，在场的人物必须是 changes 里新增的人物。`);
+        fail('present', `参数 present：找不到「${token}」，在场的人物必须是 changes 里新增的人物。`);
         continue;
       }
       refs.push({ created: match.line });
     }
     changes.scene = { place: place ?? '', time: time ?? '', present: refs };
-    errors.push(
-      ...findLeaks({
-        projection: null,
-        changes,
-        paragraphs,
-        options: options.map((option) => option.text),
-      }),
-    );
+    for (const message of findLeaks({
+      projection: null,
+      changes,
+      paragraphs,
+      options: options.map((option) => option.text),
+    })) {
+      fail('leak', message);
+    }
   }
 
-  if (errors.length || !changes) return { ok: false, errors };
+  if (errors.length || !changes) return failed();
   const cast = [...changes.entities]
     .sort((left, right) => Number(right.protagonist) - Number(left.protagonist) || left.line - right.line)
     .map((entity) => ({

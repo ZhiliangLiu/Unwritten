@@ -64,6 +64,21 @@ describe('parsePreviewArgs', () => {
     if (!result.ok) expect(result.errors.some((error) => error.includes('第 1 段'))).toBe(true);
   });
 
+  it('失败时报告出错的字段', () => {
+    const emptyTitle = parsePreviewArgs({ ...valid, title: '' });
+    expect(emptyTitle.ok).toBe(false);
+    if (!emptyTitle.ok) expect(emptyTitle.fields).toEqual(['title']);
+
+    const leaked = parsePreviewArgs({
+      ...valid,
+      prose: '沈岚推门进来。',
+      changes:
+        '{"type":"new_entity","kind":"character","name":"守夜人","known_as":"","profile":"","para":"1","protagonist":"true"}\n{"type":"new_entity","kind":"character","name":"沈岚","known_as":"撐伞的女人","profile":"带着黑伞","para":"1"}',
+    });
+    expect(leaked.ok).toBe(false);
+    if (!leaked.ok) expect(leaked.fields).toEqual(['leak']);
+  });
+
   it('在场人物必须是本次新增的人物', () => {
     const result = parsePreviewArgs({ ...valid, present: '陌生人' });
     expect(result.ok).toBe(false);
