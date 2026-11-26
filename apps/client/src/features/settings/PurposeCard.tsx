@@ -179,20 +179,17 @@ export function PurposeCard({
         ) : null}
       </div>
       {testResult ? (
-        <div className={styles.testResult}>
-          {testResult.ok ? (
-            <Badge tone='success' icon={CircleCheck}>
-              {t('settings:endpoint.testOk')}
-            </Badge>
-          ) : (
-            <>
-              <p className={styles.testError}>
-                {t(`errors:${testResult.code ?? 'unknown'}`, { code: testResult.code })}
-              </p>
-              {testResult.detail ? <p className={styles.detail}>{testResult.detail}</p> : null}
-            </>
-          )}
-        </div>
+        testResult.ok ? (
+          <Badge tone='success' icon={CircleCheck}>
+            {t('settings:endpoint.testOk')}
+          </Badge>
+        ) : (
+          <ErrorNotice
+            code={testResult.code ?? 'unknown'}
+            detail={testResult.detail}
+            diagnosticId={testResult.diagnosticId}
+          />
+        )
       ) : null}
       <ErrorNotice error={error} />
     </Card>

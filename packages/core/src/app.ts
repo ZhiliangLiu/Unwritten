@@ -1,11 +1,12 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { serve } from '@hono/node-server';
 import packageJson from '../package.json' with { type: 'json' };
 import type { CliOptions } from './cli.ts';
 import { createEventBus } from './events/bus.ts';
 import { createLogger } from './log/logger.ts';
+import { diagnosticFault } from './log/fault.ts';
 import { DataDirLockedError, openDatabase } from './store/db.ts';
 import type { ServiceFactories, Services } from './services.ts';
 import { createHttpApp } from './api/http-app.ts';
@@ -20,15 +21,47 @@ export interface RunningCore {
   close(): Promise<void>;
 }
 
+type StartupFailure = 'data_locked' | 'port_in_use' | 'data_dir' | 'startup';
+
+export class CoreStartupError extends Error {
+  readonly reason: StartupFailure;
+  readonly diagnosticId: string;
+
+  constructor(reason: StartupFailure, diagnosticId: string, cause: unknown) {
+    super(reason, { cause });
+    this.reason = reason;
+    this.diagnosticId = diagnosticId;
+  }
+}
+
 export async function startCore(options: CliOptions, factories: ServiceFactories): Promise<RunningCore> {
-  mkdirSync(options.dataDir, { recursive: true });
   const startupStarted = performance.now();
   const logger = createLogger({ dataDir: options.dataDir, level: options.logLevel, appVersion: packageJson.version });
   let opened: ReturnType<typeof openDatabase> | null = null;
   let server: ReturnType<typeof serve> | null = null;
+  let waitForTasks: (() => Promise<unknown>) | undefined;
+  const shutdown = new AbortController();
+  const stopRuntime = async () => {
+    shutdown.abort();
+    const activeServer = server;
+    try {
+      if (activeServer) {
+        const closingServer = new Promise<void>((resolve) => activeServer.close(() => resolve()));
+        (activeServer as { closeAllConnections?: () => void }).closeAllConnections?.();
+        await closingServer;
+      }
+      await waitForTasks?.();
+    } finally {
+      opened?.close();
+    }
+  };
 
+  let stage = 'data_dir';
+  let stageStarted = startupStarted;
   try {
-    const libraryStarted = performance.now();
+    mkdirSync(options.dataDir, { recursive: true });
+    stage = 'library_open';
+    const libraryStarted = (stageStarted = performance.now());
     try {
       opened = openDatabase(join(options.dataDir, 'library.db'));
     } catch (error) {
@@ -45,7 +78,7 @@ export async function startCore(options: CliOptions, factories: ServiceFactories
     logger.record({ level: 'info', module: 'core', event: 'store.migrated' });
     logger.record({ level: 'info', module: 'core', event: 'story.backfill', data: { ...opened.backfill } });
 
-    const shutdown = new AbortController();
+    stage = 'services';
     const bus = createEventBus();
     const deps = {
       shutdown: shutdown.signal,
@@ -61,8 +94,10 @@ export async function startCore(options: CliOptions, factories: ServiceFactories
     const authoring = factories.authoring({ ...deps, llm });
     const play = factories.play({ ...deps, llm, summary });
     const services: Services = { llm, library, authoring, play, settings, summary, bus, logger };
+    waitForTasks = () => Promise.all([authoring.whenIdle(), play.whenIdle(), summary.whenIdle()]);
 
-    const recoverStarted = performance.now();
+    stage = 'recovery';
+    const recoverStarted = (stageStarted = performance.now());
     const turnRequests = play.recoverInterrupted();
     const jobs = authoring.recoverInterrupted();
     const summaries = summary.backfill();
@@ -76,18 +111,21 @@ export async function startCore(options: CliOptions, factories: ServiceFactories
       data: { turnRequests, jobs, summaries },
     });
 
+    stage = 'client_assets';
     const token = randomBytes(32).toString('base64url');
     const assets = loadClientAssets(options.clientDir);
     if (!assets) logger.record({ level: 'warn', module: 'core', event: 'client.assets.missing' });
 
     let port = 0;
     const app = createHttpApp({ token, getPort: () => port, assets, services, logger });
+    stage = 'http_listen';
     port = await new Promise<number>((resolve, reject) => {
-      try {
-        server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: options.port }, (info) => resolve(info.port));
-      } catch (error) {
-        reject(error);
-      }
+      const listening = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: options.port }, (info) => {
+        listening.off('error', reject);
+        resolve(info.port);
+      });
+      listening.once('error', reject);
+      server = listening;
     });
     const origin = `http://127.0.0.1:${port}`;
     const url = `${options.clientOrigin ?? origin}/#token=${token}`;
@@ -104,24 +142,55 @@ export async function startCore(options: CliOptions, factories: ServiceFactories
       close() {
         if (closing) return closing;
         closing = (async () => {
-          shutdown.abort();
-          if (server) {
-            const closingServer = new Promise<void>((resolve) => server!.close(() => resolve()));
-            (server as { closeAllConnections?: () => void }).closeAllConnections?.();
-            await closingServer;
+          try {
+            await stopRuntime();
+            logger.record({ level: 'info', module: 'core', event: 'core.stopped' });
+          } finally {
+            await logger.close();
           }
-          await Promise.all([authoring.whenIdle(), play.whenIdle(), summary.whenIdle()]);
-          opened?.close();
-          logger.record({ level: 'info', module: 'core', event: 'core.stopped' });
-          await logger.close();
         })();
         return closing;
       },
     };
   } catch (error) {
-    logger.record({ level: 'error', module: 'core', event: 'core.start_failed', data: { stage: 'startup' } });
-    opened?.close();
-    await logger.close();
-    throw error;
+    const fault = diagnosticFault(error);
+    const reason =
+      error instanceof DataDirLockedError
+        ? 'data_locked'
+        : fault.systemCode === 'EADDRINUSE'
+          ? 'port_in_use'
+          : stage === 'data_dir'
+            ? 'data_dir'
+            : 'startup';
+    const diagnosticId = randomUUID();
+    logger.record({
+      id: diagnosticId,
+      level: 'error',
+      module: 'core',
+      event: 'core.start_failed',
+      data: { stage, reason, ...fault },
+    });
+    const now = performance.now();
+    logger.sample({ metric: 'core.startup', durationMs: now - startupStarted, outcome: 'error' });
+    if (stage === 'library_open' || stage === 'recovery') {
+      logger.sample({
+        metric: stage === 'library_open' ? 'core.library_open' : 'core.recover',
+        durationMs: now - stageStarted,
+        outcome: 'error',
+      });
+    }
+    try {
+      await stopRuntime();
+    } catch (cleanupError) {
+      logger.record({
+        level: 'error',
+        module: 'core',
+        event: 'core.start_cleanup_failed',
+        data: { ...diagnosticFault(cleanupError) },
+      });
+    } finally {
+      await logger.close();
+    }
+    throw new CoreStartupError(reason, diagnosticId, error);
   }
 }

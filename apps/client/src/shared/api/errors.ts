@@ -1,4 +1,5 @@
 import { ORPCError } from '@orpc/client';
+import { UuidSchema } from '@unwritten/contracts';
 
 export function errorCode(error: unknown): string {
   if (error instanceof ORPCError) return error.code;
@@ -11,4 +12,9 @@ export function errorDetail(error: unknown): string | null {
     return typeof data?.detail === 'string' ? data.detail : null;
   }
   return null;
+}
+
+export function errorDiagnosticId(error: unknown): string | undefined {
+  if (!(error instanceof ORPCError) || typeof error.data !== 'object' || error.data === null) return undefined;
+  return UuidSchema.safeParse((error.data as { diagnosticId?: unknown }).diagnosticId).data;
 }

@@ -3,6 +3,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import PQueue from 'p-queue';
 import type { Preview, PreviewJobView, PreviewJobView as PreviewJobViewType } from '@unwritten/contracts';
 import { appError } from '../errors.ts';
+import { diagnosticFault, storageError } from '../log/fault.ts';
 import type { AuthoringService, CoreDeps, LlmService } from '../services.ts';
 import { previewJobView } from '../library/service.ts';
 import { PREVIEW_TOOL_NAME, PREVIEW_TOOL_PARAMETERS, parsePreviewArgs } from './preview-tool.ts';
@@ -27,14 +28,33 @@ function viewOf(row: typeof jobs.$inferSelect): PreviewJobViewType {
 export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): AuthoringService {
   const queue = new PQueue({ concurrency: PREVIEW_CONCURRENCY });
 
-  const runPreviewJob = async (jobId: string): Promise<void> => {
+  const saveFailure = (jobId: string, workId: string, code: NonNullable<PreviewJobView['error']>) => {
+    try {
+      const updated = deps.db
+        .update(jobs)
+        .set({ status: 'failed', error: code, updatedAt: Date.now() })
+        .where(and(eq(jobs.id, jobId), eq(jobs.status, 'running')))
+        .run();
+      if (updated.changes) deps.bus.publish({ type: 'job.updated', workId, jobId, status: 'failed' });
+    } catch (error) {
+      const fault = diagnosticFault(error);
+      deps.logger.record({
+        level: 'error',
+        module: 'authoring',
+        event: 'preview.job.failed',
+        jobId,
+        workId,
+        data: { code: storageError(fault) ?? 'save', stage: 'failure_state', ...fault },
+      });
+    }
+  };
+
+  const runPreviewJob = async (jobId: string, startedAt: number): Promise<void> => {
     const job = deps.db.select().from(jobs).where(eq(jobs.id, jobId)).get();
     if (!job || job.status !== 'running') return;
-    const startedAt = performance.now();
-    const queuedAt = Date.now();
     deps.logger.sample({
       metric: 'preview.queue',
-      durationMs: Math.max(0, queuedAt - job.createdAt),
+      durationMs: performance.now() - startedAt,
       outcome: 'ok',
       jobId,
       workId: job.workId,
@@ -73,6 +93,7 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
       },
     };
 
+    let modelFault: ReturnType<typeof diagnosticFault> | undefined;
     let errorCode: PreviewJobView['error'] = null;
     try {
       await deps.llm.run({
@@ -85,7 +106,12 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
         ref: { kind: 'job', id: jobId, attempt: 1, workId: job.workId },
       });
     } catch (error) {
-      errorCode = error instanceof LlmRunError ? error.code : 'internal';
+      if (error instanceof LlmRunError) {
+        errorCode = error.code;
+      } else {
+        modelFault = diagnosticFault(error);
+        errorCode = storageError(modelFault) ?? 'internal';
+      }
     }
 
     if (!errorCode && !preview) errorCode = 'invalid_output';
@@ -97,20 +123,20 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
         ? { code: errorCode, errorCount: lastFailure.errorCount, fields: lastFailure.fields }
         : { code: errorCode };
     if (errorCode) {
-      deps.db
-        .update(jobs)
-        .set({ status: 'failed', error: errorCode, updatedAt: now })
-        .where(and(eq(jobs.id, jobId), eq(jobs.status, 'running')))
-        .run();
-      deps.bus.publish({ type: 'job.updated', workId: job.workId, jobId, status: 'failed' });
       deps.logger.record({
         level: 'warn',
         module: 'authoring',
         event: 'preview.job.failed',
         jobId,
         workId: job.workId,
-        data: failureData,
+        data: {
+          ...failureData,
+          stage: errorCode === 'invalid_output' && corrections > 0 ? 'validation' : 'model',
+          corrections,
+          ...modelFault,
+        },
       });
+      saveFailure(jobId, job.workId, errorCode);
       deps.logger.sample({
         metric: 'preview.total',
         durationMs: performance.now() - startedAt,
@@ -123,8 +149,9 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
 
     const commitStarted = performance.now();
     const completedPreview = preview as unknown as Preview;
+    let committed: boolean;
     try {
-      deps.db
+      const updated = deps.db
         .update(jobs)
         .set({
           status: 'done',
@@ -133,13 +160,10 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
         })
         .where(and(eq(jobs.id, jobId), eq(jobs.status, 'running')))
         .run();
-    } catch {
-      errorCode = 'save';
-      deps.db
-        .update(jobs)
-        .set({ status: 'failed', error: 'save', updatedAt: now })
-        .where(and(eq(jobs.id, jobId), eq(jobs.status, 'running')))
-        .run();
+      committed = updated.changes !== 0;
+    } catch (error) {
+      const fault = diagnosticFault(error);
+      errorCode = storageError(fault) ?? 'save';
       deps.logger.sample({
         metric: 'preview.commit',
         durationMs: performance.now() - commitStarted,
@@ -147,56 +171,60 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
         jobId,
         workId: job.workId,
       });
-      deps.bus.publish({ type: 'job.updated', workId: job.workId, jobId, status: 'failed' });
       deps.logger.record({
-        level: 'warn',
+        level: 'error',
         module: 'authoring',
         event: 'preview.job.failed',
         jobId,
         workId: job.workId,
-        data: { code: errorCode },
+        data: { code: errorCode, stage: 'commit', ...fault },
+      });
+      saveFailure(jobId, job.workId, errorCode);
+      deps.logger.sample({
+        metric: 'preview.total',
+        durationMs: performance.now() - startedAt,
+        outcome: 'error',
+        jobId,
+        workId: job.workId,
       });
       return;
     }
 
+    const outcome = committed ? 'ok' : 'interrupted';
     deps.logger.sample({
       metric: 'preview.commit',
       durationMs: performance.now() - commitStarted,
-      outcome: 'ok',
+      outcome,
       jobId,
       workId: job.workId,
     });
-    deps.bus.publish({ type: 'job.updated', workId: job.workId, jobId, status: 'done' });
+    if (committed) deps.bus.publish({ type: 'job.updated', workId: job.workId, jobId, status: 'done' });
     deps.logger.record({
       level: 'info',
       module: 'authoring',
-      event: 'preview.job.done',
+      event: committed ? 'preview.job.done' : 'preview.job.interrupted',
       jobId,
       workId: job.workId,
     });
     deps.logger.sample({
       metric: 'preview.total',
       durationMs: performance.now() - startedAt,
-      outcome: 'ok',
+      outcome,
       jobId,
       workId: job.workId,
     });
   };
 
-  const failBackgroundJob = (jobId: string, workId: string, startedAt: number) => {
-    deps.db
-      .update(jobs)
-      .set({ status: 'failed', error: 'internal', updatedAt: Date.now() })
-      .where(and(eq(jobs.id, jobId), eq(jobs.status, 'running')))
-      .run();
-    deps.bus.publish({ type: 'job.updated', workId, jobId, status: 'failed' });
+  const failBackgroundJob = (jobId: string, workId: string, startedAt: number, error: unknown) => {
+    const fault = diagnosticFault(error);
+    const code = storageError(fault) ?? 'internal';
     deps.logger.record({
       level: 'error',
       module: 'authoring',
       event: 'preview.job.failed',
       jobId,
       workId,
-      data: { code: 'internal' },
+      data: { code, stage: 'background', ...fault },
     });
     deps.logger.sample({
       metric: 'preview.total',
@@ -204,13 +232,15 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
       outcome: 'error',
       jobId,
       workId,
-      data: { code: 'internal' },
     });
+    saveFailure(jobId, workId, code);
   };
 
   const startPreviewJob = (jobId: string, workId: string) => {
     const startedAt = performance.now();
-    void queue.add(() => runPreviewJob(jobId)).catch(() => failBackgroundJob(jobId, workId, startedAt));
+    void queue.add(() =>
+      runPreviewJob(jobId, startedAt).catch((error: unknown) => failBackgroundJob(jobId, workId, startedAt, error)),
+    );
   };
 
   return {
@@ -231,7 +261,7 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
           if (!draft) throw appError('not_found', 'draft not found');
           if (draft.contentRev !== input.contentRev) throw appError('stale_revision', 'draft revision is stale');
           const background = (draft.meta as VersionMeta).background;
-          if (!background.trim()) throw appError('invalid_input', 'background is empty');
+          if (!background.trim()) throw appError('background_required', 'background is empty');
           const running = tx
             .select()
             .from(jobs)

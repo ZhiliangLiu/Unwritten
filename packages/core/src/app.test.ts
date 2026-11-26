@@ -1,9 +1,11 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
+import { sql } from 'drizzle-orm';
 import type { Logger } from './log/logger.ts';
 import { createEventBus } from './events/bus.ts';
-import type { Services } from './services.ts';
+import type { ServiceFactories, Services } from './services.ts';
 import { makeTempDataDir } from './test-support/temp-dir.ts';
 import { startCore } from './app.ts';
 
@@ -123,17 +125,22 @@ describe('startCore', () => {
     writeFileSync(join(clientDir, 'index.html'), '<!doctype html><html lang="zh-CN"><head></head><body></body></html>');
     writeFileSync(join(clientDir, 'boot.inline.js'), '');
     const services = fakeServices();
-    const core = await startCore(
-      { dataDir: join(temp.dir, 'data'), port: 0, clientDir, clientOrigin: null, logLevel: 'error' },
-      {
-        llm: () => services.llm,
-        library: () => services.library,
-        settings: () => services.settings,
-        summary: () => services.summary,
-        authoring: () => services.authoring,
-        play: () => services.play,
-      },
-    );
+    const factories = {
+      llm: () => services.llm,
+      library: () => services.library,
+      settings: () => services.settings,
+      summary: () => services.summary,
+      authoring: () => services.authoring,
+      play: () => services.play,
+    };
+    const options = {
+      dataDir: join(temp.dir, 'data'),
+      port: 0,
+      clientDir,
+      clientOrigin: null,
+      logLevel: 'error',
+    } as const;
+    const core = await startCore(options, factories);
     try {
       expect(core.url).toContain(`#token=${core.token}`);
       const response = await fetch(`${core.origin}/api/works/list`, {
@@ -143,6 +150,44 @@ describe('startCore', () => {
       });
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({ json: [] });
+
+      const blockedDir = join(temp.dir, 'blocked');
+      const shutdownOrder: string[] = [];
+      const blockedFactories: ServiceFactories = {
+        ...factories,
+        summary: ({ db, shutdown }) => ({
+          enqueue() {},
+          backfill() {
+            shutdownOrder.push('scheduled');
+            shutdown.addEventListener('abort', () => shutdownOrder.push('aborted'), { once: true });
+            return 1;
+          },
+          async whenIdle() {
+            await Promise.resolve();
+            expect(db.get(sql`select 1 as open`)).toEqual({ open: 1 });
+            shutdownOrder.push('idle');
+          },
+        }),
+      };
+      await expect(
+        startCore({ ...options, dataDir: blockedDir, port: core.port }, blockedFactories),
+      ).rejects.toMatchObject({
+        reason: 'port_in_use',
+        diagnosticId: expect.any(String),
+      });
+      expect(shutdownOrder).toEqual(['scheduled', 'aborted', 'idle']);
+      const db = new DatabaseSync(join(blockedDir, 'diagnostics.db'));
+      try {
+        const entry = db.prepare("select data from diagnostic_events where event = 'core.start_failed'").get();
+        expect(JSON.parse(String(entry?.data))).toEqual({
+          stage: 'http_listen',
+          reason: 'port_in_use',
+          errorType: 'system',
+          systemCode: 'EADDRINUSE',
+        });
+      } finally {
+        db.close();
+      }
     } finally {
       await core.close();
       temp.cleanup();

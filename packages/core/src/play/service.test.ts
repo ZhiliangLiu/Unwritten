@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { createEventBus } from '../events/bus.ts';
-import type { Logger, LogEvent } from '../log/logger.ts';
+import type { Logger, LogEvent, PerformanceSample } from '../log/logger.ts';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
 import { createScriptedLlm } from '../test-support/scripted-llm.ts';
 import { createRecordingSummary } from '../test-support/fake-summary.ts';
@@ -80,11 +80,14 @@ function setup() {
   );
   const llm = createScriptedLlm();
   const events: LogEvent[] = [];
+  const samples: PerformanceSample[] = [];
   const logger: Logger = {
     record(event) {
       events.push(event);
     },
-    sample() {},
+    sample(sample) {
+      samples.push(sample);
+    },
     async flush() {},
     async close() {},
   };
@@ -97,7 +100,7 @@ function setup() {
     shutdown: new AbortController().signal,
   };
   const play = createPlayService({ ...deps, llm, summary });
-  return { temp, opened, llm, summary, events, play };
+  return { temp, opened, llm, summary, events, samples, play };
 }
 
 describe('createPlayService', () => {
@@ -118,6 +121,38 @@ describe('createPlayService', () => {
       expect(route.turns[1]?.action).toEqual({ text: '推门', optionIndex: null });
       expect(route.turns[1]?.originRequest).toEqual({ id: requestId, attempt: 1 });
       expect(route.pending).toBeNull();
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('续写结果和失败状态都无法写入时，分别记录失败并保留提交样本', async () => {
+    const { temp, opened, llm, play, events, samples } = setup();
+    try {
+      opened.db.run(sql`create trigger reject_turn_status before update of status on turn_requests
+        begin select raise(abort, 'write rejected'); end`);
+      llm.enqueue({ args: turnArgs });
+      expect(
+        play.submitAction({
+          requestId,
+          routeId,
+          expectedHeadTurnId: rootTurnId,
+          action: { text: '推门', optionIndex: null },
+        }).status,
+      ).toBe('running');
+      await play.whenIdle();
+
+      expect(events.filter((event) => event.event === 'turn.request.failed').map((event) => event.data?.stage)).toEqual(
+        ['commit', 'failure_state'],
+      );
+      expect(samples.filter((sample) => sample.metric === 'turn.commit')).toEqual([
+        expect.objectContaining({ requestId, attempt: 1, outcome: 'error' }),
+      ]);
+      expect(samples.filter((sample) => sample.metric === 'turn.total')).toEqual([
+        expect.objectContaining({ requestId, attempt: 1, outcome: 'error' }),
+      ]);
+      expect(play.getRoute({ routeId }).headTurnId).toBe(rootTurnId);
     } finally {
       opened.close();
       temp.cleanup();

@@ -5,6 +5,8 @@ import { initI18n, loadNamespace } from '../i18n/index.ts';
 import { readToken } from '../shared/api/token.ts';
 import { createApiClient } from '../shared/api/client.ts';
 import { queryClient, queryKeys } from '../shared/api/query.ts';
+import { errorCode } from '../shared/api/errors.ts';
+import { reportError } from '../shared/lib/log.ts';
 import { ApiProvider } from '../shared/api/context.tsx';
 import { applyAppearance, followSystemAppearance } from '../theme/appearance.ts';
 import { ToastProvider } from '../shared/ui/Toaster.tsx';
@@ -12,8 +14,9 @@ import { router } from './router.tsx';
 import { NoTokenPage } from './NoTokenPage.tsx';
 
 export function App() {
-  const [token] = useState(() => readToken());
-  const [api] = useState(() => (token ? createApiClient(token) : null));
+  const [token, setToken] = useState(() => readToken());
+  const [initialApi] = useState(() => (token ? createApiClient(token, () => setToken(null)) : null));
+  const api = token ? initialApi : null;
 
   useEffect(() => {
     return followSystemAppearance();
@@ -24,11 +27,19 @@ export function App() {
     for (const namespace of ['library', 'authoring', 'play', 'settings'] as const) {
       void loadNamespace(namespace).then(() => queryClient.invalidateQueries());
     }
-    let cancelled = false;
+    const controller = new AbortController();
+    const reportRuntimeError = () => reportError(api, 'app', 'client_runtime');
+    window.addEventListener('error', reportRuntimeError);
+    window.addEventListener('unhandledrejection', reportRuntimeError);
+    let disconnectCode: 'interrupted' | 'core_unreachable' | null = null;
     const run = async () => {
-      while (!cancelled) {
+      while (!controller.signal.aborted) {
         try {
-          const iterator = await api.events.subscribe();
+          const iterator = await api.events.subscribe({ signal: controller.signal });
+          if (disconnectCode) {
+            reportError(api, 'events', disconnectCode);
+            disconnectCode = null;
+          }
           await queryClient.invalidateQueries();
           for await (const event of iterator) {
             if (event.type === 'llm.config_changed') void queryClient.invalidateQueries({ queryKey: queryKeys.llm });
@@ -50,11 +61,14 @@ export function App() {
               queryClient.setQueryData(queryKeys.settings, event.appearance);
             }
           }
-          if (cancelled) return;
+          if (controller.signal.aborted) return;
+          disconnectCode = 'interrupted';
           await queryClient.invalidateQueries();
           await new Promise((resolve) => setTimeout(resolve, 1_000));
-        } catch {
-          if (cancelled) return;
+        } catch (error) {
+          if (controller.signal.aborted) return;
+          disconnectCode =
+            errorCode(error) === 'core_unreachable' ? 'core_unreachable' : (disconnectCode ?? 'interrupted');
           await queryClient.invalidateQueries();
           await new Promise((resolve) => setTimeout(resolve, 2_000));
         }
@@ -62,11 +76,13 @@ export function App() {
     };
     void run();
     return () => {
-      cancelled = true;
+      controller.abort();
+      window.removeEventListener('error', reportRuntimeError);
+      window.removeEventListener('unhandledrejection', reportRuntimeError);
     };
   }, [api]);
 
-  if (!token || !api) return <NoTokenPage />;
+  if (!api) return <NoTokenPage expired={initialApi !== null} />;
   return (
     <ApiProvider value={api}>
       <QueryClientProvider client={queryClient}>

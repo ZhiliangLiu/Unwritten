@@ -25,7 +25,7 @@ export function FailedTurn({
         <span className={styles.hidden}>{t('play:action.prefix')}</span>
         {request.action.text}
       </p>
-      <ErrorNotice code={request.error ?? 'unknown'} />
+      <ErrorNotice code={request.error ?? 'unknown'} diagnosticId={request.id} />
       <div className={styles.actions}>
         <Button variant='primary' busy={busy} onClick={onRetry}>
           {t('play:pending.retry')}

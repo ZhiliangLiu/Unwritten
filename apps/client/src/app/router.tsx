@@ -1,4 +1,11 @@
+import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Outlet, createRootRoute, createRoute, createRouter, useNavigate } from '@tanstack/react-router';
+import { useApi } from '../shared/api/context.tsx';
+import { reportError } from '../shared/lib/log.ts';
+import { Button } from '../shared/ui/Button.tsx';
+import { ErrorNotice } from '../shared/ui/ErrorNotice.tsx';
+import { Page } from '../shared/ui/Page.tsx';
 import { useShortcut } from '../shared/hooks/useShortcut.ts';
 import { LibraryPage } from '../features/library/LibraryPage.tsx';
 import { AuthoringPage } from '../features/authoring/AuthoringPage.tsx';
@@ -40,7 +47,26 @@ const playRoute = createRoute({
 
 export const routeTree = rootRoute.addChildren([indexRoute, settingsRoute, worksEditRoute, playRoute]);
 
-export const router = createRouter({ routeTree });
+export const router = createRouter({
+  routeTree,
+  defaultErrorComponent: function RouteError({ error, reset }) {
+    const { t } = useTranslation();
+    const api = useApi();
+    useEffect(() => reportError(api, 'render', 'client_runtime'), [api, error]);
+    return (
+      <Page title={t('common:error.pageHeading')} heading='content' toolbar={{ start: { kind: 'brand' } }} width='page'>
+        <ErrorNotice
+          code='client_runtime'
+          action={
+            <Button variant='secondary' onClick={reset}>
+              {t('common:action.retry')}
+            </Button>
+          }
+        />
+      </Page>
+    );
+  },
+});
 
 declare module '@tanstack/react-router' {
   interface Register {

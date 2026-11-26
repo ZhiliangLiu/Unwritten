@@ -112,6 +112,7 @@ function recordCall(
     outcome: CompletionOutcome | null;
     code: LlmRunError['code'] | undefined;
     watchdog: Watchdog;
+    httpStatus: number | null;
   },
 ): void {
   const { callId, ref, target, outcome, code, watchdog } = call;
@@ -148,7 +149,14 @@ function recordCall(
     callId,
     requestId,
     jobId,
-    data: { status, code: code ?? null, attempt: ref.attempt, thinking: target.params.thinking },
+    workId: ref.workId ?? undefined,
+    data: {
+      status,
+      code: code ?? null,
+      attempt: ref.attempt,
+      thinking: target.params.thinking,
+      httpStatus: call.httpStatus,
+    },
   });
   if (watchdog.firstOutputAt !== null) {
     deps.logger.sample({
@@ -257,7 +265,16 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
       });
     } else if (!state.terminated) code = 'invalid_output';
 
-    recordCall(deps, { callId, purpose: input.purpose, ref: input.ref, target, outcome, code, watchdog });
+    recordCall(deps, {
+      callId,
+      purpose: input.purpose,
+      ref: input.ref,
+      target,
+      outcome,
+      code,
+      watchdog,
+      httpStatus: recorder.lastStatus,
+    });
 
     return {
       ok: code === undefined,
@@ -344,7 +361,16 @@ export function createCompleter(deps: RunnerDeps): (input: LlmCompleteInput) => 
         code = 'invalid_output';
       }
 
-      recordCall(deps, { callId, purpose: input.purpose, ref: input.ref, target, outcome, code, watchdog });
+      recordCall(deps, {
+        callId,
+        purpose: input.purpose,
+        ref: input.ref,
+        target,
+        outcome,
+        code,
+        watchdog,
+        httpStatus: recorder.lastStatus,
+      });
 
       if (code === undefined) return { text: (outcome?.text ?? '').trim() };
 

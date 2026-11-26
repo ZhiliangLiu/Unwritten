@@ -153,12 +153,11 @@ export function AddEndpointForm({ config, disabled }: { config: LlmConfigView; d
               {t('settings:endpoint.testOk')}
             </Badge>
           ) : (
-            <div className={styles.testResult}>
-              <p className={styles.testError}>
-                {t(`errors:${testResult.code ?? 'unknown'}`, { code: testResult.code })}
-              </p>
-              {testResult.detail ? <p className={styles.detail}>{testResult.detail}</p> : null}
-            </div>
+            <ErrorNotice
+              code={testResult.code ?? 'unknown'}
+              detail={testResult.detail}
+              diagnosticId={testResult.diagnosticId}
+            />
           )
         ) : null}
         <div className={styles.actions}>

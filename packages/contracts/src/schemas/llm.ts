@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ErrorCodeSchema } from '../errors.ts';
+import { ErrorCodeSchema, ErrorDataSchema } from '../errors.ts';
 import { UuidSchema } from './common.ts';
 
 export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
@@ -174,10 +174,9 @@ export const TestPurposeConnectionInputSchema = z.object({ purpose: PurposeSchem
 
 export const TestConnectionInputSchema = z.union([TestDraftConnectionInputSchema, TestPurposeConnectionInputSchema]);
 
-export const TestConnectionResultSchema = z.object({
+export const TestConnectionResultSchema = ErrorDataSchema.extend({
   ok: z.boolean(),
   code: ErrorCodeSchema.nullable(),
-  detail: z.string().nullable(),
   savedToolsCapability: z.boolean(),
 });
 

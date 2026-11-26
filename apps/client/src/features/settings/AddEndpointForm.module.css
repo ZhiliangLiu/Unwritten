@@ -46,28 +46,6 @@
   accent-color: var(--uw-color-accent);
 }
 
-.testResult {
-  display: grid;
-  gap: var(--uw-space-1);
-}
-
-.testError {
-  margin: 0;
-  font-family: var(--uw-typography-body-font-family);
-  font-size: var(--uw-typography-body-font-size);
-  line-height: var(--uw-typography-body-line-height);
-  color: var(--uw-color-danger);
-}
-
-.detail {
-  margin: 0;
-  font-family: var(--uw-typography-caption-font-family);
-  font-size: var(--uw-typography-caption-font-size);
-  line-height: var(--uw-typography-caption-line-height);
-  color: var(--uw-color-text-muted);
-  overflow-wrap: anywhere;
-}
-
 .actions {
   display: flex;
   flex-wrap: wrap;
