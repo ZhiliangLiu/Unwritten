@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { EMPTY_WORK_ANCHORS } from '@unwritten/contracts';
 import { createEventBus } from '../events/bus.ts';
 import type { Logger } from '../log/logger.ts';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
@@ -45,14 +46,26 @@ describe('createLibraryService', () => {
     const { temp, opened, service } = setup();
     try {
       const created = service.create({ workId });
-      expect(created.draft).toEqual({ contentRev: 0, background: '' });
-      const saved = service.saveBackground({ workId, baseContentRev: 0, background: '雨夜修钟铺' });
+      expect(created.draft).toEqual({ contentRev: 0, background: '', anchors: EMPTY_WORK_ANCHORS });
+      const anchors = {
+        narrationDirective: '用第二人称，句子短。',
+        contentPolicy: '不写血腥场面。',
+        improvisationScope: '路人的名字可以现造。',
+      };
+      const saved = service.saveDraft({ workId, baseContentRev: 0, background: '雨夜修钟铺', anchors });
       expect(saved.contentRev).toBe(1);
-      expect(service.get({ workId }).draft.background).toBe('雨夜修钟铺');
-      expect(service.saveBackground({ workId, baseContentRev: 1, background: '雨夜修钟铺' }).contentRev).toBe(1);
-      expect(() => service.saveBackground({ workId, baseContentRev: 0, background: '另一个' })).toThrow();
-      expect(service.saveBackground({ workId, baseContentRev: 1, background: '另一个' }).contentRev).toBe(2);
-      expect(service.create({ workId }).draft.contentRev).toBe(2);
+      expect(service.get({ workId }).draft).toEqual({ contentRev: 1, background: '雨夜修钟铺', anchors });
+      expect(service.saveDraft({ workId, baseContentRev: 1, background: '雨夜修钟铺', anchors }).contentRev).toBe(1);
+      expect(() => service.saveDraft({ workId, baseContentRev: 0, background: '另一个' })).toThrow();
+      expect(service.saveDraft({ workId, baseContentRev: 1, background: '另一个', anchors }).contentRev).toBe(2);
+      const edited = service.saveDraft({
+        workId,
+        baseContentRev: 2,
+        background: '另一个',
+        anchors: { ...anchors, contentPolicy: '不写血腥场面和对白里的脏话。' },
+      });
+      expect(edited.contentRev).toBe(3);
+      expect(service.create({ workId }).draft.contentRev).toBe(3);
     } finally {
       opened.close();
       temp.cleanup();
@@ -66,7 +79,7 @@ describe('createLibraryService', () => {
       const second = '00000000-0000-4000-8000-000000000002';
       service.create({ workId: first });
       service.create({ workId: second });
-      service.saveBackground({ workId: second, baseContentRev: 0, background: '第二部' });
+      service.saveDraft({ workId: second, baseContentRev: 0, background: '第二部' });
       const list = service.list();
       expect(list[0]?.id).toBe(second);
       expect(list[0]?.status).toBe('draft');

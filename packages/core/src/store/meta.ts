@@ -1,4 +1,4 @@
-import { PreviewSchema } from '@unwritten/contracts';
+import { EMPTY_WORK_ANCHORS, PreviewSchema, WorkAnchorsSchema, type WorkAnchors } from '@unwritten/contracts';
 import { z } from 'zod';
 import { ValidatedChangesSchema } from '../story/types.ts';
 
@@ -21,6 +21,7 @@ export const PUBLIC_SETTING_PLAN_ITEM_ID = 'public_setting';
 
 export const VersionMetaSchema = z.object({
   background: z.string(),
+  anchors: WorkAnchorsSchema.optional(),
   plan: z.object({ items: z.array(PlanItemSchema) }).optional(),
   opening: z
     .object({
@@ -33,7 +34,11 @@ export const VersionMetaSchema = z.object({
   narration: z.object({ language: z.string() }).optional(),
 });
 
-export const PreviewJobInputSchema = z.object({ contentRev: z.number().int().nonnegative(), background: z.string() });
+export const PreviewJobInputSchema = z.object({
+  contentRev: z.number().int().nonnegative(),
+  background: z.string(),
+  anchors: WorkAnchorsSchema.optional(),
+});
 export const PreviewJobResultSchema = z.object({
   preview: PreviewSchema,
   changes: ValidatedChangesSchema.optional(),
@@ -57,3 +62,7 @@ export type VersionMeta = z.infer<typeof VersionMetaSchema>;
 export type PreviewJobInput = z.infer<typeof PreviewJobInputSchema>;
 export type PreviewJobResult = z.infer<typeof PreviewJobResultSchema>;
 export type TurnRequestLog = z.infer<typeof TurnRequestLogSchema>;
+
+export function readAnchors(source: { anchors?: WorkAnchors }): WorkAnchors {
+  return source.anchors ?? EMPTY_WORK_ANCHORS;
+}

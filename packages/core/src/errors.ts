@@ -34,6 +34,7 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   rate_limited: 502,
   context_overflow: 502,
   context_too_small: 409,
+  work_setting_too_long: 409,
   network: 502,
   unreachable: 502,
   timeout: 504,

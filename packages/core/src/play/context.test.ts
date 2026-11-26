@@ -8,6 +8,7 @@ import { createCodeBook } from '../story/codebook.ts';
 import { loadProjection } from '../story/projection.ts';
 import { estimateTokens } from '../llm/budget.ts';
 import { buildNarratorContext } from './context.ts';
+import type { WorkAnchors } from '@unwritten/contracts';
 
 function projectionFor(db: Database, versionId: string, headTurnId: string) {
   const chain = ancestorChain(db, headTurnId).map((turn) => ({
@@ -20,13 +21,14 @@ function projectionFor(db: Database, versionId: string, headTurnId: string) {
   return loadProjection(db, { versionId, chain });
 }
 
-function contextFor(db: Database, versionId: string, headTurnId: string, contextWindow: number) {
+function contextFor(db: Database, versionId: string, headTurnId: string, contextWindow: number, anchors?: WorkAnchors) {
   const projection = projectionFor(db, versionId, headTurnId);
   return buildNarratorContext({
     meta: {
       background: '雨下了三天，你在北岬等一班开往南岸的渡轮。',
       plan: { items: [{ id: 'public_setting', text: '你是来北岬送信的邮差，渡轮因风雨停航。', source: 'ai' }] },
       narration: { language: 'zh-CN' },
+      anchors,
     },
     projection,
     codebook: createCodeBook(projection),
@@ -81,7 +83,50 @@ describe('buildNarratorContext', () => {
       expect(contextFor(opened.db, seeded.versionId, seeded.headTurnId, 200)).toEqual({
         ok: false,
         code: 'context_too_small',
+        anchorTokens: 0,
       });
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('作者锚点分成三块写进要求', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    try {
+      const seeded = seedNorthCape(opened.db);
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 32_768, {
+        narrationDirective: '用第二人称，句子短。',
+        contentPolicy: '不写血腥场面。',
+        improvisationScope: '路人的名字可以现造。',
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.prompt).toContain('【叙事要求】\n作品语言：zh-CN。');
+        expect(result.prompt).toContain('作品语言：zh-CN。正文和选项都用这种语言写。\n用第二人称，句子短。');
+        expect(result.prompt).toContain('【内容边界】\n不写血腥场面。');
+        expect(result.prompt).toContain('【即兴范围】\n路人的名字可以现造。');
+        expect(result.anchorTokens).toBe(27);
+        expect(result.prompt).toContain('问撑伞的女人叫什么名字');
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('作者锚点自己就放不下时返回 work_setting_too_long', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    try {
+      const seeded = seedNorthCape(opened.db);
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1400, {
+        narrationDirective: '长'.repeat(1500),
+        contentPolicy: '',
+        improvisationScope: '',
+      });
+      expect(result).toEqual({ ok: false, code: 'work_setting_too_long', anchorTokens: 1500 });
     } finally {
       opened.close();
       temp.cleanup();
@@ -109,7 +154,7 @@ describe('buildNarratorContext', () => {
           { entity: 'c', name: '丙', holder: 'lin', originTurn: 0, para: 1 },
         ],
       });
-      const { result } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 820);
+      const { result } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 860);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.indexEntities).toBe(4);
@@ -140,7 +185,7 @@ describe('buildNarratorContext', () => {
         ],
         entities: [{ key: 'lin', kind: 'character', name: '主角', protagonist: true }],
       });
-      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1200);
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1240);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.prompt).toContain('【更早的回合】');
@@ -167,7 +212,7 @@ describe('buildNarratorContext', () => {
         ],
         entities: [{ key: 'lin', kind: 'character', name: '主角', protagonist: true }],
       });
-      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1200);
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1240);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.summaryLines).toBe(0);
@@ -194,7 +239,7 @@ describe('buildNarratorContext', () => {
         ],
         names: [{ entity: 'included', name: '被列出的人', holder: 'lin', originTurn: 0, para: 1 }],
       });
-      const { result, codebook } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 760);
+      const { result, codebook } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 800);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(codebook.resolveEntity('被列出的人').ok).toBe(true);

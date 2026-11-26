@@ -10,6 +10,23 @@
       "stale": "草稿已在别处更新。你正在写的内容已保留，保存时会覆盖。"
     }
   },
+  "anchors": {
+    "heading": "补充设定",
+    "headingFilled": "补充设定（已填 {{count}} 项）",
+    "help": "这三项不是背景，而是要交代给 AI 的写作要求。留空也可以。",
+    "narration": {
+      "label": "叙事要求",
+      "placeholder": "例如：用第二人称写，句子里少用形容词，每回合停在一个具体的决定上。"
+    },
+    "content": {
+      "label": "内容边界",
+      "placeholder": "例如：不出现血腥场面，不写对白里的脏话。"
+    },
+    "improvisation": {
+      "label": "即兴范围",
+      "placeholder": "例如：路人的名字和口音可以现造，这个镇的街道名不能改。"
+    }
+  },
   "preview": {
     "generate": "生成开场预览",
     "running": "正在写开场",

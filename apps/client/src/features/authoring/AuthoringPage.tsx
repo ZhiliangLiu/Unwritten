@@ -1,7 +1,8 @@
 import { Link } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { EMPTY_WORK_ANCHORS } from '@unwritten/contracts';
 import { errorCode } from '../../shared/api/errors.ts';
 import { queryKeys } from '../../shared/api/query.ts';
 import { useApi } from '../../shared/api/context.tsx';
@@ -12,6 +13,7 @@ import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
 import { Page } from '../../shared/ui/Page.tsx';
 import { Skeleton } from '../../shared/ui/Skeleton.tsx';
 import { BackgroundEditor } from './BackgroundEditor.tsx';
+import { sameDraft, type DraftContent } from './draft.ts';
 import { PreviewPanel } from './PreviewPanel.tsx';
 import { PublishedPanel } from './PublishedPanel.tsx';
 import styles from './AuthoringPage.module.css';
@@ -20,7 +22,7 @@ export function AuthoringPage({ workId }: { workId: string }) {
   const api = useApi();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const [edit, setEdit] = useState<{ workId: string; text: string } | null>(null);
+  const [edit, setEdit] = useState<{ workId: string; draft: DraftContent } | null>(null);
   const [error, setError] = useState<unknown>(null);
 
   const work = useQuery({
@@ -50,9 +52,13 @@ export function AuthoringPage({ workId }: { workId: string }) {
   const data = work.data;
   const previewJob = data?.latestPreviewJob ?? null;
   const preview = previewJob?.preview ?? null;
-  const localText = edit?.workId === workId ? edit.text : null;
-  const text = localText ?? data?.draft.background ?? '';
-  const localDirty = localText !== null && localText !== data?.draft.background;
+  const savedDraft = useMemo<DraftContent>(
+    () => ({ background: data?.draft.background ?? '', anchors: data?.draft.anchors ?? EMPTY_WORK_ANCHORS }),
+    [data?.draft.background, data?.draft.anchors],
+  );
+  const localDraft = edit?.workId === workId ? edit.draft : null;
+  const draft = localDraft ?? savedDraft;
+  const localDirty = localDraft !== null && !sameDraft(localDraft, savedDraft);
   const stale = Boolean(
     previewJob && preview && (previewJob.basedOnContentRev !== data?.draft.contentRev || localDirty),
   );
@@ -90,8 +96,9 @@ export function AuthoringPage({ workId }: { workId: string }) {
         <div className={styles.sections}>
           <BackgroundEditor
             work={data}
-            value={text}
-            onValueChange={(next) => setEdit({ workId, text: next })}
+            draft={draft}
+            savedDraft={savedDraft}
+            onDraftChange={(next) => setEdit({ workId, draft: next })}
             onGenerate={(contentRev) => generate.mutate(contentRev)}
             generating={generate.isPending || previewJob?.status === 'running'}
             previewJob={previewJob}

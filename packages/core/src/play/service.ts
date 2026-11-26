@@ -217,10 +217,11 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
             includedTurns: context.includedTurns,
             omittedTurns: context.omittedTurns,
             contextTokens: context.contextTokens,
+            anchorTokens: context.anchorTokens,
             indexEntities: context.indexEntities,
             summaryLines: context.summaryLines,
           }
-        : {},
+        : { anchorTokens: context.anchorTokens },
     });
     const log: TurnRequestLog = [];
     if (!context.ok) {

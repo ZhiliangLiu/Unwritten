@@ -67,7 +67,7 @@ describe('core integration', () => {
       });
 
       core.services.library.create({ workId });
-      core.services.library.saveBackground({ workId, baseContentRev: 0, background: '雨夜修钟铺' });
+      core.services.library.saveDraft({ workId, baseContentRev: 0, background: '雨夜修钟铺' });
       server.enqueue(
         proposePreviewStep({
           title: '雨夜修钟铺',
@@ -251,7 +251,7 @@ describe('core integration', () => {
       const firstRequest = '00000000-0000-4000-8000-000000000014';
       const secondRequest = '00000000-0000-4000-8000-000000000015';
       core.services.library.create({ workId });
-      core.services.library.saveBackground({ workId, baseContentRev: 0, background: '雨夜' });
+      core.services.library.saveDraft({ workId, baseContentRev: 0, background: '雨夜' });
       server.enqueue(
         proposePreviewStep({
           title: '雨夜',
