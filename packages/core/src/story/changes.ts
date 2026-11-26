@@ -213,8 +213,16 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
   const factLines = lines.filter((item) => FACT_LINE_TYPES.includes(String(item.value.type)));
   const factLineIds = new Map<string, number>();
   for (const item of factLines) {
-    const id = stringField(item.value, 'id', item.line, errors, { max: STORY_LIMITS.keyMax });
+    const rawId = item.value.id;
+    const id =
+      typeof rawId === 'number'
+        ? String(rawId)
+        : stringField(item.value, 'id', item.line, errors, { max: STORY_LIMITS.keyMax });
     if (!id) continue;
+    if (id.startsWith('#') || id.startsWith('@')) {
+      errors.push(`第 ${item.line} 行 changes.id：「${id}」不能以 # 或 @ 开头，那是 core 发的编号。`);
+      continue;
+    }
     const same = factLineIds.get(id);
     if (same !== undefined) {
       errors.push(`第 ${item.line} 行 changes.id：和第 ${same} 行用了同一个 id，每行事实的 id 不能重复。`);
@@ -226,7 +234,7 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
   const factIdHint = (): string => {
     if (factLineIds.size > 0) return `本次可用的事实 id：${[...factLineIds.keys()].join('、')}。`;
     if (factLines.length > 0) return '本次的事实行都还没起 id：给要引用的那行加上 "id":"f1"，再用 "fact":"f1" 引用。';
-    return '';
+    return '本次没有事实行可引用：先写 event、trait、relation 或 promise，再用 "id" 让 knowledge 指向它。';
   };
 
   const resolveFact = (line: number, raw: unknown): FactRef | null => {
@@ -256,9 +264,13 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
     const created = newNameLines.get(token);
     if (created !== undefined) return { created };
     if (!ctx.codebook) {
-      const names = [...newEntities.values()].flatMap((entity) =>
-        entity.knownAs ? [entity.name, entity.knownAs] : [entity.name],
-      );
+      const names = [
+        ...new Set(
+          [...newEntities.values()].flatMap((entity) =>
+            entity.knownAs ? [entity.name, entity.knownAs] : [entity.name],
+          ),
+        ),
+      ];
       const hint = names.length
         ? `本次新增的人物和事物：${names.join('、')}。改用其中已有的名字，或为它新增一行。`
         : '';

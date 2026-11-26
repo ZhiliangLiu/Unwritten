@@ -140,7 +140,7 @@ turn_requests (
 | `scene_hit` | scene、para | 触发了哪个关键场面 |
 | `secret` | subject、title、statement、reveal、knowers、para | 游玩中创造的秘密。`title` 是无剧透的标题；`knowers` 写一开始就知道的人（逗号分隔的名字或编号），core 为他们展开 `level` 为 `confirmed` 的知情记录：他们是秘密本来的知情者，不是听说或猜测 |
 
-`para` 是这条变化在 `prose` 里的出处段号。事件、特征、关系、约定这些事实行，要用在某条 `knowledge` 里时，在那行加一个自己起的 `"id"`（如 `"f1"`），`knowledge` 的 `fact` 写这个 id。id 只在本条 `changes` 里有效，每行不能重复。行号不作引用：模型看不见行号，只能数，数错一次整条提交就被拒。例如：
+`para` 是这条变化在 `prose` 里的出处段号。事件、特征、关系、约定这些事实行，要用在某条 `knowledge` 里时，在那行加一个自己起的 `"id"`（如 `"f1"`），`knowledge` 的 `fact` 写这个 id。id 只在本条 `changes` 里有效，每行不能重复，也不能以 `#` 或 `@` 开头（那是 core 发的编号，混用会让引用指向错的东西）。行号不作引用：模型看不见行号，只能数，数错一次整条提交就被拒。例如：
 
 ```
 {"type":"new_entity","kind":"character","name":"沈岚","known_as":"撑伞的女人","profile":"三十岁上下，说话很慢","para":"2"}

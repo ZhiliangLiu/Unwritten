@@ -312,6 +312,59 @@ describe('parseChanges', () => {
     }
   });
 
+  it('id 写成数字时按字符串处理', () => {
+    const result = parseChanges(
+      [
+        '{"type":"new_entity","kind":"character","name":"驿丞","known_as":"","profile":"","para":"1","protagonist":"true"}',
+        '{"type":"event","subject":"驿丞","statement":"驿丞拆开密信","witnesses":"驿丞","para":"1","id":1}',
+        '{"type":"knowledge","fact":"1","holder":"驿丞","level":"confirmed","para":"1"}',
+      ].join('\n'),
+      opening(),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.knowledge[0]?.fact).toEqual({ line: 2 });
+  });
+
+  it('id 不能占用 core 发的编号前缀', () => {
+    const result = parseChanges(
+      changeLines(
+        {
+          type: 'new_entity',
+          kind: 'character',
+          name: '驿丞',
+          known_as: '',
+          profile: '',
+          para: '1',
+          protagonist: 'true',
+        },
+        { type: 'event', subject: '驿丞', statement: '驿丞拆开密信', witnesses: '驿丞', para: '1', id: '#1' },
+      ),
+      opening(),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors[0]).toContain('不能以 # 或 @ 开头');
+  });
+
+  it('没有事实行时，报错说明先写事实', () => {
+    const result = parseChanges(
+      changeLines(
+        {
+          type: 'new_entity',
+          kind: 'character',
+          name: '驿丞',
+          known_as: '',
+          profile: '',
+          para: '1',
+          protagonist: 'true',
+        },
+        { type: 'knowledge', fact: 'f1', holder: '驿丞', level: 'confirmed', para: '1' },
+      ),
+      opening(),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors[0]).toContain('没有事实行可引用');
+  });
+
   it('事实行都没起 id 时，报错说明怎么起', () => {
     const result = parseChanges(
       changeLines(
@@ -418,15 +471,18 @@ describe('parseChanges', () => {
           protagonist: 'true',
         },
         { type: 'new_entity', kind: 'item', name: '密信', known_as: '那封信', profile: '', para: '1' },
+        { type: 'new_entity', kind: 'item', name: '黑豆', known_as: '黑豆', profile: '', para: '1' },
         { type: 'event', subject: '天子', statement: '天子已死', witnesses: '驿丞', para: '1' },
       ),
       opening(),
     );
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.errors[0]).toContain('找不到「天子」');
-      expect(result.errors[0]).toContain('密信');
-      expect(result.errors[0]).toContain('那封信');
+      const message = result.errors.join('\n');
+      expect(message).toContain('找不到「天子」');
+      expect(message).toContain('密信');
+      expect(message).toContain('那封信');
+      expect(message.split('黑豆').length).toBe(2);
     }
   });
 

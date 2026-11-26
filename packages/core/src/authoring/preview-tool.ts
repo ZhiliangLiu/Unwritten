@@ -172,9 +172,13 @@ export function parsePreviewArgs(args: Record<string, unknown>): PreviewParse {
       fail('present', `参数 present：最多 ${STORY_LIMITS.presentMax} 个。`);
     }
     const refs: Array<{ created: number }> = [];
-    const characters = changes.entities
-      .filter((entity) => entity.kind === 'character')
-      .flatMap((entity) => (entity.knownAs ? [entity.name, entity.knownAs] : [entity.name]));
+    const characters = [
+      ...new Set(
+        changes.entities
+          .filter((entity) => entity.kind === 'character')
+          .flatMap((entity) => (entity.knownAs ? [entity.name, entity.knownAs] : [entity.name])),
+      ),
+    ];
     for (const token of present) {
       const matches = changes.entities.filter(
         (entity) => entity.kind === 'character' && (entity.name === token || entity.knownAs === token),
