@@ -312,6 +312,30 @@ describe('parseChanges', () => {
     }
   });
 
+  it('id 写在非事实行上时点明位置', () => {
+    const result = parseChanges(
+      changeLines(
+        {
+          type: 'new_entity',
+          kind: 'character',
+          name: '驿丞',
+          known_as: '',
+          profile: '',
+          para: '1',
+          protagonist: 'true',
+        },
+        { type: 'new_entity', kind: 'item', name: '密信', known_as: '那封信', profile: '', para: '1', id: 'f1' },
+        { type: 'knowledge', fact: 'f1', holder: '驿丞', level: 'confirmed', para: '1' },
+      ),
+      opening(),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors[0]).toContain('第 2 行的 new_entity 上');
+      expect(result.errors[0]).toContain('id 只能起在');
+    }
+  });
+
   it('id 写成数字时按字符串处理', () => {
     const result = parseChanges(
       [

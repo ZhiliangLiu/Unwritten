@@ -212,8 +212,16 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
 
   const factLines = lines.filter((item) => FACT_LINE_TYPES.includes(String(item.value.type)));
   const factLineIds = new Map<string, number>();
-  for (const item of factLines) {
+  const misplacedIds = new Map<string, { line: number; type: string }>();
+  for (const item of lines) {
     const rawId = item.value.id;
+    if (!FACT_LINE_TYPES.includes(String(item.value.type))) {
+      if (typeof rawId === 'string' || typeof rawId === 'number') {
+        const id = String(rawId).trim();
+        if (id) misplacedIds.set(id, { line: item.line, type: String(item.value.type) });
+      }
+      continue;
+    }
     const id =
       typeof rawId === 'number'
         ? String(rawId)
@@ -231,7 +239,11 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
     factLineIds.set(id, item.line);
   }
 
-  const factIdHint = (): string => {
+  const factIdHint = (token: string): string => {
+    const misplaced = misplacedIds.get(token);
+    if (misplaced) {
+      return `「${token}」写在第 ${misplaced.line} 行的 ${misplaced.type} 上；id 只能起在 ${FACT_LINE_TYPES.join('、')} 行。`;
+    }
     if (factLineIds.size > 0) return `本次可用的事实 id：${[...factLineIds.keys()].join('、')}。`;
     if (factLines.length > 0) return '本次的事实行都还没起 id：给要引用的那行加上 "id":"f1"，再用 "fact":"f1" 引用。';
     return '本次没有事实行可引用：先写 event、trait、relation 或 promise，再用 "id" 让 knowledge 指向它。';
@@ -248,10 +260,10 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
     if (ctx.codebook) {
       const resolved = ctx.codebook.resolveFact(token);
       if (resolved.ok) return { existing: resolved.id };
-      errors.push(`第 ${line} 行 changes.fact：${resolved.error}${factIdHint()}`);
+      errors.push(`第 ${line} 行 changes.fact：${resolved.error}${factIdHint(token)}`);
       return null;
     }
-    errors.push(`第 ${line} 行 changes.fact：找不到「${token}」。${factIdHint()}`);
+    errors.push(`第 ${line} 行 changes.fact：找不到「${token}」。${factIdHint(token)}`);
     return null;
   };
 
