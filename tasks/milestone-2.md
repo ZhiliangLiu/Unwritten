@@ -450,20 +450,20 @@ W7   T18 真实模型走查与收口（依赖 T17）
 
 **步骤。**
 
-- [ ] 1. `docs/llm-endpoints.md` §2 的 JSON 示例里，把模型那一行改成：
+- [x] 1. `docs/llm-endpoints.md` §2 的 JSON 示例里，把模型那一行改成：
 
   ```json
   { "id": "qwen3:14b", "contextWindow": 32768, "maxTokens": 8192, "tools": true, "reasoning": true, "thinkingFormat": "qwen-chat-template", "vision": false }
   ```
 
-- [ ] 2. `docs/llm-endpoints.md` §6 “能力字段”那一段之后，另起一段，原文如下：
+- [x] 2. `docs/llm-endpoints.md` §6 “能力字段”那一段之后，另起一段，原文如下：
 
   ```
   **思考写法。** 不同服务端用不同的请求字段开关思考：OpenAI 用 `reasoning_effort`，DashScope 等 Qwen 服务用 `enable_thinking`，vLLM、SGLang 上的 Qwen 模型用 `chat_template_kwargs.enable_thinking`，DeepSeek 用 `thinking: {type}`，OpenRouter 用 `reasoning: {effort}`，智谱用 `thinking: {type}`。所以每个模型有一个能力字段 `thinkingFormat`，取 `auto`、`openai`、`qwen`、`qwen-chat-template`、`deepseek`、`openrouter`、`zai` 之一，默认 `auto`。`auto` 交给 pi-ai 按地址识别（pi-ai `api/openai-completions.js` 的 `detectCompat`），识别不出时按 `openai` 写法。没有这个字段，自建服务上“关闭思考”根本发不出去。
   ```
 
-- [ ] 3. `docs/llm-endpoints.md` §6 “保存前的校验”列表最后加一条：`- 思考写法只能是上一段列出的七个值之一。`
-- [ ] 4. `docs/llm-endpoints.md` §7 “生成参数”一节：
+- [x] 3. `docs/llm-endpoints.md` §6 “保存前的校验”列表最后加一条：`- 思考写法只能是上一段列出的七个值之一。`
+- [x] 4. `docs/llm-endpoints.md` §7 “生成参数”一节：
   - 表格 `thinking` 一行的第三列改成：`` `reasoning`；按模型的思考写法发出，见下文 ``。
   - 表格 `thinkingBudget` 一行的第三列改成：`` 只对 `qwen` 写法发送，字段名 `thinking_budget` ``。
   - 列表第二条（以“思考档位只对能力字段”开头）之后插入两条：
@@ -479,8 +479,8 @@ W7   T18 真实模型走查与收口（依赖 T17）
     - **同时设了思考档位和采样参数时，设置页提示：** 开启思考后，部分服务会忽略或拒绝采样参数，请用测试连接确认。采样参数只有在服务端真正兑现时才算生效，所以验收看的是服务商收到的请求体，不是界面上的值。
     ```
 
-- [ ] 5. `docs/llm-endpoints.md` §9 `llm_calls` 表里 `ref_kind` 那一行的注释改成 `-- turn_request | job | chat_message | turn`，并在表后的列表第一条末尾加一句：`回合摘要的调用以回合为引用（`ref_kind = turn`）。`
-- [ ] 6. `docs/llm-endpoints.md` §10 的表：
+- [x] 5. `docs/llm-endpoints.md` §9 `llm_calls` 表里 `ref_kind` 那一行的注释改成 `-- turn_request | job | chat_message | turn`，并在表后的列表第一条末尾加一句：`回合摘要的调用以回合为引用（`ref_kind = turn`）。`
+- [x] 6. `docs/llm-endpoints.md` §10 的表：
   - `llm.endpoints.update` 一行的第二列改成：`修改自定义端点的名称和 key。地址变化时拒绝，要作为新端点添加；跨源时返回 \`endpoint_origin_changed\`（§3）`
   - 在 `llm.endpoints.remove` 之后加三行：
 
@@ -490,15 +490,15 @@ W7   T18 真实模型走查与收口（依赖 T17）
     | `llm.models.remove` | 删除模型；端点下最后一个模型不能删（`last_model`）。引用它的用途分配一并清除 |
     ```
 
-- [ ] 7. `docs/data-model.md` §4 `facts` 表里 `source_para` 那一行注释改成 `-- 出处：正文的第几段，从 1 起，按空行切分`。`entity_names`、`knowledge` 两张表里的 `source_para` 同样补上 `-- 从 1 起`。
-- [ ] 8. `docs/data-model.md` §4 “主角也是一个实体”那一段末尾加一句：`每个版本恰好有一个 \`is_protagonist = 1\` 的实体；开场回合为主角写一条主角自己持有的称呼，所以主角总知道自己的名字。`
-- [ ] 9. `docs/data-model.md` §4 “几个典型的事实”表之前，加一段：
+- [x] 7. `docs/data-model.md` §4 `facts` 表里 `source_para` 那一行注释改成 `-- 出处：正文的第几段，从 1 起，按空行切分`。`entity_names`、`knowledge` 两张表里的 `source_para` 同样补上 `-- 从 1 起`。
+- [x] 8. `docs/data-model.md` §4 “主角也是一个实体”那一段末尾加一句：`每个版本恰好有一个 \`is_protagonist = 1\` 的实体；开场回合为主角写一条主角自己持有的称呼，所以主角总知道自己的名字。`
+- [x] 9. `docs/data-model.md` §4 “几个典型的事实”表之前，加一段：
 
   ```
   **采用开场时的归属。** 作者采用的开场预览里新出现的实体，视为作者认可的设定：`origin_turn_id` 为空，同一个 `id` 同时写进草稿和发布版本，所以将来从同一个开场重新开局时，固定人物不会丢。开场里的称呼、事件、特征、关系、约定和知情挂在根回合上，因为它们是这一局开场时发生的经历。
   ```
 
-- [ ] 10. `docs/diagnostics.md` §3 样本表，在 `turn.context` 一行之后加四行：
+- [x] 10. `docs/diagnostics.md` §3 样本表，在 `turn.context` 一行之后加四行：
 
   ```
   | `story.projection` | 开始读取一条路线可见的故事事实 | 投影可用。附实体、事实、知情的条数 |
@@ -508,8 +508,8 @@ W7   T18 真实模型走查与收口（依赖 T17）
   ```
 
   并把 `turn.context` 一行第三列末尾的“成功时附纳入的回合数和估算的上下文 token 数”改成“成功时附纳入的回合数、估算的上下文 token 数、索引列出的实体数和摘要行数”。
-- [ ] 11. `docs/architecture.md` §3 第二条（以“一条事件流”开头）里，“包括请求状态变化、回合已提交、生成任务进度、端点配置变化”改成“包括请求状态变化、回合已提交、生成任务进度、端点配置变化、外观偏好变化”。
-- [ ] 12. `docs/milestone-2.md`：
+- [x] 11. `docs/architecture.md` §3 第二条（以“一条事件流”开头）里，“包括请求状态变化、回合已提交、生成任务进度、端点配置变化”改成“包括请求状态变化、回合已提交、生成任务进度、端点配置变化、外观偏好变化”。
+- [x] 12. `docs/milestone-2.md`：
   - “作者和玩家能做什么”表的“配置模型”一行末尾加：`一个端点下可以有多个模型，每个模型可以标明是否支持思考和思考写法；端点和模型都能删除。`
   - 同表“游玩”一行末尾加：`失败后也可以把原话放回输入框改写再发。`
   - 同表“作品库”一行末尾加：`作品卡的更多操作里可以删除作品，删除前确认。`
@@ -518,8 +518,8 @@ W7   T18 真实模型走查与收口（依赖 T17）
     ```
     采用时，新出现的实体作为作品设定写进草稿和发布版本，其余事实挂在根回合上，与根回合在同一事务里写入（[数据模型 §4](./data-model.md#4-故事事实)）。
     ```
-- [ ] 13. 运行 `node scripts/check-doc-links.mjs`，必须通过。
-- [ ] 14. 按 [docs/AGENTS.md §3](../docs/AGENTS.md#3-审计) 对本次新增的行跑三遍扫描，逐条判断命中。
+- [x] 13. 运行 `node scripts/check-doc-links.mjs`，必须通过。
+- [x] 14. 按 [docs/AGENTS.md §3](../docs/AGENTS.md#3-审计) 对本次新增的行跑三遍扫描，逐条判断命中。
 
 **注意事项。**
 
@@ -547,7 +547,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
 
 **步骤。**
 
-- [ ] 1. `apps/client/AGENTS.md` 末尾追加五节，原文如下（照抄）：
+- [x] 1. `apps/client/AGENTS.md` 末尾追加五节，原文如下（照抄）：
 
   ```markdown
   ## 7. 模块边界
@@ -589,7 +589,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
   - **只在生产构建成立的接线要有构建侧判据。** 内容安全策略、首屏外观脚本这类东西，组件测试跑在开发构建里，证明不了它们生效，要在端到端测试里查。
   ```
 
-- [ ] 2. 新建 `packages/core/AGENTS.md`，原文如下（照抄）：
+- [x] 2. 新建 `packages/core/AGENTS.md`，原文如下（照抄）：
 
   ```markdown
   # packages/core/ 编码规范
@@ -648,7 +648,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
   - 需要模型的测试一律用伪服务：单元测试用 `createScriptedLlm`，集成测试用伪 OpenAI 服务。测试里的故事内容全部虚构。
   ```
 
-- [ ] 3. 新建 `tasks/AGENTS.md`，原文如下（照抄）：
+- [x] 3. 新建 `tasks/AGENTS.md`，原文如下（照抄）：
 
   ```markdown
   # tasks/ 写作规范
@@ -703,14 +703,14 @@ W7   T18 真实模型走查与收口（依赖 T17）
   - 判据做不到时，记“做不到、为什么、换了什么证据”，判据原文一个字不改。
   ```
 
-- [ ] 4. 根目录 `AGENTS.md` 开头的目录列表（以“目录下另有 AGENTS.md 的”开头的那段）加两行，放在 `apps/client/AGENTS.md` 那一行之后：
+- [x] 4. 根目录 `AGENTS.md` 开头的目录列表（以“目录下另有 AGENTS.md 的”开头的那段）加两行，放在 `apps/client/AGENTS.md` 那一行之后：
 
   ```
   - [packages/core/AGENTS.md](packages/core/AGENTS.md)：core 的模块边界、事务、模型调用、日志与测试规则。
   - [tasks/AGENTS.md](tasks/AGENTS.md)：任务拆解与判据的写作规范。
   ```
 
-- [ ] 5. 运行 `node scripts/check-doc-links.mjs`，必须通过（它会检查全仓 AGENTS.md 的链接）。
+- [x] 5. 运行 `node scripts/check-doc-links.mjs`，必须通过（它会检查全仓 AGENTS.md 的链接）。
 
 **注意事项。**
 
@@ -735,7 +735,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
 
 **步骤。**
 
-- [ ] 1. 用 `figma_search_components` 列出现有部件，截图 Prototype 页现有的四个 section，对照设计准则 §2 的七条准则和 §9 的部件表，列出差异。
+- [x] 1. 用 `figma_search_components` 列出现有部件，截图 Prototype 页现有的四个 section，对照设计准则 §2 的七条准则和 §9 的部件表，列出差异。
 - [ ] 2. Design System 页补齐部件的全部状态：主按钮、次按钮、文字按钮、危险按钮（默认、悬停、按下、禁用、焦点）；输入框、多行输入、下拉选择、单选组、数字输入（默认、聚焦、错误、禁用）；卡片、徽标（中性、成功、警告、危险）；工具行；对话框；右侧抽屉；通知；骨架块；生成中标记；空状态。颜色和尺寸只绑定变量。
 - [ ] 3. Prototype 页按页面补齐状态：
   - 作品库：加载中、空库、有三部作品（草稿、可玩、有进度）、更多操作菜单展开、删除确认对话框。
@@ -743,20 +743,20 @@ W7   T18 真实模型走查与收口（依赖 T17）
   - 游玩页：阅读中（开场 + 两个回合）、生成中、失败（重试和改写）、玩家上翻时新段落到达（“回到最新”）、输入框有字时点推荐行动的确认对话框、手记抽屉打开、从手记跳回原文的定位高亮。
   - 设置页：模型用途（三张卡：默认、游玩、后台摘要；含思考参数、采样参数、同时设置时的提示、预算置灰的原因）、端点列表（一个端点两个模型）、添加端点、外观与阅读（含示例段落）。
   - 以上全部再出一份深色稿。
-- [ ] 4. 每一帧用 `figma_take_screenshot` 导出 PNG，存到 `tasks/assets/milestone-2/`，文件名用 `<页面>-<状态>-<light|dark>.png`，例如 `play-journal-open-dark.png`。
-- [ ] 5. 从 Logo 页导出完整标志和简化标志的 SVG 路径，写成 `apps/client/src/shared/ui/logo-paths.json`：
+- [x] 4. 每一帧用 `figma_take_screenshot` 导出 PNG，存到 `tasks/assets/milestone-2/`，文件名用 `<页面>-<状态>-<light|dark>.png`，例如 `play-journal-open-dark.png`。
+- [x] 5. 从 Design System 页的 `标志/完整`、`标志/简化` 组件和 Logo 页的字标导出 SVG（字标转成轮廓），按颜色分组写成 `apps/client/src/shared/ui/logo-paths.json`：
 
   ```json
   {
-    "full": { "viewBox": "0 0 48 48", "rings": ["<d>", "<d>"], "dot": { "cx": 24, "cy": 24, "r": 3 } },
-    "simple": { "viewBox": "0 0 32 32", "rings": ["<d>"], "dot": { "cx": 16, "cy": 16, "r": 2.5 } },
-    "wordmark": { "viewBox": "0 0 120 28", "paths": ["<d>"] }
+    "full": { "viewBox": "0 0 64 64", "ink": ["<d>", "..."], "accent": ["<d>"] },
+    "simple": { "viewBox": "0 0 24 24", "ink": ["<d>", "..."], "accent": ["<d>"] },
+    "wordmark": { "viewBox": "0 0 296 48", "ink": ["<d>"] }
   }
   ```
 
-  数值按 Figma 实际导出的填写；上面只是结构示例。
-- [ ] 6. 稿子和本文 T07、T13–T15 的描述不一致时：稿子符合设计文档，就改本文对应任务；稿子不符合设计文档，就改稿子。两者都改不了时，按 §0.3 汇报维护者。
-- [ ] 7. 把截图清单和差异处置写进 §6 台账，请维护者确认。
+  标志不是“几道环加一个圆点”，而是若干条墨色路径加一条强调色路径（中心点），所以按颜色分组，不按形状分组。
+- [x] 6. 稿子和本文 T07、T13–T15 的描述不一致时：稿子符合设计文档，就改本文对应任务；稿子不符合设计文档，就改稿子。两者都改不了时，按 §0.3 汇报维护者。
+- [x] 7. 把截图清单和差异处置写进 §6 台账，请维护者确认。
 
 **完成判据。** `tasks/assets/milestone-2/` 里每个页面状态都有浅色和深色两张截图；`logo-paths.json` 能被 `JSON.parse` 解析，`full.rings` 至少一条路径；维护者在台账里确认。
 
@@ -1782,11 +1782,11 @@ W7   T18 真实模型走查与收口（依赖 T17）
   | 多行输入 | `TextArea.tsx` | 同上，另加 `minRows?`、`onKeyDown?`、`onCompositionStart?`、`onCompositionEnd?`、`ref` 透传 | CSS 用 `field-sizing: content` 随内容长高，`min-block-size` 和 `max-block-size` 用 token 算 |
   | 数字输入 | `NumberField.tsx` | `label`、`value: number \| null`、`onValueChange(value: number \| null)`、`min?`、`max?`、`step?`、`description?`、`disabled?` | 用 Base UI `NumberField`。清空就是 `null`（表示“不设置”） |
   | 下拉选择 | `Select.tsx` | `label`、`value: string`、`onValueChange(value: string)`、`options: Array<{ value: string; label: string; description?: string }>`、`description?`、`disabled?` | 用 Base UI `Select`，不用原生 `<select>`（client 规范 §10）。弹层用 `--uw-material-overlay-*`，出现和消失用 `transition-popup` / `-popup-exit`，以 `--transform-origin` 为原点 |
-  | 单选组 | `RadioGroup.tsx` | `label`、`value`、`onValueChange`、`options: Array<{ value: string; label: string }>`、`orientation?: 'horizontal' \| 'vertical'` | 用 Base UI `RadioGroup` + `Radio`。组名用 `aria-labelledby` 指向可见标签 |
+  | 单选组 | `RadioGroup.tsx` | `label`、`value`、`onValueChange`、`options: Array<{ value: string; label: string }>`、`orientation?: 'horizontal' \| 'vertical'`；`appearance?: 'list' \| 'segmented'` | 用 Base UI `RadioGroup` + `Radio`。组名用 `aria-labelledby` 指向可见标签。`segmented` 是设置页的分段控件样式（截图 `settings-appearance-light.png`）：凹陷底的轨道，选中项是表面色底加表面投影，未选中项文字用次要文字色 |
   | 卡片 | `Card.tsx` | `as?: 'article' \| 'section' \| 'div'`；`children` | 表面底、装饰性描边、`--uw-elevation-surface`、`--uw-radius-lg` |
   | 徽标 | `Badge.tsx` | `tone: 'neutral' \| 'success' \| 'warning' \| 'danger'`；`icon?: LucideIcon`；`children` | 标签字号、小圆角。中性用凹陷底配次要文字；反馈色用对应 `-soft` 底配前景色 |
-  | 工具行 | `PageToolbar.tsx` | `title: string`；`back?: { to: '/' \| '/settings'; label: string }`；`tools?: ReactNode` | `<header>`，粘顶，高度 `--uw-size-toolbar`，背景 `--uw-material-chrome-bg`，`backdrop-filter: var(--uw-material-chrome-backdrop)`。起始端返回（`<Link>` + `ChevronLeft` 图标 + 文字），中间是 `<h1 tabIndex={-1}>`（`typography.subtitle`），末端是 `tools` |
-  | 页面 | `Page.tsx` | `title: string`；`back?`；`tools?`；`width: 'page' \| 'prose'`；`children` | 渲染 `PageToolbar` + `<main>`。挂载时设 `document.title = t('common:app.documentTitle', { title })`，并把焦点移到 `h1`（[a11y §3](../docs/a11y.md#3-页面结构)）。`title` 变化时只更新 `document.title`，不再移焦点。`<main>` 用 `@starting-style` 做页面切换：淡入并上移 `--uw-motion-distance-md`，用 `transition-dialog`（[动效 §5](../docs/motion.md#5-场景编排)“页面切换”）。`width: 'prose'` 时内容宽度为 `--uw-prose-measure`，`page` 时为 `--uw-size-page-max` |
+  | 工具行 | `PageToolbar.tsx` | `start: { kind: 'back'; to: '/' \| '/settings'; label: string } \| { kind: 'brand' }`；`title?: string`；`titleBadge?: ReactNode`；`titleIsHeading: boolean`；`tools?: ReactNode` | `<header>`，粘顶，高度 `--uw-size-toolbar`，背景 `--uw-material-chrome-bg`，`backdrop-filter: var(--uw-material-chrome-backdrop)`。起始端：`back` 是返回链接（`<Link>` + `ArrowLeft` 图标 + 文字）；`brand` 是 `Logo variant='simple' withWordmark`，旁边一个视觉隐藏的 `common:app.name`。中间：`title`（`typography.subtitle`），后面可跟一个徽标（创作页的“草稿”）；`titleIsHeading` 为真时它就是页面的 `<h1 tabIndex={-1}>`，否则是普通文字或不显示。末端是 `tools` |
+  | 页面 | `Page.tsx` | `title: string`；`heading: 'toolbar' \| 'content'`；`toolbar: PageToolbar 的 start、titleBadge、tools`；`subtitle?: string`；`headerActions?: ReactNode`；`width: 'page' \| 'prose'`；`children` | 渲染 `PageToolbar` + `<main>`。`heading: 'toolbar'`（游玩页、创作页）时 `h1` 在工具行中间；`heading: 'content'`（作品库、设置页）时工具行中间不显示标题，`<main>` 顶部是页头：`<h1 tabIndex={-1}>`（`typography.page-title`）、可选的 `subtitle`（说明文字），以及末端的 `headerActions`（作品库的“新建故事”）。两种稿子见截图 `library-cards-light.png`、`play-reading-light.png`。挂载时设 `document.title = t('common:app.documentTitle', { title })`，并把焦点移到 `h1`（[a11y §3](../docs/a11y.md#3-页面结构)）。`title` 变化时只更新 `document.title`，不再移焦点。`<main>` 用 `@starting-style` 做页面切换：淡入并上移 `--uw-motion-distance-md`，用 `transition-dialog`（[动效 §5](../docs/motion.md#5-场景编排)“页面切换”）。`width: 'prose'` 时内容宽度为 `--uw-prose-measure`，`page` 时为 `--uw-size-page-max` |
   | 确认对话框 | `ConfirmDialog.tsx` | `open`、`onOpenChange`、`title`、`description`、`confirmLabel`、`cancelLabel?`（默认 `common:action.cancel`）、`tone: 'default' \| 'danger'`、`onConfirm()`、`busy?` | 用 Base UI `AlertDialog`。遮罩 `--uw-color-scrim`；对话框从中心以 `scale-enter` 放大淡入，`transition-dialog` / `-dialog-exit`。`danger` 时确认按钮用 `danger-solid`。关闭后焦点回到触发元素（Base UI 默认行为，不覆盖） |
   | 侧边抽屉 | `SideSheet.tsx` | `open`、`onOpenChange`、`title`、`children`、`finalFocus?`（透传给 Base UI，用于关闭后把焦点放到别处） | 用 Base UI `Dialog`，弹层贴右边，宽 `--uw-size-panel`，背景 `--uw-material-overlay-bg`。从右侧整体滑入、滑回，`transition-dialog` / `-dialog-exit`。关闭时卸载内容（不设 `keepMounted`）。内容区可滚动；滚动区没有可聚焦子元素时，给它 `role="group"`、可访问名称和 `tabIndex={0}` |
   | 更多操作菜单 | `OverflowMenu.tsx` | `label: string`；`items: Array<{ label: string; onSelect(): void; tone?: 'danger' }>` | 用 Base UI `Menu`，触发器是 `IconButton`（`Ellipsis` 图标）。弹层从触发器长出 |
@@ -1797,8 +1797,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
   | 视觉隐藏 | `VisuallyHidden.tsx` | `children`、`as?` | 标准视觉隐藏样式 |
   | 宣告区 | `LiveRegion.tsx` | `message: string`；`politeness?: 'polite' \| 'assertive'` | 从 `Notice.tsx` 迁出。外层 `position: relative`（client 规范 §10） |
   | 错误提示 | `ErrorNotice.tsx` | `error: unknown` 或 `code: string`（二选一）；`action?: ReactNode` | 从 `Notice.tsx` 迁出。`role="alert"`；主句 `errors:<code>`；有 `detail` 时放在“详细信息”（`common:error.details`）下；带 `CircleAlert` 图标；危险色柔和底 |
-  | 快捷键提示 | `Kbd.tsx` | `digit: number` | 显示 `⌘1`（macOS）或 `Ctrl+1`（其他平台），`typography.mono` |
-  | 标志 | `Logo.tsx` | `variant: 'full' \| 'simple'`；`withWordmark?: boolean` | 读 `logo-paths.json` 画内联 SVG。环用 `fill: var(--uw-color-ink)`，中心点用 `var(--uw-color-accent)`；`aria-hidden`，名字由旁边的文字承担 |
+  | 标志 | `Logo.tsx` | `variant: 'full' \| 'simple'`；`withWordmark?: boolean` | 读 `logo-paths.json` 画内联 SVG。文件结构：`full`、`simple` 各有 `viewBox`、`ink`（墨色路径数组）、`accent`（强调色路径数组，只有中心点一条）；`wordmark` 有 `viewBox` 和 `ink`。`ink` 路径用 `fill: var(--uw-color-ink)`，`accent` 路径用 `fill: var(--uw-color-accent)`。`aria-hidden`，名字由旁边的文字承担 |
 
   `Notice.tsx` 在部件迁出后删除，并把引用它的地方改成从新文件导入（只改 import 行）。
 - [ ] 5. hooks，放在 `shared/hooks/`：
@@ -1861,7 +1860,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
   - `ConfirmDialog`：`关闭后焦点回到触发按钮`；`危险确认按钮用实底样式`。
   - `SideSheet`：`关闭时不渲染内容`（关闭状态下 `queryByText(内容)` 为空：client 规范 §10“关闭不等于卸载”）；`Esc 关闭`。
   - `Toaster`：`通知带图标和文字`。
-  - `Page`：`挂载时设置文档标题并聚焦 h1`；`标题变化不抢焦点`。
+  - `Page`：`挂载时设置文档标题并聚焦 h1`；`标题变化不抢焦点`；`标题在内容区时工具行没有 h1`（`heading: 'content'` 时，`h1` 在 `main` 里，`header` 里查不到 `heading` 角色；阳性对照：`heading: 'toolbar'` 时 `h1` 在 `header` 里）。
   - `useShortcut`：`组字时不触发`（派发 `isComposing: true` 的事件，回调不执行；阳性对照：同样的按键 `isComposing: false` 时执行）；`没有修饰键时不触发`。
   - `useAutosave`：`防抖后保存一次`（连续三次变化只调用一次 `save`，参数是最后的值）；`flush 立即保存`；`保存失败进入 error`。用假时钟时注意：React 调度不受 `vi.useFakeTimers` 控制，用 `vi.advanceTimersByTimeAsync` 并 `await` 渲染。
   - `useFollowLatest`：用测试桩替换 `ResizeObserver` 和 `IntersectionObserver`，桩只有在 `observe(target)` 被调用之后才能触发回调（client 规范 §11）。用例：`观察的是内容盒`（断言 `observe` 收到的元素就是 `contentRef.current`）；`停在最新时内容变高会滚动`；`往上翻过时内容变高不滚动`。
@@ -1890,6 +1889,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
 - 突变二：把 `SideSheet` 的 Base UI 弹层加上 `keepMounted`，`关闭时不渲染内容` 必须红。
 - 突变三：把 `useFollowLatest` 里观察的元素从 `contentRef.current` 换成 `sentinelRef.current`，`观察的是内容盒` 必须红。
 - 突变四：把 `Page` 挂载时的 `focus()` 删掉，`挂载时设置文档标题并聚焦 h1` 必须红。
+- 突变五：让 `PageToolbar` 不管 `titleIsHeading` 一律把标题渲染成 `h1`，`标题在内容区时工具行没有 h1` 必须红。
 - `grep -rn "Notice.tsx" apps/client/src` 零命中。
 
 ### T08 story 读侧：投影、短编号、文本渲染、手记、检索
@@ -2541,14 +2541,15 @@ W7   T18 真实模型走查与收口（依赖 T17）
 
   | 文件 | 内容 |
   | --- | --- |
-  | `SettingsPage.tsx` | `Page`（`title = t('settings:page.heading')`，`back = { to: '/', label: t('common:nav.library') }`，`width: 'page'`）；依次渲染 `ConfigProblem`、`PurposeSection`、`EndpointSection`、`AddEndpointForm`、`AppearanceSection`，每节是一个带 `h2` 的 `section` |
+  | `SettingsPage.tsx` | `Page`（`title = t('settings:page.heading')`，`heading: 'content'`，工具行起始端是返回作品库，`width: 'page'`）。布局照截图 `settings-*.png`：左侧一列分区导航（`SettingsNav.tsx`：外观、阅读、模型三个链接，指向下面三节的锚点；当前滚动到的分区高亮，用 `IntersectionObserver` 观察三节的 `h2`，高亮项加 `aria-current="true"`），右侧内容列依次是 `ConfigProblem`、外观一节、阅读一节、模型一节。模型一节里依次是 `PurposeSection`、`EndpointSection`、`AddEndpointForm`。每节是一个带 `h2` 的 `section` |
+  | `SettingsNav.tsx` | 分区导航 |
   | `ConfigProblem.tsx` | 配置文件无效或版本过高时的提示（沿用 M1 的三种问题文案），用 `ErrorNotice` 的样式；此时其余写操作全部禁用 |
   | `PurposeSection.tsx`、`PurposeCard.tsx` | 三张用途卡 |
   | `GenerationParamsForm.tsx` | 一个用途的参数表单 |
   | `params-form.ts` | 纯函数：参数表单的状态 ↔ `GenerationParams`，以及每一项是否可用、为什么不可用 |
   | `EndpointSection.tsx`、`EndpointCard.tsx`、`ModelRow.tsx` | 端点列表、端点卡、模型行 |
   | `AddEndpointForm.tsx` | 添加端点（沿用 M1 的字段和测试连接） |
-  | `AppearanceSection.tsx` | 外观与阅读偏好，含示例段落 |
+  | `AppearanceSection.tsx` | 外观一节（主题）和阅读一节（字号、字体、行距、示例段落），分成两个 `section` |
   | `labels.ts` | 枚举值到文案键的对照表：`PURPOSE_LABEL_KEYS`、`THINKING_LEVEL_LABEL_KEYS`、`THINKING_FORMAT_LABEL_KEYS`、`PROBLEM_LABEL_KEYS` |
   | `endpoint-edit.ts` | M1 留下的纯函数，按多模型改写或删除（看是否还有用处） |
 
@@ -2597,7 +2598,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
   - 修改名称和 key：展开一个内联表单（沿用 M1 的 `keep` / `set` / `remove` 逻辑），调用 `llm.endpoints.update` 时**不传** `modelId`。
 - [ ] 5. `AddEndpointForm`：沿用 M1 的字段（名称、地址、模型 id、可选 key、设为默认）、测试连接（草稿形状）和保存逻辑，换成新部件。地址是 `http` 且主机不是本机回环地址、而这次会带 key 时，显示警告（M1 已有的规则）。
 - [ ] 6. `AppearanceSection`：
-  - 四个 `RadioGroup`：外观（跟随系统 / 浅色 / 深色）、正文字号（五档：很小 / 小 / 标准 / 大 / 很大）、正文字体（衬线 / 无衬线）、行距（舒适 / 紧凑）。
+  - 四个 `RadioGroup appearance='segmented'`，每个是一行：起始端是标签（和可选的说明），末端是分段控件。外观一节：主题（跟随系统 / 浅色 / 深色，带 `Monitor`、`Sun`、`Moon` 图标，说明 `settings:appearance.themeHelp`）。阅读一节（说明 `settings:reading.description`）：正文字号（五档：很小 / 小 / 标准 / 大 / 很大）、正文字体（衬线 / 无衬线）、行距（舒适 / 紧凑）。
   - 下方一段示例正文（文案 `settings:appearance.sample`），用正文的字体、字号、行距 token 排版，放在纸色底上，让用户看到效果。
   - 改任一项：立即 `applyAppearance(新值)`（乐观更新，只用 `queryClient.setQueryData(queryKeys.settings, 新值)`，client 规范 §8），然后调用 `settings.update`；失败时把根属性和查询缓存恢复成旧值，并 `useNotify` 提示“外观设置没有保存”。
   - 读取：`useQuery({ queryKey: queryKeys.settings, queryFn: () => api.settings.get() })`。
@@ -2637,15 +2638,15 @@ W7   T18 真实模型走查与收口（依赖 T17）
 **步骤。**
 
 - [ ] 1. 作品库，文件：`LibraryPage.tsx`、`WorkCard.tsx`、`DeleteWorkDialog.tsx`（各带 `.module.css`）。
-  - `Page`：`title = t('library:page.heading')`，没有返回，`tools` 是一个 `IconButton`（`Settings` 图标，`label = t('common:nav.settings')`，链接到 `/settings`）。工具行下方是页头：`Logo`（`withWordmark`）和主按钮“新建故事”。
+  - `Page`：`title = t('library:page.heading')`，`heading: 'content'`，`subtitle = t('library:page.count', { count })`，工具行起始端是 `brand`，`tools` 是一个 `IconButton`（`Settings` 图标，`label = t('common:nav.settings')`，链接到 `/settings`），`headerActions` 是主按钮“新建故事”（`Plus` 图标）。照截图 `library-cards-light.png`。
   - 加载中：`Skeleton variant='card' count={3}`。空库：`EmptyState`（`headingLevel={2}`，标题、描述见附录 A.3，`action` 是“新建故事”按钮）。读取失败：`ErrorNotice`。
   - 网格：`display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--uw-size-card-min), 1fr));`，间距用 token。
-  - `WorkCard`（`Card as='article'`）：标题 `h2`（`title ?? label`，都没有时用 `library:card.untitled`）；简介（有就显示，原样显示，不截断）；状态徽标（草稿：中性；可玩：成功色，带图标）；更新时间（`formatRelative`）；**一个**主入口，用 `buttonClassName('primary')` 的 `<Link>`：草稿 → “继续创作”到编辑页；可玩无进度 → “开始故事”；可玩有进度 → “继续游玩”到游玩页（[设计准则 §9](../docs/design-guidelines.md#9-部件)“主入口是卡片上的按钮，整张卡不做成一个大按钮”）。可玩作品另有一个 `text` 链接“查看创作稿”到编辑页。右上角 `OverflowMenu`，`label = t('library:card.more', { title })`，只有一项“删除作品”（`tone: 'danger'`）。
+  - `WorkCard`（`Card as='article'`）：标题 `h2`（`title ?? label`，都没有时用 `library:card.untitled`）；简介（有就显示，原样显示，不截断）；状态徽标（草稿：中性；可玩：成功色，带图标）；更新时间（`formatRelative`）；**一个**主入口，用 `buttonClassName('primary')` 的 `<Link>`：草稿 → “继续创作”到编辑页；可玩无进度 → “开始故事”；可玩有进度 → “继续游玩”到游玩页（[设计准则 §9](../docs/design-guidelines.md#9-部件)“主入口是卡片上的按钮，整张卡不做成一个大按钮”）。卡片底部照截图 `library-cards-light.png`：起始端是主入口，末端是 `OverflowMenu`（`label = t('library:card.more', { title })`）。菜单项：可玩作品有“查看创作稿”（到编辑页），所有作品都有“删除作品”（`tone: 'danger'`）。状态徽标放在标题行末端。
   - 一屏只有一个主按钮：页头的“新建故事”是主按钮时，卡片上的主入口用 `secondary`。按 T02 的稿子定，稿子没定时用这条。
   - `DeleteWorkDialog`：`ConfirmDialog tone='danger'`，标题 `library:delete.title`（插值作品名），描述 `library:delete.description`；确认调用 `works.delete`，成功后 `useNotify({ title: t('library:delete.done'), tone: 'success' })`，并失效 `queryKeys.works`。
   - 保留 M1 的 `client.library_ready` 上报。
 - [ ] 2. 创作页，文件：`AuthoringPage.tsx`、`BackgroundEditor.tsx`、`PreviewPanel.tsx`、`CastList.tsx`、`PublishedPanel.tsx`。
-  - `Page`：`title` 是作品的 `title ?? label`，都为空时用 `authoring:page.heading`；`back` 回作品库；`width: 'prose'`。
+  - `Page`：`title` 是作品的 `title ?? label`，都为空时用 `authoring:page.heading`；`heading: 'toolbar'`；工具行起始端是 `{ kind: 'back', to: '/', label: t('common:nav.library') }`；草稿时 `titleBadge` 是中性徽标“草稿”（`library:card.draft`）；`width: 'prose'`。照截图 `authoring-preview-cast-light.png`。
   - `BackgroundEditor`：`TextArea`（标签“故事背景”，`placeholder` 是起笔提示 `authoring:background.placeholder`，`description` 是 `authoring:background.help`）。用 `useAutosave`：`value` 是本地文本，`savedValue` 是服务端的 `draft.background`，`delayMs = AUTOSAVE_DELAY_MS`（常量 `800`，写在本文件），`save` 调用 `works.saveBackground`（带 `baseContentRev`）。输入框下方一行状态：`pending` / `saving` 显示“正在保存”，`saved` 显示“已保存”，`error` 显示 `errors:<code>`。`stale_revision` 时重新读取作品，保留本地文本，状态显示“草稿已在别处更新”。作品已发布时只读。
   - 生成按钮（主按钮“生成开场预览”）：点击时先开始 `client.preview_visible` 计时，`await autosave.flush()`，再用最新的 `contentRev` 调 `works.generatePreview`。背景为空时禁用。生成中显示 `GeneratingMarker`（`authoring:preview.running`），并经 `LiveRegion` 播报。
   - `PreviewPanel`：标题 `h2`“预览开场”。依次是：作品标题（`h3`）、简介、公开设定、`CastList`、开场正文（用正文的字体、字号、行距和纸色底排版，与游玩页一致，按 `paragraphs` 分段；预览数据里没有 `paragraphs`，用 `prose.split(/\n{2,}/)` 显示即可，这里不涉及段号）、推荐行动（只读列表，前面是序号）。
@@ -2656,14 +2657,14 @@ W7   T18 真实模型走查与收口（依赖 T17）
   - 保留 M1 的 `client.preview_visible` 上报逻辑（按 `jobId` 匹配，见[运行诊断 §3](../docs/diagnostics.md#3-性能样本)）。
 - [ ] 3. 文案按附录 A.3、A.4 写全。
 - [ ] 4. 测试：
-  - `LibraryPage.test.tsx`：`无可访问性违规`、`标题大纲正确`；`空库时引导新建`；`每张卡只有一个主入口`（每个 `article` 里，主样式的链接恰好一个）；`三种状态对应三种入口文字`；`删除作品前确认，确认后调用删除并提示`（断言 `calls` 里 `works.delete` 的 `workId`）；`取消删除不调用接口`。
+  - `LibraryPage.test.tsx`：`无可访问性违规`、`标题大纲正确`；`空库时引导新建`；`每张卡只有一个主入口`（每个 `article` 里，按钮样式的链接恰好一个）；`三种状态对应三种入口文字`；`删除作品前确认，确认后调用删除并提示`（断言 `calls` 里 `works.delete` 的 `workId`）；`取消删除不调用接口`。
   - `AuthoringPage.test.tsx`：`无可访问性违规`、`标题大纲正确`；`停止输入后自动保存一次`（断言 `works.saveBackground` 只被调用一次，参数是最后的文本）；`生成前先保存未保存的修改`（输入后立即点生成；断言调用顺序是 `saveBackground` 在 `generatePreview` 之前，且 `generatePreview` 的 `contentRev` 是保存返回的那个）；`过期的预览不能采用`；`预览列出出场人物，主角带标记`；`草稿在别处更新时保留本地文本`。
 
 **完成判据。**
 
 - `pnpm --filter @unwritten/client test` 通过。
 - 突变一：把生成按钮里的 `await autosave.flush()` 删掉，`生成前先保存未保存的修改` 必须红。
-- 突变二：把 `WorkCard` 的“查看创作稿”也改成主样式，`每张卡只有一个主入口` 必须红。
+- 突变二：在 `WorkCard` 底部再加一个指向编辑页的 `buttonClassName('secondary')` 链接，`每张卡只有一个主入口` 必须红（用例按“主入口样式的链接恰好一个”断言，`secondary` 是卡片主入口的样式，见上一条）。
 
 ### T15 游玩页与手记
 
@@ -2696,10 +2697,10 @@ W7   T18 真实模型走查与收口（依赖 T17）
   | `useAnnouncement.ts` | 由路线状态算出宣告区的文字和级别，同一件事只播报一次 |
 
 - [ ] 2. `PlayPage`：
-  - `Page`：`title` 是作品标题（`workTitle`，为空用 `play:page.untitled`）；`back` 回作品库；`width: 'prose'`；`tools` 是“手记”按钮（`secondary`，`size='sm'`，`BookOpen` 图标 + 文字 `play:journal.open`）和设置的 `IconButton`。
+  - `Page`：`title` 是作品标题（`workTitle`，为空用 `play:page.untitled`）；`heading: 'toolbar'`；工具行起始端是 `{ kind: 'back', to: '/', label: t('common:nav.library') }`；`width: 'prose'`；`tools` 依次是“手记”按钮（`text`，`size='sm'`，`BookOpen` 图标 + 文字 `play:journal.open`；抽屉打开时 `aria-expanded="true"`，并用 `--uw-color-surface-selected` 作底色，照截图 `play-journal-open-light.png`）、设置的 `IconButton`、`BackToLatest`（只在 `atLatest` 为 `false` 时出现）。
   - 主区整面纸色（`--uw-color-page`），不在底色上再叠一张纸（[设计准则 §4](../docs/design-guidelines.md#4-布局)）。
   - 结构：`<div ref={contentRef}>` 里依次是全部 `TurnArticle`、`PendingTurn` 或 `FailedTurn`（如有）、一个空的 `<div ref={sentinelRef} />`；其后是行动区 `<section aria-labelledby=...>`（视觉隐藏标题“你的行动”），里面是 `OptionList` 和 `ActionComposer`，只在最新决定点、没有进行中的请求时显示。
-  - `useFollowLatest({ contentRef, sentinelRef })`；`atLatest` 为 `false` 时显示 `BackToLatest`。
+  - `useFollowLatest({ contentRef, sentinelRef })`；`atLatest` 为 `false` 时在工具行末端（`tools` 的最后）显示 `BackToLatest`，照截图 `play-back-to-latest-light.png`、`play-jump-to-source-light.png`。
   - 加载中：`Skeleton variant='prose'`。
 - [ ] 3. `TurnArticle`：
   - `<article aria-labelledby={turnHeadingId(turn.id)}>`；标题是视觉隐藏的 `h2`（`tabIndex={-1}`，`id = turnHeadingId`），开场为“开场”，其余为“第 N 回合”（[a11y §8](../docs/a11y.md#8-游玩页)）。不显示可见的“第 N 回合”标题（M1 有，去掉：书页里不需要）。
@@ -2708,19 +2709,19 @@ W7   T18 真实模型走查与收口（依赖 T17）
   - 新到达的回合（不是首次挂载时就有的）用 `@starting-style` 淡入并上移 `--uw-motion-distance-sm`，`transition-reading`；首次进入页面时已有的回合不播放（[动效 §6](../docs/motion.md#6-实现规则)第 7 条：首次挂载和回看历史时不挂）。做法：`PlayPage` 记下首次渲染时的回合 id 集合，只给不在集合里的回合加 `data-uw-arriving` 属性，CSS 只对带这个属性的元素写 `@starting-style`。推荐行动在正文之后间隔 `--uw-motion-delay-stagger` 再淡入。
 - [ ] 4. `PendingTurn`：`aria-busy="true"`；显示行动原话（同 `TurnArticle` 的行动样式）和 `GeneratingMarker`（`play:pending.running`）。
 - [ ] 5. `FailedTurn`：显示行动原话、`errors:<code>`（`ErrorNotice` 的样式）、两个按钮：“重试这次行动”（`primary`，调用 `play.retry`）和“改写行动”（`secondary`，A2）。改写：把原话填进输入框、聚焦输入框，并隐藏这个失败块（本地状态）；玩家修改后发送时用新的 `requestId`（这是一个新的请求，[回合循环 §2](../docs/turn-loop.md#2-回合请求)）。
-- [ ] 6. `OptionList`：`role="group"`、`aria-label = t('play:options.label')`。每个行动一个按钮，一行一个、占满正文列宽、文字靠起始端，前面是 `Kbd`（`⌘1`…）；装饰性描边、不填底，悬停才出现底色（[设计准则 §9](../docs/design-guidelines.md#9-部件)）。快捷键：对前 9 个行动注册 `useShortcut({ key: String(n), mod: true }, ...)`，只在行动区可见时启用。点击或快捷键：输入框为空时直接提交（`optionIndex = n`）；输入框有字时打开 `ReplaceInputDialog`。
+- [ ] 6. `OptionList`：`role="group"`、`aria-label = t('play:options.label')`。每个行动一个按钮，一行一个、占满正文列宽、文字靠起始端，前面只显示序号数字（`typography.mono`、次要文字色，照截图 `play-reading-light.png`；不显示 ⌘），快捷键写在按钮的 `aria-keyshortcuts` 上（macOS 为 `Meta+<n>`，其他平台为 `Control+<n>`）；装饰性描边、不填底，悬停才出现底色（[设计准则 §9](../docs/design-guidelines.md#9-部件)）。快捷键：对前 9 个行动注册 `useShortcut({ key: String(n), mod: true }, ...)`，只在行动区可见时启用。点击或快捷键：输入框为空时直接提交（`optionIndex = n`）；输入框有字时打开 `ReplaceInputDialog`。
 - [ ] 7. `ReplaceInputDialog`：`ConfirmDialog`，标题 `play:replace.title`，描述 `play:replace.description`，确认按钮“改用推荐行动”（提交这个推荐行动，清空输入框），取消按钮“继续编辑”（关闭，焦点回到输入框）。
 - [ ] 8. `ActionComposer`：`TextArea`（标签“你的行动”，`placeholder`、说明沿用 M1 文案），`useEnterToSubmit`；发送按钮（`primary`）。正在生成时禁用。
 - [ ] 9. 焦点和播报（[a11y §8](../docs/a11y.md#8-游玩页)）：
   - `useAnnouncement`：生成中 → `polite` “正在写下一段”；新回合到达 → `polite` “新的剧情已到达”；失败 → `assertive` “本段未完成”。用 `{ requestId, attempt, status }` 作为这条播报的身份，同一身份只播报一次（client 规范 §8“需要重复触发的动作带序号”的反面：不重复触发）。
   - 新回合到达时：如果玩家当时停在最新位置（`atLatest`），而且焦点在行动区里（`document.activeElement` 在行动区 `section` 内），把焦点移到新回合的标题；否则焦点不动，只播报。
-  - `BackToLatest`：普通按钮，按下后 `scrollToLatest()`，焦点移到最新回合的标题。出现和消失用 `transition-popup`。
+  - `BackToLatest`：工具行末端的文字按钮（`variant='text'`），按下后 `scrollToLatest()`，焦点移到最新回合的标题。出现和消失用 `transition-popup` 的淡入淡出。
 - [ ] 10. 手记：
   - `JournalSheet`：`SideSheet`，标题“手记”。打开时才查询 `play.getJournal({ routeId })`（`useQuery` 的 `enabled: open`，查询键 `queryKeys.journal(routeId)`）。内容：
-    - 人物、地点、物品、组织、其他各一组（组标题 `h3`，空的组不显示），每组下每个条目一个 `JournalSubject`；
-    - “发生过的事”一组，是 `events`；
-    - 全部为空时用 `EmptyState`（`headingLevel={3}`）。
-  - `JournalSubject`：条目名（`h4`）；每一行是文字加一个“跳回原文”按钮（`text`，`size='sm'`，`aria-label` 写明“跳回原文：<来源>”）；`source` 为 `null` 时没有按钮。知情程度不是“确认”的行，前面加一个中性徽标（“听说”“猜测”“误信”）。
+    - 顶部是筛选标签（Base UI `Tabs`）：全部、人物、地点、物品、事件。“全部”列出全部条目，再接着列出 `events`；“人物”“地点”“物品”只列对应种类的条目；“事件”只列 `events`。组织和其他种类的条目只出现在“全部”里。照截图 `play-journal-open-light.png`。
+    - 条目是一个列表（`ul`），每个条目一个 `JournalSubject`；
+    - 当前标签下没有内容时用 `EmptyState`（`headingLevel={3}`）。
+  - `JournalSubject`：第一行是条目名（`h3`，`typography.subtitle`）加种类徽标（中性）；下面每一行是文字，知情程度不是“确认”的行，文字前面加一个中性徽标（“听说”“猜测”“误信”）；每行下面是一个链接样式的“跳回原文”按钮，可见文字 `play:journal.jumpText`（如“跳回原文 · 第 2 回合”），`aria-label` 用 `play:journal.jump`；`source` 为 `null` 时没有这个按钮。`events` 的每一行同样处理，没有条目名。
   - 跳回原文：关闭抽屉，关闭时 `finalFocus` 设为目标段落（`document.getElementById(paragraphAnchorId(turnId, para))`）；滚动到那一段（`scrollIntoView({ block: 'center' })`）；在那一段上挂 `data-uw-changed`，`readCssDuration('--uw-motion-duration-highlight')` 毫秒后用计时器摘掉（[动效 §6](../docs/motion.md#6-实现规则)第 7 条）。高亮样式：`[data-uw-changed]` 时背景 `--uw-color-ink-highlight`，用 `duration-highlight` 淡回。
   - 关闭抽屉（不跳转）时阅读位置不变：`SideSheet` 是覆盖在正文上的浮层，不推开正文列。
 - [ ] 11. 文案按附录 A.5 写全。
@@ -2856,8 +2857,9 @@ W7   T18 真实模型走查与收口（依赖 T17）
 
 | 键 | 文案 |
 | --- | --- |
+| `page.count` | {{count}} 部作品，都保存在这台电脑上 |
 | `card.untitled` | 未命名的草稿 |
-| `card.viewDraft` | 查看创作稿 |
+| `card.viewDraft` | 查看创作稿（菜单项） |
 | `card.more` | 《{{title}}》的更多操作 |
 | `card.delete` | 删除作品 |
 | `delete.title` | 删除《{{title}}》？ |
@@ -2906,6 +2908,12 @@ W7   T18 真实模型走查与收口（依赖 T17）
 | `journal.group.other` | 其他 |
 | `journal.group.events` | 发生过的事 |
 | `journal.jump` | 跳回原文：{{source}} |
+| `journal.jumpText` | 跳回原文 · {{source}} |
+| `journal.tab.all` | 全部 |
+| `journal.tab.character` | 人物 |
+| `journal.tab.place` | 地点 |
+| `journal.tab.item` | 物品 |
+| `journal.tab.events` | 事件 |
 | `journal.source.opening` | 开场第 {{para}} 段 |
 | `journal.source.turn` | 第 {{depth}} 回合第 {{para}} 段 |
 | `journal.level.heard` | 听说 |
@@ -2986,8 +2994,16 @@ W7   T18 真实模型走查与收口（依赖 T17）
 | `thinkingFormat.deepseek` | DeepSeek |
 | `thinkingFormat.openrouter` | OpenRouter |
 | `thinkingFormat.zai` | 智谱 |
-| `appearance.heading` | 外观与阅读 |
-| `appearance.theme` | 外观 |
+| `nav.label` | 设置分区 |
+| `nav.appearance` | 外观 |
+| `nav.reading` | 阅读 |
+| `nav.models` | 模型 |
+| `appearance.heading` | 外观 |
+| `appearance.themeHelp` | 默认跟随系统的浅色或深色 |
+| `reading.heading` | 阅读 |
+| `reading.description` | 只影响正文，界面文字不变。切换主题时这些设置保持不变。 |
+| `models.heading` | 模型 |
+| `appearance.theme` | 主题 |
 | `appearance.themeOption.system` | 跟随系统 |
 | `appearance.themeOption.light` | 浅色 |
 | `appearance.themeOption.dark` | 深色 |
@@ -3318,13 +3334,53 @@ T<深度>（最新）
 
 | 编号 | 裁定 | 理由与何时重估 |
 | --- | --- | --- |
-| D1–D10、A1–A4 | 待维护者确认 | |
+| D1–D10、A1–A4 | 按推荐项执行 W0 | 维护者指示“先做 W0”，未逐项改选；任何一项改选时，回到 T00 改对应的设计文档 |
 
 ### 6.2 波次读数
 
 | 波次 | 集成分支提交 | `pnpm typecheck` | `pnpm lint` | `pnpm test` | 文档链接 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- |
 | W0 | | | | | | |
+
+### 6.2a W0 · T02 Figma 校准记录
+
+Figma 文件 Prototype 页新增 section “Milestone 2 · 打磨”，Design System 页新增 section “M2 部件补充”。
+
+| 截图（`tasks/assets/milestone-2/`） | 来源 | 说明 |
+| --- | --- | --- |
+| `settings-purposes-light.png`、`settings-purposes-dark.png` | 新画 | 三张用途卡；游玩卡展示思考“高”、预算置灰原因、采样与思考同时设置的提示、测试结果；后台摘要卡展示“使用默认模型” |
+| `settings-endpoints-light.png` | 新画 | 一个端点两个模型、能力字段、更多操作菜单展开；第二个端点只剩一个模型时“删除模型”禁用 |
+| `settings-appearance-light.png`、`settings-add-endpoint-light.png` | 原型已有 | 外观、阅读的分段控件与示例段落；添加端点表单 |
+| `library-cards-light.png`、`library-empty-light.png` | 原型已有 | 卡片网格、空库 |
+| `library-delete-light.png`、`library-delete-dark.png` | 新画 | 删除作品确认 |
+| `authoring-preview-cast-light.png` | 新画 | 背景、自动保存状态“已保存”、出场人物、采用按钮为次按钮 |
+| `authoring-preview-stale-light.png` | 新画 | 正在保存、预览已过期、采用禁用 |
+| `authoring-published-light.png` | 原型已有 | 已存入作品库 |
+| `play-reading-light.png`、`play-generating-light.png`、`play-jump-to-source-light.png` | 原型已有 | 阅读、生成中、跳回原文（含工具行的“回到最新”） |
+| `play-back-to-latest-light.png` | 新画 | 回到最新在工具行末端 |
+| `play-replace-input-light.png` | 新画 | 输入框有字时点推荐行动的确认 |
+| `play-journal-open-light.png`、`play-journal-open-dark.png` | 新画 | 手记：筛选标签、种类徽标、“听说”徽标、跳回原文链接 |
+| `parts-overview-light.png`、`parts-m2-supplement-light.png` | 原型已有 / 新画 | 部件总览；下拉展开、通知、加载骨架 |
+
+**稿子与本文不一致时的处置（T02 步骤 6）**，稿子符合设计文档，所以改本文：
+
+| 差异 | 处置 |
+| --- | --- |
+| 作品库、设置页的 `h1` 在内容区页头，作品库工具行起始端是标志加字标 | 改 T07 的 `PageToolbar`、`Page`（`heading: 'toolbar' \| 'content'`），改 T13、T14 |
+| 设置页是左侧分区导航加单页滚动，外观、阅读、模型三节；选项是分段控件 | 改 T07 的 `RadioGroup`（`appearance: 'segmented'`），改 T13 的文件拆分和步骤 6 |
+| 手记用筛选标签，条目是名字加种类徽标，下方是“跳回原文”链接 | 改 T15 步骤 10 |
+| 推荐行动前只显示序号数字，不显示 ⌘ | 删掉 T07 的 `Kbd`，改 T15 步骤 6（快捷键写在 `aria-keyshortcuts`） |
+| “回到最新”在工具行末端，不是浮动按钮 | 新画的帧改成工具行，改 T15 |
+| 作品卡底部是主入口加更多操作，“查看创作稿”放进菜单 | 改 T14 |
+| 标志是多条墨色路径加一条强调色路径，不是“环加圆点” | 改 T02 步骤 5 和 T07 的 `Logo` |
+
+**未完成（欠账）：**
+
+| 项 | 现状 | 补上需要什么 |
+| --- | --- | --- |
+| T02 步骤 2：每个部件的悬停、按下、焦点、禁用全部状态 | 只补了下拉展开、通知、骨架；按钮、输入框等的状态依据设计准则 §9 和动效 §5 实现 | 维护者决定是否需要；需要时补一张状态表 |
+| T02 步骤 3：作品库加载中、创作页生成中、深色的创作页和设置端点页 | 加载中用部件补充里的骨架；生成中参照游玩页生成中的标记；深色由 token 自动得到 | 同上 |
+| 原型已有帧里的状态栏、存档、主线名 | 这些是 M2 不做的功能，页面实现时忽略 | 无 |
 
 ### 6.3 突变账
 

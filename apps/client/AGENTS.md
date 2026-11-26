@@ -68,3 +68,41 @@
 - AI 输出、作品内容、作者设定、玩家输入和模型返回的错误信息，一律作为纯文本渲染。不用 `dangerouslySetInnerHTML`，也不用 `innerHTML`，理由见[架构总览 §2.1](../../docs/architecture.md#21-本机接口的安全)。
 - 不用 `eval`、`new Function`，也不写内联事件处理器，否则会和内容安全策略冲突。
 - 令牌只保存在内存里，不写进 `localStorage`、`sessionStorage`；启动地址的 hash 是唯一例外，读取后按[架构总览 §2.1](../../docs/architecture.md#21-本机接口的安全)处理。
+
+## 7. 模块边界
+
+- 代码分三层：`app/` 装配（入口、Provider、路由、外壳），`features/` 功能（按页面切分），`shared/` 共享（API 客户端、通用部件、hooks、工具函数）。依赖只能从上往下：`app` → `features` → `shared`。
+- `features/*` 之间不互相 import。两个 feature 都要用的东西，下沉到 `shared/`。
+- 判据：`grep -rnE "from '\.\./\.\./features/|from '\.\./(library|authoring|play|settings)/" apps/client/src/features` 零命中。
+
+## 8. 状态与数据流
+
+- **服务端数据只放在 TanStack Query 的缓存里。** 组件里不另存一份服务端数据的副本。
+- **组件不直接发请求。** 一律经 `useApi()` 拿到的 oRPC 客户端，查询键只用 `shared/api/query.ts` 的 `queryKeys`。代码里不出现裸 `fetch`。
+- **事件流只在 `App.tsx` 统一订阅**，把每种事件映射成查询失效。组件不自己订阅事件流。
+- **写后精确失效。** mutation 成功后按查询键失效受影响的查询，不整体失效全部查询。
+- **乐观更新只用 `queryClient.setQueryData`，不用 React 的 `useOptimistic`。** 后者的状态在组件局部，会在查询缓存旁边再立一份真相，而且它在过渡结束时会先跳回旧值，再等重新查询的结果，界面会闪。
+- **需要重复触发的动作带序号。** 让同一个目标再次滚动、聚焦或播报时，用 `{ id, seq }` 这样的对象，不用裸值：React 会跳过相同值的 `setState`。
+- **在途编辑留在本地。** 输入框的内容是组件本地状态，防抖后保存；事件回查得到的服务端值不覆盖还没保存的本地输入。
+
+## 9. 加载、空状态、错误
+
+- 加载用共享的 `Skeleton`，空状态用共享的 `EmptyState`，并给出下一步能做什么。
+- 错误用共享的 `ErrorNotice`：主句是 `errors:<code>`，有 `detail` 时放在“详细信息”下原样显示。不要手写只有“加载失败”的提示。
+- `not_found` 是记录不存在的正常结局，用 `EmptyState` 说明去哪里，不当作故障。
+- 鉴权失败（HTTP 401）切换到无令牌说明页；`stale_revision`、`config_conflict`、`stale_head` 这类冲突，重新读取最新数据，保留用户的输入，请用户核对后再提交。
+
+## 10. 滚动、浮层与长内容
+
+- **跟随最新内容用挂在内容盒上的 `ResizeObserver`。** 用户往上翻时暂停跟随，回到底部后恢复。不用 `flex-direction: column-reverse`，也不要观察尺寸不变的滚动容器。
+- **关闭不等于卸载。** 关闭状态的抽屉、对话框不挂载昂贵内容。Base UI 的弹层默认关闭时卸载，不要打开 `keepMounted`。判据数 DOM 节点，不看是否可见。
+- **浮层和宣告区的挂载容器要 `position: relative`。** 绝对定位的子元素找不到已定位的祖先时，会把位置算进外层滚动容器，凭空多出一条滚动条。这类回归组件测试看不出来，在真实浏览器里量 `scrollHeight - clientHeight`。
+- **下拉选择用 Base UI 的 `Select`，不用原生 `<select>`。** 原生下拉的展开菜单由操作系统绘制，主题 token 管不到。
+- 宣告区一律用共享的 `LiveRegion`，不各自手写 `aria-live`。
+
+## 11. 测试
+
+- **判断“保存成功”要看服务端。** 断言请求参数或重新读回的值，不断言按钮恢复可用：加载状态本身就会让按钮禁用和恢复。
+- **观察器的测试桩要验证接线。** 只有调用了 `observe(target)` 之后才能触发回调，并断言 `target` 是哪个元素。直接调用回调只测到了回调本身，测不到观察器有没有挂上。
+- **每页恰好一个 `h1`，标题逐级不跳。** 新页面和新浮层用 `shared/test/heading-outline.ts` 断言。
+- **只在生产构建成立的接线要有构建侧判据。** 内容安全策略、首屏外观脚本这类东西，组件测试跑在开发构建里，证明不了它们生效，要在端到端测试里查。
