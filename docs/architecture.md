@@ -33,7 +33,7 @@
 | **client** | 所有界面：作品库、创作向导、工作站面板、游玩阅读页、设置。它是一个纯 web 应用 | 不访问数据库、文件或模型服务；不写桌面专属的代码分支 |
 | **core** | 全部业务逻辑：作品与版本、回合循环、创作工作站、故事事实与可见性、LLM 调用、配置文件。对外提供 HTTP 接口（调用与事件流），同时把 client 的构建产物发给浏览器 | 不依赖 Electron。和 desktop 之间只有一条进程消息通道（§2.3），没有 desktop 也能独立运行 |
 | **contracts** | client、core、desktop 之间共用的契约：client 与 core 之间的接口类型与校验 schema，以及 core 与 desktop 之间的进程消息类型（§2.3） | 不含业务逻辑 |
-| **desktop** | Electron 外壳：单实例、窗口、菜单、外部链接、更新；负责启动并看护 core | 不含业务逻辑；和 core 之间只用 §2.3 的进程消息通道 |
+| **desktop** | Electron 外壳：单实例、窗口、菜单、外部链接、原生外观；负责启动并看护 core | 不含业务逻辑；和 core 之间只用 §2.3 的进程消息通道 |
 
 依赖方向是 client → contracts ← core，desktop 也只依赖 contracts 里的进程消息类型。desktop 只负责启动 core，并打开 core 提供的地址。client 和 desktop 都不导入 core 的任何代码。
 
@@ -52,11 +52,16 @@ Electron 主进程（desktop）
 
 启动顺序：
 
-1. 主进程取得单实例锁，生成一个本次启动有效的随机令牌。
-2. 主进程用 `utilityProcess.fork` 启动 core，传入数据目录和令牌。
+1. 主进程取得单实例锁，生成一个本次启动有效的随机令牌。单实例锁按数据目录区分。
+2. 主进程用 `utilityProcess.fork` 启动 core，不带命令行参数；登录 shell 的环境变量经 `fork` 的 `env` 选项传入。随后发一条 `start` 消息，带数据目录、令牌、端口、client 目录和日志级别（§2.3）。令牌不放进命令行，因为本机任何进程都能用 `ps` 看到命令行参数。环境变量不走消息，因为 core 的模块一加载就可能读取它们，消息到达时已经晚了。
 3. core 先打开诊断库，再打开作品库、执行迁移、读取 providers.json，在回环地址上监听 0 端口（由系统分配空闲端口），再把实际端口告诉主进程。
-4. 主进程用这个端口和令牌打开窗口。端口不保存，每次启动都重新分配。若迁移失败或 core 没有按时就绪，desktop 显示启动错误和重试入口。同一数据目录同时只允许一个 core 持有写入权，独立运行也遵守这条规则。
-5. 如果 core 意外退出，主进程显示错误页并提供“重启”。已提交的数据都在 SQLite 里；正在生成的请求按[回合循环 §8](./turn-loop.md#8-中断与恢复)处理。
+4. 主进程用这个端口和令牌打开窗口。端口不保存，每次启动都重新分配。若迁移失败、数据目录被占用，或 core 在 30 秒内没有就绪（常量 `CORE_READY_TIMEOUT_MS`），desktop 用原生对话框说明原因，有诊断编号时一并附上，提供「重试」和「退出」。就绪超时和启动中途退出是 desktop 自己发现的，没有诊断编号。同一数据目录同时只允许一个 core 持有写入权，独立运行也遵守这条规则。
+5. 如果 core 意外退出，主进程用原生对话框提供「重启」和「退出」。重启时生成新令牌，用新地址重新打开同一个窗口。已提交的数据都在 SQLite 里；正在生成的请求按[回合循环 §8](./turn-loop.md#8-中断与恢复)处理。
+6. 退出应用时，主进程发 `stop` 消息，等 core 关闭作品库、提交诊断后退出；5 秒内没退出（常量 `CORE_STOP_TIMEOUT_MS`）就强制结束。窗口全部关闭时，所有平台都退出应用。
+
+**启动错误为什么用原生对话框，而不是错误页。** 窗口不使用 preload 脚本（§2.1），HTML 错误页上的「重试」按钮没有办法通知主进程；另做一套本地页面还要单独处理内容安全策略。原生对话框不经过渲染进程，文案由 desktop 自己提供（[i18n §3](./i18n.md#3-方案与文件)）。
+
+**读取登录 shell 的环境变量最多等 5 秒**（常量 `SHELL_ENV_TIMEOUT_MS`）。shell 的配置文件卡住时，用 desktop 自己的环境变量启动 core，并记一条运行事件，以免应用永远打不开。
 
 **core 为什么放在 utilityProcess，而不是主进程。** core 崩溃或长时间执行同步任务时，窗口和菜单不会跟着卡住。它用的是 Electron 自带的 Node，不需要另外打包一个可执行文件。OpenCode 桌面版在 Tauri 上单独打包 sidecar 时遇到过启动变慢、偶尔起不来的问题，迁到 Electron 后让 server 直接跑在 Electron 自带的 Node 里。
 
@@ -102,11 +107,16 @@ desktop 用 `utilityProcess.fork` 启动 core 时，两者之间有一条 Electr
 
 | 方向 | 消息 | 用途 |
 | --- | --- | --- |
-| desktop → core | 启动参数：数据目录、令牌、登录 shell 的环境变量 | 启动 core（[LLM 端点 §3](./llm-endpoints.md#3-key-的来源与保护)） |
+| desktop → core | `start`：数据目录、令牌、端口、client 目录、client 的源、日志级别 | 启动 core。core 只认第一条合法的 `start` |
+| desktop → core | `log`：desktop 的一条运行事件或性能样本 | 由 core 写进诊断库（[运行诊断 §1](./diagnostics.md#1-存储与生命周期)） |
+| desktop → core | `stop` | 正常退出：关闭作品库、提交诊断 |
 | core → desktop | `ready`：实际监听的端口与当前外观偏好 | desktop 据此打开窗口 |
+| core → desktop | `start-failed`：失败原因与诊断编号 | desktop 在启动错误对话框里显示 |
 | core → desktop | `appearance-changed`：新的外观偏好 | desktop 同步 `nativeTheme.themeSource`（[主题与 token §9](./theme.md#9-外观偏好与切换)） |
 
-core 独立运行时没有这条通道：启动参数改从命令行读取，另外两类消息直接不发。消息的类型定义放在 contracts 的 `desktop.ts` 里，和 client 的契约分开（[技术选型 §6](./tech-stack.md#6-contracts)）。
+登录 shell 的环境变量不走这条通道，由 `fork` 的 `env` 选项传入（§2，[LLM 端点 §3](./llm-endpoints.md#3-key-的来源与保护)）。
+
+core 用 `process.parentPort` 是否存在判断自己是否由 desktop 启动：存在时不读命令行，等 `start` 消息，也不打印启动地址。core 独立运行时没有这条通道：启动参数从命令行读取，令牌由 core 自己生成，core 发给 desktop 的消息直接不发。消息的类型定义放在 contracts 的 `desktop.ts` 里，作为 `@unwritten/contracts/desktop` 单独导出，和 client 的契约分开（[技术选型 §6](./tech-stack.md#6-contracts)）。每条消息到达时都按这些 schema 校验，不合格的丢弃并记一条运行事件，不中断进程。
 
 
 ## 3. client 与 core 的通信
@@ -143,7 +153,7 @@ core 独立运行时没有这条通道：启动参数改从命令行读取，另
 
 ## 6. 数据目录
 
-core 使用 desktop 传进来的数据目录，桌面版的数据目录是 Electron 的 `app.getPath('userData')`：
+core 使用 desktop 传进来的数据目录，桌面版的数据目录是 Electron 的 `app.getPath('userData')`。设了环境变量 `UNWRITTEN_USER_DATA_DIR` 时，desktop 改用它（相对路径按启动时的工作目录解析），开发模式和端到端测试靠它把数据放到别处：
 
 ```
 <数据目录>/
@@ -158,7 +168,7 @@ core 使用 desktop 传进来的数据目录，桌面版的数据目录是 Elect
 
 完整的目录结构见[技术选型 §11](./tech-stack.md#11-目录结构)。
 
-开发时，core 用 `node --watch` 独立运行；client 用 Vite 开发服务器，把 `/api` 代理到 core。代理转发时把 `Host` 和 `Origin` 都改写成 core 的地址：Vite 代理的 `changeOrigin` 只改写 `Host`，`Origin` 要另外设置。core 的 Host 与 Origin 检查（§2.1）不为开发模式开例外，core 里没有只在开发时放行的分支。令牌在请求头里，代理原样转发。desktop 在开发模式下加载 Vite 的地址，令牌照样放在地址的 hash 里传给 client。开发时的数据目录是仓库下的 `.data/`，它已列入 `.gitignore`，因为里面的 providers.json 含有 key。
+开发时，core 用 `node --watch` 独立运行；client 用 Vite 开发服务器，把 `/api` 代理到 core。代理转发时把 `Host` 和 `Origin` 都改写成 core 的地址：Vite 代理的 `changeOrigin` 只改写 `Host`，`Origin` 要另外设置。core 的 Host 与 Origin 检查（§2.1）不为开发模式开例外，core 里没有只在开发时放行的分支。令牌在请求头里，代理原样转发。desktop 设了环境变量 `UNWRITTEN_DEV_CLIENT_ORIGIN`（只接受回环地址的 http 源）时进入开发模式：core 直接跑 `packages/core/src/main.ts` 源码，监听 Vite 代理写死的 4317 端口，窗口打开 Vite 的地址，令牌照样放在地址的 hash 里传给 client。没有这个变量、也没有打包时，desktop 跑仓库里 core 和 client 的构建产物；打包后跑资源目录里的那一份。desktop 的开发模式和独立运行的 core 抢同一个端口和数据目录，两者不同时运行。开发时的数据目录是仓库下的 `.data/`，它已列入 `.gitignore`，因为里面的 providers.json 含有 key。
 
 代理改写了 `Origin`，core 的 Origin 检查在开发时就分不清请求来自哪个页面。这一层防护改由 Vite 开发服务器自己的两项默认检查承担：`server.allowedHosts` 只响应 `localhost`、`.localhost` 下的域名和 IP 地址，挡住 DNS 重绑定；`server.cors` 只允许 `localhost`、`127.0.0.1`、`[::1]` 这几类源跨域。所以 Vite 配置里不放宽这两项（例如设成 `true`），也不改 `server.host` 让它监听回环以外的地址。即便如此，本机其他端口上的页面仍然能经过代理发请求，挡住它们的只有令牌。
 
@@ -169,6 +179,7 @@ core 使用 desktop 传进来的数据目录，桌面版的数据目录是 Elect
 - **多人共用一个 core 的账号体系。** core 只服务本机的一个用户，令牌只证明“是本次启动打开的页面”，不区分人。
 - **把 core 部署成公网服务。** 回环地址、令牌和 Host 检查都是按本机场景设计的。
 - **core 嵌在 Electron 主进程里运行。** 那样 core 崩溃或长时间计算会拖住窗口和菜单（§2）。
+- **窗口全部关闭后保留应用进程。** macOS 的惯例是保留，但那样没有窗口时 core 仍在运行，还要处理重新开窗时的令牌。应用只有一个窗口，关掉就退出。
 
 ## 9. 验收
 
@@ -180,3 +191,6 @@ core 使用 desktop 传进来的数据目录，桌面版的数据目录是 Elect
 | 生产构建，页面已经打开 | 刷新页面；或者打开去掉 `#token=` 的同一个地址 | 不发出任何 `/api` 请求，页面显示从带令牌的地址重新打开的说明 |
 | 开发模式，Vite 代理到 core | 在 Vite 提供的页面里调用任意接口，再改一个触发整页重载的文件 | 调用成功；重载后令牌仍在地址里，接口照常可用；core 的 Host 与 Origin 检查没有开发模式的例外 |
 | 生产构建，core 独立运行 | 在两个浏览器标签页里分别打开 core 打印出的带令牌地址，一边提交行动，一边看事件 | 两个标签页都收到回合已提交的事件；页面上没有被内容安全策略拦下的脚本或样式 |
+| 桌面版正在运行 | 用 `ps` 查看 core 进程的命令行 | 命令行里没有令牌和数据目录 |
+| 桌面版正在运行 | 用同一个数据目录再启动一次应用 | 没有第二个窗口，已有窗口被聚焦 |
+| 另一个 core 占着数据目录 | 启动桌面版 | 原生对话框说明数据目录被占用并给出诊断编号；占用解除后点「重试」进入作品库 |

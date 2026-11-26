@@ -558,31 +558,31 @@ W9   T28 真实模型走查与收口（依赖 T27）
 
 **步骤。**
 
-- [ ] 1. `docs/architecture.md`
+- [x] 1. `docs/architecture.md`
   - §2 启动顺序第 2 步改成：主进程用 `utilityProcess.fork` 启动 core，环境变量经 `fork` 的 `env` 传入，随后发 `start` 消息传数据目录、令牌、端口、client 目录和日志级别；令牌不进命令行，因为本机其他进程能看到命令行（D1）。
   - §2 第 4 步补：启动错误用原生对话框提示，带诊断编号和「重试」「退出」；第 5 步补：意外退出用原生对话框提供「重启」「退出」，重启时换新令牌（D4）。写明为什么不用 HTML 错误页：窗口不使用 preload。
   - §2.3 的表改成五行：`start`、`stop`、`log`（desktop → core），`ready`、`appearance-changed`、`start-failed`（core → desktop）。环境变量那一项移到表下的一句话里。补一句：core 用 `process.parentPort` 是否存在判断自己是否由 desktop 启动（D2）。
   - §6 补一句：设了环境变量 `UNWRITTEN_USER_DATA_DIR` 时，desktop 用它作为数据目录，开发模式和端到端测试靠它把数据放到别处。
   - §7 第三段“desktop 在开发模式下加载 Vite 的地址”展开成 D7 的内容：设 `UNWRITTEN_DEV_CLIENT_ORIGIN` 进入开发模式，core 跑源码、监听 4317。
   - §8 加一条：窗口全部关闭即退出应用（D9），理由写上。
-- [ ] 2. `docs/diagnostics.md`
+- [x] 2. `docs/diagnostics.md`
   - §1 把“desktop 的记录遵循同一存储契约”改写成 D3：desktop 经进程消息通道交给 core 写入，事件 `module` 为 `desktop`，样本 `source` 为 `desktop`，`run_id` 由 core 写入；core 就绪前最多缓存 64 条（常量 `DESKTOP_LOG_BUFFER_MAX`），超出计数并在就绪后记 `desktop.dropped`。
   - 末尾加“已知限制”或在 §4 不做的事里写：core 一次都没启动成功时，desktop 自己的事件留不下。
   - §2、§3 按本文 §2.5 的表补事件约定和样本行。
-- [ ] 3. `docs/i18n.md`
+- [x] 3. `docs/i18n.md`
   - §3 的命名空间列表后补：desktop 没有 i18next，原生菜单与对话框的文案放在 `apps/desktop/src/i18n/zh-CN.json`，键名 `desktop:<区域>.<元素>`，规则同 §4（D5）。
   - §5 补一句：desktop 显示启动失败原因时，按 `StartFailureReason` 查自己的文案，不显示 core 的英文 `message`。
-- [ ] 4. `docs/tech-stack.md`
+- [x] 4. `docs/tech-stack.md`
   - §4 表里 Electron、electron-builder 写成确切版本（D28）；`electron-updater` 一行改为“签名之后再接入；未签名的 macOS 应用不能自动更新”。
   - §4 正文写：pnpm 默认不运行 Electron 的安装脚本，`pnpm-workspace.yaml` 的 `allowBuilds` 放行 `electron`；`shell-env`、`zod`、`@unwritten/contracts` 由 tsdown 打进主进程，打包时没有运行期依赖；core 用 `pnpm deploy --prod --config.node-linker=hoisted` 连同运行依赖放进资源目录（D8）。
   - §11 目录树的 `apps/desktop/src/` 换成 §4.4 的文件列表（每个文件一句作用），去掉 `updater.ts`。
-- [ ] 5. `docs/data-model.md` §2 的 `meta` 字段表，按 T11 定下的 `VersionMetaSchema`（§5 T11 步骤 2）改写：`settings` 写八节与各节的选择（D10、D11）；`plan` 写 `items`（六种）、`conflicts`、`confirmedRev`（D12、D16）；`protagonist_fields` 改名为 `settings.protagonist.fields` 并写明 `isName`；`cast_slots`、`key_scenes`、`wizard_step` 改成代码里的 `castSlots`、`keyScenes`、`wizardStep`；`opening` 补 `initialState`、`createdIds`、`template`（D20、D22）。“版本的生命周期”表的“存入作品库”一行补：不建开局；“新开局”一行补：由玩家在开局页发起。
-- [ ] 6. `docs/author-workstation.md` §9：`plan` 任务一行写清工具 `propose_plan`、受保护的项保留、冲突原话逐字核对（D13、D14）；“写回前比较草稿的 `content_rev`”下 `plan` 那一条改成 D15，并在本节末尾补“已知限制：不做逐项对比视图”。“确认方案时生成游玩的结构化初始数据”一条改成 D17 的具体写法。`preview` 一行补：方案确认后才能生成（D16），`author_text` 模式不让模型写正文（D18）。
-- [ ] 7. `docs/turn-loop.md`
+- [x] 5. `docs/data-model.md` §2 的 `meta` 字段表，按 T11 定下的 `VersionMetaSchema`（§5 T11 步骤 2）改写：`settings` 写八节与各节的选择（D10、D11）；`plan` 写 `items`（六种）、`conflicts`、`confirmedRev`（D12、D16）；`protagonist_fields` 改名为 `settings.protagonist.fields` 并写明 `isName`；`cast_slots`、`key_scenes`、`wizard_step` 改成代码里的 `castSlots`、`keyScenes`、`wizardStep`；`opening` 补 `initialState`、`createdIds`、`template`（D20、D22）。“版本的生命周期”表的“存入作品库”一行补：不建开局；“新开局”一行补：由玩家在开局页发起。
+- [x] 6. `docs/author-workstation.md` §9：`plan` 任务一行写清工具 `propose_plan`、受保护的项保留、冲突原话逐字核对（D13、D14）；“写回前比较草稿的 `content_rev`”下 `plan` 那一条改成 D15，并在本节末尾补“已知限制：不做逐项对比视图”。“确认方案时生成游玩的结构化初始数据”一条改成 D17 的具体写法。`preview` 一行补：方案确认后才能生成（D16），`author_text` 模式不让模型写正文（D18）。
+- [x] 7. `docs/turn-loop.md`
   - §5 `options` 一行补：`hint` 只在作品选了「提醒已知后果」时允许，其余作品带 `hint` 时返回修正。`ending` 一行补：作品没写结束条件时只能是 `"false"`（D25）。`scene_hit` 的 `scene` 写上下文里的 `S` 编号（D26）。
   - §10 第 2 步改成 D21 的两步（`propose_cast` 存进 `playthroughs.cast`，`propose_opening` 写开场），写明重试时跳过已存的人物；第 3 步补占位符检查（D19）。
-- [ ] 8. `docs/milestone-3.md`：只在决定被改选时同步修改对应句子；没有改选就不动。
-- [ ] 9. 跑 `node scripts/check-doc-links.mjs`，再按 [docs/AGENTS.md §3](../docs/AGENTS.md#3-审计) 对新增行扫三遍。
+- [x] 8. `docs/milestone-3.md`：只在决定被改选时同步修改对应句子；没有改选就不动。
+- [x] 9. 跑 `node scripts/check-doc-links.mjs`，再按 [docs/AGENTS.md §3](../docs/AGENTS.md#3-审计) 对新增行扫三遍。
 
 **注意事项。**
 
@@ -608,10 +608,10 @@ W9   T28 真实模型走查与收口（依赖 T27）
 
 **步骤。**
 
-- [ ] 1. 在 Prototype 页新建 section “Milestone 3 · 作者设定”，画：补充设定展开（八节加三处锚点，主角填写项编辑）、方案（摘要、人物、秘密折叠与展开、状态栏栏目、关键场面、结束条件、冲突、AI 与作者来源徽标、生成期间改过草稿的提示）、步骤导航。
-- [ ] 2. 新建 section “Milestone 3 · 开局与状态栏”，画：开局页（有填写项、无填写项）、开场生成中、开场失败、游玩页的状态栏（数字带进度条、阶段、清单、文字、本回合变化标记、来历展开、已了结）、推荐行动带提醒、完结。
-- [ ] 3. 每帧浅色截一张存进 `tasks/assets/milestone-3/`，状态栏和方案再各截一张深色。
-- [ ] 4. 稿子和本文冲突时，稿子符合设计文档就改本文对应任务，写进 §6.2a。
+- [x] 1. 在 Prototype 页新建 section “Milestone 3 · 作者设定”，画：补充设定展开（八节加三处锚点，主角填写项编辑）、方案（摘要、人物、秘密折叠与展开、状态栏栏目、关键场面、结束条件、冲突、AI 与作者来源徽标、生成期间改过草稿的提示）、步骤导航。
+- [x] 2. 新建 section “Milestone 3 · 开局与状态栏”，画：开局页（有填写项、无填写项）、开场生成中、开场失败、游玩页的状态栏（数字带进度条、阶段、清单、文字、本回合变化标记、来历展开、已了结）、推荐行动带提醒、完结。
+- [x] 3. 每帧浅色截一张存进 `tasks/assets/milestone-3/`，状态栏和方案再各截一张深色。
+- [x] 4. 稿子和本文冲突时，稿子符合设计文档就改本文对应任务，写进 §6.2a。
 
 **完成判据。** §6.2a 列出全部截图和每处差异的处置；T21–T25 开工前编排者确认截图已就位。这一项没有机器判据，靠编排者检查。
 
@@ -1475,7 +1475,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
     | schema | 形状 |
     | --- | --- |
     | `StartInfoSchema` | `{ workId: Uuid, title: string().nullable(), fields: array(ProtagonistField), castMode: CastMode }` |
-    | `StartPlaythroughInputSchema` | `{ workId: Uuid, playthroughId: Uuid, protagonist: z.record(z.string().min(1).max(20), z.string().max(40)) }` |
+    | `StartPlaythroughInputSchema` | `{ workId: Uuid, playthroughId: Uuid, protagonist: z.record(z.string().min(1).max(20), z.string().max(40).regex(/^[^\r\n]*$/u)) }`。值不能含换行：占位符替换进开场正文后，换行会多切出段落，开场事实的出处段号就对不上了 |
     | `OpeningRequestViewSchema` | `{ id: Uuid, status: TurnRequestStatusSchema, error: ErrorCodeSchema.nullable(), attempts: int().positive(), updatedAt: Timestamp }` |
     | `PlaythroughViewSchema` | `{ id: Uuid, workId: Uuid, workTitle: string().nullable(), routeId: Uuid.nullable(), opening: OpeningRequestView.nullable() }` |
     | `PlaythroughIdInputSchema` | `{ playthroughId: Uuid }` |
@@ -1499,6 +1499,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
   - `方案项按 kind 区分字段`：`kind: 'entity'` 缺 `role` 失败；`kind: 'secret'` 带 `role` 时多余字段被丢弃（`z.object` 默认剥离），解析结果里没有 `role`。
   - `默认设定能通过校验`：`WorkSettingsSchema.parse(DEFAULT_WORK_SETTINGS)` 不抛错，`cast.mode === 'fixed'`、`actions.hints === 'actions_only'`（字面量）。
   - `状态值视图按显示方式区分`：`display: 'stage'` 缺 `total` 失败。
+  - `填写值不能含换行`：`StartPlaythroughInputSchema` 拒绝填写值 `'阿\n\n岚'`，接受 `'阿岚'`（阳性对照）。
   - `用途列表包含 author_chat`：`PURPOSES.includes('author_chat')`，且 `PurposeSchema.parse('author_chat')` 不抛错。
 
 **接线点。** 只定契约。core 的新过程在 T11 挂到路由上；本任务结束时 `pnpm typecheck` 必须是绿的（第 11 步保证）。
@@ -2275,6 +2276,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
     - `固定人物的开局不调模型，占位符换成玩家填的名字`：附录 D.2 的作品，开场正文含 `{{protagonist.名字}}`；`start({ protagonist: { 名字: '阿岚' } })` 后 `scriptedLlm.runs.length === 0`，根回合正文含“阿岚”、不含 `{{`。
     - `留空的填写项用默认值`。
     - `传了作品没有的填写项被拒`：`protagonist_input_invalid`。
+    - `填写值替换后段落数不变`：根回合的段落数等于开场模板的段落数。契约那一侧由 T10 的测试 `填写值不能含换行` 守住。
     - `主角记得自己填的名字`：投影里主角持有“阿岚”这个称呼。
     - `开场的事实和初始状态写进根回合`：根回合上有开场的称呼、事件；状态值表有方案里的初始值。
     - `同一个开局 id 重复提交只建一次`。
@@ -2457,16 +2459,16 @@ W9   T28 真实模型走查与收口（依赖 T27）
 
 **步骤。**
 
-- [ ] 1. `plan-labels.ts`：对照表 `PLAN_SOURCE_LABEL_KEYS: Record<PlanSource, string>`、`PLAN_SUMMARY_LABEL_KEYS: Record<PlanSummaryKey, string>`、`STATE_DISPLAY_LABEL_KEYS: Record<StateDisplay, string>`、`PLAN_ENTITY_ROLE_LABEL_KEYS`，加测试（同 T21 第 2 步）。来源徽标：`author` 和 `author_confirmed` 用 `tone: 'neutral'`，`ai` 用 `tone: 'warning'`，文字分别为「作者」「作者确认」「AI 补全」——来源靠文字区分，不只靠颜色。
+- [ ] 1. `plan-labels.ts`：对照表 `PLAN_SOURCE_LABEL_KEYS: Record<PlanSource, string>`、`PLAN_SUMMARY_LABEL_KEYS: Record<PlanSummaryKey, string>`、`STATE_DISPLAY_LABEL_KEYS: Record<StateDisplay, string>`、`PLAN_ENTITY_ROLE_LABEL_KEYS`，加测试（同 T21 第 2 步）。来源徽标一律 `tone: 'neutral'`，文字分别为「作者」「作者确认」「AI 补全」：来源靠文字区分，不靠颜色（T01 稿子 `authoring-plan-light.png`）。
 - [ ] 2. `placeholder-text.tsx`：`PlaceholderText({ text }: { text: string })`。用 `PLACEHOLDER_PATTERN` 的同一个正则（在 client 里写一份 `/\{\{protagonist\.([^{}]+)\}\}/gu`，并在测试里用 contracts 的 `PROTAGONIST_FIELD_NAME_PATTERN` 证明合法的名字都能被它匹配）把文本切开，普通部分原样输出，占位符输出成 `<span className={styles.token}>{t('authoring:placeholder.token', { name })}</span>`（显示为「名字」）。纯文本渲染，不用 `dangerouslySetInnerHTML`。
-- [ ] 3. `PlanItemCard.tsx`：一项的只读展示 + 「修改」「删除」两个按钮。按 `kind`：
+- [ ] 3. `PlanItemCard.tsx`：一项一行，左边是“标题 + 来源徽标”和正文，右边一个铅笔图标按钮（`IconButton`，`label` 为 `plan.item.editLabel` 插值标题）。「删除」不放在行上，放进 `PlanItemEditor` 的编辑表单里（主角项的编辑表单没有「删除」）。按 `kind`：
   - `summary`：标题来自 `PLAN_SUMMARY_LABEL_KEYS`，正文是 `text`。
   - `entity`：名字、角色（主角 / 主要人物 / 其他）、种类、档案；`knownAs` 不为空时一行“主角称作：…”；有 `slot` 时显示“人物位置：<作用>”和“相遇样例：<encounter>”。主角项没有「删除」。
-  - `secret`：折叠时只显示 `title` 和“幕后”徽标；展开时再显示 `statement`、知情者名字（按 `knowerIds` 在方案的实体项里查名字）、揭晓条件。折叠时「修改」禁用，按钮旁写明“先查看幕后设定”。
+  - `secret`：只在幕后展开时渲染（见第 6 步），标题行写“秘密 · <title>”，正文三行：“真相：…”“知情：<名字，用、连接>”“揭晓条件：…”。
   - `state`：标签、显示方式、配置摘要（数字写范围和单位；阶段写全部阶段名——作者视角能看全部）、`hidden` 时“幕后”徽标、初始值。
   - `scene`：条件、发生什么、“只发生一次”。
-  - `ending`：折叠时只显示“已写结束条件”；展开时显示原文。
-- [ ] 4. `PlanItemEditor.tsx`：按 `kind` 的编辑表单（文字用 `TextField` / `TextArea`，选择用 `Select` / `RadioGroup`，数字用 `NumberField`）。「保存」调用 `onSave(item)`，「取消」调用 `onCancel()`。保存前用 contracts 的 `PlanItemSchema.safeParse` 校验，失败时在对应字段下显示附录 A.2 的 `plan.edit.invalid`，不提交。
+  - `ending`：同 `secret`，只在幕后展开时渲染，标题“结束条件”，正文是原文。
+- [ ] 4. `PlanItemEditor.tsx`：按 `kind` 的编辑表单（文字用 `TextField` / `TextArea`，选择用 `Select` / `RadioGroup`，数字用 `NumberField`）。「保存」调用 `onSave(item)`，「取消」调用 `onCancel()`，「删除」（危险样式，主角项不显示）调用 `onRemove()`，由 `PlanPanel` 先弹 `ConfirmDialog` 再删。保存前用 contracts 的 `PlanItemSchema.safeParse` 校验，失败时在对应字段下显示附录 A.2 的 `plan.edit.invalid`，不提交。
 - [ ] 5. `PlanConflicts.tsx`：每条冲突一个 `article`，标题“两条设定互相矛盾”，下面并列两段原话（`blockquote`，前面分别标“第一条”“第二条”），再一行“影响：…”。
 - [ ] 6. `PlanPanel.tsx`：
 
@@ -2482,16 +2484,16 @@ W9   T28 真实模型走查与收口（依赖 T27）
   }): JSX.Element;
   ```
 
-  - 区域是一个带 `h2` 的 `section`（「故事方案」）。顺序：任务状态 → 冲突 → 摘要 → 人物（主角在前）→ 幕后（秘密）→ 状态栏 → 关键场面 → 结束条件 → 确认按钮。
-  - 任务状态：`latestPlanJob.status === 'running'` 显示 `GeneratingMarker` 和“正在生成故事方案”；`failed` 显示 `ErrorNotice`（`code`、`diagnosticId` 为任务 id）和「重新生成」；`stale` 为真时显示一条提示（附录 A.2 `plan.stale`）和「仍然采用」「重新生成」两个按钮。
-  - 幕后：一个「查看幕后设定」/「收起幕后设定」按钮，`aria-expanded` 反映状态，`aria-controls` 指向秘密列表和结束条件。状态只存在组件的 `useState` 里，默认收起。
+  - 区域是一个带 `h2` 的 `section`（「故事方案」），说明文字 `plan.intro`。顺序（照 T01 稿子）：任务状态提示 → 冲突 → 分组「摘要」→「人物与地点」（主角在前）→「状态栏」→「关键场面」→ 幕后控制卡 → 分组「幕后」（只在展开时出现，含秘密和结束条件）→ 底部操作行（「重新生成方案」次按钮 + 「确认方案，生成开场」主按钮，右对齐）。每个分组是一个 `h3` 加一张卡片，卡片里一项一行。
+  - 任务状态：`latestPlanJob.status === 'running'` 显示 `GeneratingMarker` 和“正在生成故事方案”；`failed` 显示 `ErrorNotice`（`code`、`diagnosticId` 为任务 id）和「重新生成」；`stale` 为真时显示一张提示卡：图标 `info`、标题 `plan.staleTitle`、说明 `plan.stale`，右边「仍然采用」「重新生成」两个文字按钮。
+  - 幕后控制卡：收起时图标 `eye-off`、标题 `plan.secret.foldedTitle`（插值条数：秘密数加上有没有结束条件）、说明 `plan.secret.foldedHelp`，并列出每个秘密的无剧透标题（[创作工作站 §6](../docs/author-workstation.md#6-工具)：折叠时只给标题），右边「查看幕后设定」；展开时图标 `eye`、标题 `plan.secret.expandedTitle`、说明 `plan.secret.expandedHelp`，右边「收起幕后设定」。按钮的 `aria-expanded` 反映状态，`aria-controls` 指向「幕后」分组。状态只存在组件的 `useState` 里，默认收起。
   - 删除用 `ConfirmDialog`（`tone: 'danger'`）。
   - 确认按钮「确认方案，生成开场」：方案为空或任务在运行时禁用，并写明原因；方案已确认时按钮旁显示「方案已确认」徽标。
 - [ ] 7. 测试（`PlanPanel.test.tsx`、`PlanItemCard.test.tsx`、`placeholder-text.test.tsx`，用 `createFakeApi` 不需要：组件只通过 props 交互）：
   - `来源用文字标出`：一项 `source: 'ai'`，能 `getByText('AI 补全')`。
   - `秘密默认折叠`：秘密的 `statement` 不在文档里，`title` 在；点「查看幕后设定」后 `statement` 出现，按钮的 `aria-expanded` 为 `true`。阳性对照：同一个测试里 `title` 一直可见。
-  - `折叠时不能修改秘密`。
-  - `主角不能删除`：主角卡片上没有「删除」按钮，其他人物有。
+  - `折叠时只列出秘密的标题`：收起时秘密的 `title` 可见、`statement` 不可见，也没有秘密的编辑按钮。
+  - `主角不能删除`：打开主角项的编辑表单，里面没有「删除」；打开另一个人物的编辑表单，有「删除」（阳性对照）。
   - `生成期间改过草稿时给出两个选择`：`latestPlanJob.stale: true`，点「仍然采用」调用 `onAdoptStale` 并带上任务 id。
   - `冲突并列两段原话`。
   - `编辑后交给 onSave 的项通过契约校验`：改一个状态栏栏目的标签后保存，`onUpdateItem` 收到的参数 `PlanItemSchema.safeParse` 成功、`label` 是新值。
@@ -2529,12 +2531,12 @@ W9   T28 真实模型走查与收口（依赖 T27）
   - mutation：`generatePlan`（成功后切到 `plan`）、`adoptStalePlan`、`updatePlanItem`、`removePlanItem`（这两个带 `baseContentRev: 缓存里的 draft.contentRev`）、`confirmPlan`（成功后**立刻**用返回的 `contentRev` 调 `generatePreview`，然后切到 `opening`）、`generatePreview`（开场面板的「重新生成开场」）、`adoptPreview`。每个成功后让 `queryKeys.work(workId)` 失效。错误统一进现有的 `error` 状态，由 `ErrorNotice` 显示。
   - 按步骤渲染：`background` → `BackgroundEditor`；`plan` → `PlanPanel`；`opening` → 开场区：预览任务的状态、`PreviewPanel`、「重新生成开场」。三步都在同一个页面里，`WizardSteps` 放在页面顶部。
   - `client.preview_visible`：从 T21 删掉的那段计时搬到这里，起点是 `confirmPlan` 被点下（或「重新生成开场」被点下），终点是预览任务不再 `running`，同一个 `jobId` 只报一次。
-- [ ] 3. `PreviewPanel.tsx`：
+- [ ] 3. `PreviewPanel.tsx`（版式照 T01 稿子 `authoring-opening-review-light.png`）：开场区标题 `opening.heading`、说明 `opening.intro`；依次是「公开设定」卡、「开场里新出现的」卡（`CastList`）、「开局状态」卡、纸面预览、「这些句子需要先改」卡、底部操作行（「重新生成开场」次按钮、采用不可用时的原因文字、「采用开场并存入作品库」，右对齐）。
   - 正文、选项用 T22 的 `PlaceholderText` 渲染。
   - 选项有 `hint` 时，在选项下方一行显示提醒（附录 A.2 `preview.hint`）。
   - `preview.initialState` 不为空时，显示“开局状态”小节，列出 `label`、`text`；`visible` 为假的标“开局时不显示”。
-  - `preview.needsReview` 不为空时，显示“这些句子需要先改”的列表，每条写明位置（第 N 段 / 第 N 个推荐行动）和原因（写死了主角名 / 未知的填写项），并把「采用开场并存入作品库」禁用，禁用原因用 `aria-describedby` 关联到这个列表。
-- [ ] 4. `CastList.tsx`：去掉“主角”那一类（主角不再在预览的 `cast` 里），其余不变。
+  - `preview.needsReview` 不为空时，在纸面预览之后显示“这些句子需要先改”卡（标题前一个 `triangle-alert` 图标），每条两行：第一行“<位置> · <原因>”（位置为第 N 段 / 第 N 个推荐行动，原因为写死了主角名 / 未知的填写项），第二行是那句原文加引号；并把「采用开场并存入作品库」禁用，禁用原因 `preview.adoptBlocked` 显示在按钮左边，用 `aria-describedby` 关联到这张卡。
+- [ ] 4. `CastList.tsx`：标题改用 `authoring:cast.headingOpening`（“开场里新出现的”）；去掉“主角”那一类（主角不再在预览的 `cast` 里），其余不变。
 - [ ] 5. `PublishedPanel.tsx`：「开始故事」改成 `Link` 到 `/works/$workId/start`（参数 `workId: work.id`），不再读 `work.routeId`。
 - [ ] 6. 测试（`AuthoringPage.test.tsx` 改写；`createFakeApi`）：
   - `只写背景一路点到开场`：背景 → 「生成故事方案」→ 假 API 返回带方案的 `works.get` → 方案面板出现 → 「确认方案，生成开场」→ 假 API 记下的调用依次是 `works.confirmPlan`、`works.generatePreview`，后者的 `contentRev` 等于前者的返回值（从记录现取）。
@@ -2576,6 +2578,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
 - [ ] 4. `StartPage.tsx`（`{ workId }`）：
   - `useQuery(startInfo)`。页面标题是作品标题（没有时用 `play:page.untitled`），工具行起始端是返回作品库。
   - 开局 id 用 `useState(() => crypto.randomUUID())` 生成一次，所以双击、重渲染都提交同一个 id（core 幂等）。
+  - 页面内容区一个 `h2`（`start.heading`）和说明 `start.intro`（照 T01 稿子 `start-fields-light.png`）。
   - 有填写项：一个表单，每项一个 `TextField`，`label` 是项目名，`placeholder` 是默认值，`description` 是附录 A.4 `start.fieldHelp`（插值默认值）。值的长度上限用 contracts 的 `PROTAGONIST_VALUE_MAX_LENGTH`。主按钮「开始故事」。
   - 没有填写项：页面挂载后直接提交一次（`useEffect` 里调 `start.mutate`，靠 `mutation.isIdle` 守住只调一次），显示“正在打开故事”。
   - 成功：返回的 `routeId` 不为空 → `navigate({ to: '/play/$routeId', params, replace: true })`；为空 → `navigate({ to: '/playthroughs/$playthroughId', params, replace: true })`。
@@ -2583,8 +2586,8 @@ W9   T28 真实模型走查与收口（依赖 T27）
 - [ ] 5. `OpeningPendingPage.tsx`（`{ playthroughId }`）：
   - `useQuery(playthrough)`。
   - `routeId` 不为空 → 立即 `navigate` 到游玩页（`replace: true`）。
-  - `opening.status === 'running'`：`GeneratingMarker` 和“正在为这一局准备人物和开场”。宣告区播报一次。
-  - `opening.status === 'failed'`：`ErrorNotice`（`code: opening.error`，`diagnosticId: opening.id`）、「重试这次开局」（`api.play.retryOpening({ requestId: opening.id })`）、「返回作品库」。
+  - `opening.status === 'running'`：`h2` 为 `openingRequest.pending`，下面 `GeneratingMarker` 和说明 `openingRequest.pendingHelp`（照 `start-pending-light.png`）。宣告区播报一次。
+  - `opening.status === 'failed'`：`h2` 为 `openingRequest.failed`，下面 `ErrorNotice`（`code: opening.error`，`diagnosticId: opening.id`）、一句 `openingRequest.keptCast`、主按钮「重试这次开局」（`rotate-ccw` 图标，`api.play.retryOpening({ requestId: opening.id })`）和文字按钮「返回作品库」（照 `start-failed-light.png`）。
   - 新状态靠事件流里的 `playthrough.updated` 让查询失效（本任务第 2 步），本页不轮询。
 - [ ] 6. `WorkCard.tsx`：
   - 可玩且 `routeId` 为空 → 主入口是 `Link` 到 `/works/$workId/start`，文字「开始故事」。
@@ -2621,16 +2624,16 @@ W9   T28 真实模型走查与收口（依赖 T27）
 **步骤。**
 
 - [ ] 1. 确认前提：`queryKeys.status` 存在，`App.tsx` 在 `turn.committed` 时让它失效（T24）。不存在就停下来汇报。
-- [ ] 2. `StatusColumn.tsx`（一个栏目）：
-  - 标题是 `label`。
-  - `number`：数字和单位；`min`、`max` 都有时一条进度条，`role="meter"`，`aria-valuemin`、`aria-valuemax`、`aria-valuenow`，宽度用 CSS 自定义属性 `--status-ratio`（`style` 只写自定义属性，[主题与 token §10](../docs/theme.md#10-组件怎样使用-token)）。
-  - `stage`：一排分段（`total` 段，前 `step` 段填满），文字只写当前阶段名和“第 step / total 步”。
-  - `list`：每项一行，状态用图标加文字（进行中 / 已完成 / 落空），不只靠图标。
-  - `text`：原文。
-  - 变化标记（文字，不只靠颜色）：`isNew` → 「新」；`changed` 时数字写增减（`+2` / `−1`，插值），文字写“原来：…”，阶段写“原来在第 N 步”，清单的 `change` 为 `new` 的条目标「新」、`changed` 的标「变了」。
-  - 「来历」按钮（`aria-expanded`），展开 `StatusHistory`。
-- [ ] 3. `StatusHistory.tsx`：列表，每条“第 N 回合：<text>”（`depth === 0` 写“开场”），每条一个按钮「跳回这一回合」，调用 `onJumpToTurn(turnId)`。
-- [ ] 4. `StatusBar.tsx`（`{ routeId, onJumpToTurn }`）：`useQuery(status)`；`columns` 为空且 `closed` 为空时什么都不渲染；否则一个带 `h2`（「当前状态」）的 `section`，列出 `columns`；`closed` 不为空时末尾一个折叠的「已了结（N）」（`aria-expanded`），展开后同样列出。
+- [ ] 2. `StatusColumn.tsx`（一个栏目；版式照 T01 稿子 `play-status-hints-light.png`、`play-status-history-light.png`）：
+  - 栏目本身不是按钮：按钮的子元素对读屏是“仅展示”的，里面的 `role="meter"` 会失去数值。第一行是 `label`，右上角一个 `history` 图标按钮（`IconButton`，`label` 为 `status.historyTitle` 插值栏目名，`aria-expanded`）打开来历气泡，有来历的栏目才显示它；本回合变了的栏目整块用 `--uw-*` 的强调底色（和 M2 的“刚变化”高亮同一个 token）。
+  - `number`：`value` 加“/ max”（`status.ofMax`）和单位；有增减时紧跟增减标记；`min`、`max` 都有时下面一条进度条，`role="meter"`，`aria-valuemin`、`aria-valuemax`、`aria-valuenow`，宽度用 CSS 自定义属性 `--status-ratio`（`style` 只写自定义属性，[主题与 token §10](../docs/theme.md#10-组件怎样使用-token)）。
+  - `stage`：当前阶段名，后面跟 `status.step`（“第 1 步，共 4 步”），下面一排分段（`total` 段，前 `step` 段填满）。
+  - `list`：每项一行：状态图标（`circle` 进行中、`circle-check` 已完成、`circle-x` 落空）、条目原文；已完成和落空在条目后写状态文字；进行中只有图标，另加 `VisuallyHidden` 的“进行中”，所以状态不只靠图标。`change` 为 `new` 的条目后加「新」徽标，`changed` 的条目整行用变化高亮。
+  - `text`：原文；`changed` 时下面一行“原来：…”。
+  - 变化标记都是文字，不只靠颜色：`isNew` → 标题旁「新」徽标；数字写增减（`+2` / `−1`）；文字写“原来：…”；阶段写“原来在第 N 步”。
+  - 栏目两列排布（宽窗两列、窄窗一列），清单和阶段栏目占满一行。
+- [ ] 3. `StatusHistory.tsx`：用 Base UI 的 `Popover`（`@base-ui/react` 已安装）做来历气泡，锚在栏目的来历图标按钮下方。标题 `status.historyTitle`（插值栏目名）；每条变化一段：第一行“第 N 回合”（`depth === 0` 写“开场”），最新的一条后加「当前」徽标；第二行是那时的显示文字；第三行文字按钮「跳回这一回合」，调用 `onJumpToTurn(turnId)` 并关闭气泡；末尾一行说明 `status.historyNote`。按 Esc 关闭，焦点回到栏目按钮。
+- [ ] 4. `StatusBar.tsx`（`{ routeId, onJumpToTurn }`）：`useQuery(status)`；`columns` 为空且 `closed` 为空时什么都不渲染；否则一张卡片样式的 `section`，标题 `h2`「当前状态」，列出 `columns`；`closed` 不为空时末尾一行可展开的“已了结 N 项：<栏目名，用、连接>”（`chevron-right` 图标，`aria-expanded`），展开后同样列出这些栏目。
 - [ ] 5. `OptionList.tsx`：`options` 的类型改为 `Array<{ text: string; hint: string | null }>`；有 `hint` 时在选项按钮里、文字下方另起一行显示，按钮用 `aria-describedby` 关联这一行。
 - [ ] 6. `EndedPanel.tsx`（`{ workId }`）：一个带 `h2`（「故事到这里结束了」）的 `section`，一段说明，「重新开局」（`Link` 到 `/works/$workId/start`）和「返回作品库」。
 - [ ] 7. `PlayPage.tsx`：
@@ -2638,8 +2641,8 @@ W9   T28 真实模型走查与收口（依赖 T27）
   - `onJumpToTurn(turnId)`：滚到 `turnHeadingId(turnId)` 对应的元素并聚焦，复用 `jumpToSource` 的高亮写法（高亮目标是回合标题）。
   - 宣告区：路线刚变成完结时播报一次「故事到这里结束了」。
 - [ ] 8. 测试：
-  - `StatusColumn.test.tsx`：`数字栏目给出进度条的可读数值`（`getByRole('meter')` 的 `aria-valuenow` 为 `'3'`）；`阶段栏目只写当前阶段名`（给视图里本来就没有未到达的阶段名，断言渲染出的文字含“第 2 / 4 步”）；`变化用文字标出`（`changed`、`previous: 5`、`value: 3` 时有“−2”）；`清单状态不只靠图标`（有“已完成”文字）；axe。
-  - `StatusBar.test.tsx`：`没有栏目时不渲染`；`已了结的栏目默认收起`；`来历能跳回回合`（点按钮后 `onJumpToTurn` 收到 `turnId`）。
+  - `StatusColumn.test.tsx`：`数字栏目给出进度条的可读数值`（`getByRole('meter')` 的 `aria-valuenow` 为 `'3'`）；`阶段栏目只写当前阶段名`（给视图里本来就没有未到达的阶段名，断言渲染出的文字含“第 2 步，共 4 步”）；`变化用文字标出`（`changed`、`previous: 5`、`value: 3` 时有“−2”）；`清单状态不只靠图标`（有“已完成”文字）；axe。
+  - `StatusBar.test.tsx`：`没有栏目时不渲染`；`已了结的栏目默认收起`；`来历能跳回回合`（点栏目的来历图标按钮打开气泡，再点「跳回这一回合」，`onJumpToTurn` 收到 `turnId`，气泡关闭）；`进行中的清单条目有可读的状态文字`（`getByText('进行中')` 存在，即使视觉上隐藏）。
   - `OptionList.test.tsx`（新建或补）：`提醒用 aria-describedby 关联`。
   - `PlayPage.test.tsx` 补：`完结后不显示行动输入，提供重新开局`（`ended: true` 时没有 `getByRole('textbox', { name: '你的行动' })`，有链接「重新开局」）；`回合提交后重新读取状态栏`（模拟事件流的 `turn.committed` 后，假 API 记下第二次 `play.getStatus`）。
   - `EndedPanel.test.tsx`：axe。
@@ -2657,7 +2660,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
 - `pnpm --filter @unwritten/client test` 通过。
 - 突变一：`PlayPage` 在 `ended` 时仍然渲染行动区，`完结后不显示行动输入，提供重新开局` 必须红。
 - 突变二：在 `App.tsx` 里删掉让 `status` 失效的那一行（这一行属于 T24，突变只为验证本任务的用例，测完改回），`回合提交后重新读取状态栏` 必须红。
-- 突变三：清单状态只渲染图标，`清单状态不只靠图标` 必须红。
+- 突变三：去掉进行中条目的 `VisuallyHidden` 文字，`进行中的清单条目有可读的状态文字` 必须红。
 
 ### T26 core 装配、集成测试、过渡字段清理
 
@@ -2735,7 +2738,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
 ---
 ## 附录 A · 中文文案
 
-照抄。键的层级就是 JSON 的嵌套层级。已经存在的键不要改。
+照抄。键的层级就是 JSON 的嵌套层级。已经存在的键不要改。**对象已经存在时只往里加键，不要整块替换**：例如 `authoring.json` 里已有 `preview`、`cast`、`published`，`play.json` 里已有 `options`；下面各块里同名的对象都是“往里加”。
 
 ### A.1 errors（T10）
 
@@ -2815,7 +2818,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
     "intro": "这是 AI 对这个故事的理解。标着「AI 补全」的是它替你拟的，可以直接改。",
     "source": { "author": "作者", "ai": "AI 补全", "author_confirmed": "作者确认" },
     "summary": { "identity": "玩家身份", "tone": "基调", "situation": "开场处境", "world": "世界", "public_setting": "公开设定" },
-    "group": { "entities": "人物与地点", "secrets": "幕后", "state": "状态栏", "scenes": "关键场面", "ending": "结束条件" },
+    "group": { "summary": "摘要", "entities": "人物与地点", "secrets": "幕后", "state": "状态栏", "scenes": "关键场面", "ending": "结束条件" },
     "entityKind": { "character": "人物", "place": "地点", "item": "物品", "group": "组织", "other": "其他" },
     "entity": {
       "role": { "protagonist": "主角", "cast": "主要人物", "other": "其他" },
@@ -2829,7 +2832,12 @@ W9   T28 真实模型走查与收口（依赖 T27）
       "reveal": "揭晓条件：{{text}}",
       "show": "查看幕后设定",
       "hide": "收起幕后设定",
-      "editLocked": "先查看幕后设定，再修改"
+      "foldedTitle": "幕后已折叠 · {{count}} 条",
+      "foldedHelp": "点「查看幕后设定」才会显示具体内容。",
+      "expandedTitle": "幕后已展开",
+      "expandedHelp": "玩家看不到这些内容，只能在故事里慢慢发现。",
+      "titleLine": "秘密 · {{title}}",
+      "statement": "真相：{{text}}"
     },
     "state": {
       "display": { "number": "数字", "stage": "阶段", "list": "清单", "text": "文字" },
@@ -2841,7 +2849,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
     },
     "scene": { "once": "只发生一次", "repeat": "可以重复发生" },
     "ending": { "folded": "已写结束条件", "none": "开放式，没有结束条件" },
-    "item": { "edit": "修改", "remove": "删除", "save": "保存", "cancel": "取消" },
+    "item": { "edit": "修改", "editLabel": "修改「{{title}}」", "remove": "删除", "save": "保存", "cancel": "取消" },
     "remove": { "title": "删除这一项？", "description": "删除之后，重新生成方案时 AI 可能会再拟一项。", "confirm": "删除" },
     "edit": { "invalid": "这一项的内容不完整，或超出了长度" },
     "field": {
@@ -2855,6 +2863,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
     "adoptStale": "仍然采用",
     "confirm": "确认方案，生成开场",
     "confirmed": "方案已确认",
+    "staleTitle": "这份方案基于修改前的设定",
     "confirmDisabled": { "empty": "还没有方案", "running": "方案还在生成" }
   },
   "placeholder": { "token": "「{{name}}」" }
@@ -2866,7 +2875,8 @@ W9   T28 真实模型走查与收口（依赖 T27）
 ```json
 {
   "steps": { "label": "创作步骤", "background": "背景", "plan": "方案", "opening": "开场" },
-  "opening": { "heading": "开场" },
+  "opening": { "heading": "开场", "intro": "按确认后的方案写出的开场。采用后存入作品库，玩家点「开始故事」就从这里读起。" },
+  "cast": { "headingOpening": "开场里新出现的" },
   "preview": {
     "regenerate": "重新生成开场",
     "hint": "提醒：{{text}}",
@@ -2897,6 +2907,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
 ```json
 {
   "start": {
+    "heading": "开始故事",
     "intro": "开局前，先告诉故事几件事。留空的项目会用作者给的默认值。",
     "fieldHelp": "留空时用「{{value}}」",
     "submit": "开始故事",
@@ -2905,6 +2916,8 @@ W9   T28 真实模型走查与收口（依赖 T27）
   },
   "openingRequest": {
     "pending": "正在为这一局准备人物和开场",
+    "pendingHelp": "主要人物每局都不一样。可以离开这一页，生成完成后从作品库继续。",
+    "keptCast": "这一局已经确定的人物会保留，重试时沿用。",
     "failed": "这一局的开场没有生成成功",
     "retry": "重试这次开局",
     "back": "返回作品库"
@@ -2923,13 +2936,16 @@ W9   T28 真实模型走查与收口（依赖 T27）
     "decrease": "−{{delta}}",
     "previousText": "原来：{{text}}",
     "previousStep": "原来在第 {{step}} 步",
-    "step": "第 {{step}} / {{total}} 步",
+    "step": "第 {{step}} 步，共 {{total}} 步",
+    "ofMax": "/ {{max}}",
     "item": { "open": "进行中", "done": "已完成", "failed": "落空", "new": "新", "changed": "变了" },
-    "history": "来历",
-    "historyEntry": "第 {{depth}} 回合：{{text}}",
-    "historyOpening": "开场：{{text}}",
+    "historyTitle": "{{label}}的来历",
+    "historyEntry": "第 {{depth}} 回合",
+    "historyOpening": "开场",
+    "historyCurrent": "当前",
+    "historyNote": "只列出这一栏显示以来的变化。",
     "jump": "跳回这一回合",
-    "closed": "已了结（{{count}}）"
+    "closed": "已了结 {{count}} 项：{{labels}}"
   },
   "options": { "hint": "提醒：{{text}}" },
   "ended": {
@@ -3400,12 +3416,36 @@ W9   T28 真实模型走查与收口（依赖 T27）
 
 | 波次 | 集成分支提交 | `pnpm typecheck` | `pnpm lint` | `pnpm test` | 文档链接 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- |
-| W0 | | | | | | |
+| W0 · T00、T01 | worktree `m3-t00-docs`（未提交） | — | — | — | 通过 | 只改 docs；三遍审计第 1、2 遍零命中，第 3 遍命中 1 处，是契约值 `DESKTOP_LOG_BUFFER_MAX`（64），保留 |
 
 ### 6.2a W0 · T01 Figma 校准记录
 
+Figma 文件 Prototype 页新增 section “Milestone 3 · 作者设定”和 “Milestone 3 · 开局与状态栏”，都从原型旧稿和 M2 的帧克隆后改成 M3 的范围（三步向导、没有工作站和试玩、没有存档按钮）。深色稿按变量名把 `Theme · Light` 的绑定换成 `Theme · Dark`。
+
 | 截图（`tasks/assets/milestone-3/`） | 来源 | 说明 |
 | --- | --- | --- |
+| `authoring-settings-light.png` | 新画 | 背景步骤：补充设定展开，三处写作要求、八节逐节排列；主角填写项两行加“哪一项是主角的名字”；主要人物、开场、行动提示的分段控件；开场原文里的「名字」占位符和「插入填写项」 |
+| `authoring-plan-light.png`、`authoring-plan-dark.png` | 原型改 | 方案：摘要、人物与地点、状态栏、关键场面四组，来源徽标「AI 补全」「作者」，铅笔按钮修改；幕后已折叠卡；底部重新生成与确认 |
+| `authoring-plan-backstage-conflict-light.png` | 新画 | 生成期间改过设定的提示卡（仍然采用 / 重新生成）、两条设定互相矛盾卡、幕后展开（秘密三行、结束条件） |
+| `authoring-opening-review-light.png` | M2 改 | 开场步骤：公开设定、开场里新出现的、开局状态、纸面预览（两个选项带提醒）、这些句子需要先改、采用按钮禁用及原因 |
+| `start-fields-light.png` | 原型改 | 开局页：两个填写项，占位为默认值，下方“留空时用「…」” |
+| `start-pending-light.png`、`start-failed-light.png` | 新画 | 每局生成：正在准备人物和开场（生成中标记）；开场没有生成成功（诊断编号、重试这次开局、返回作品库） |
+| `play-status-hints-light.png`、`play-status-hints-dark.png` | 原型改 | 状态栏全貌：两列栏目、数字“7 / 10 +1”加进度条、阶段“第 1 步，共 4 步”加分段条、清单的图标与状态、「新」徽标、已了结；推荐行动下的提醒 |
+| `play-status-history-light.png` | 原型改 | 点开栏目后的来历气泡，“跳回这一回合” |
+| `play-ended-light.png` | 新画 | 完结：状态栏之后的“故事到这里结束了”，重新开局与返回作品库；不显示推荐行动和输入框 |
+
+**稿子与本文不一致时的处置**（稿子符合设计文档就改本文）：
+
+| 差异 | 处置 |
+| --- | --- |
+| 方案每项右边是铅笔图标按钮，没有行内「删除」 | 改 T22 第 3、4 步：删除放进编辑表单 |
+| 来源徽标都是中性色，只靠文字区分 | 改 T22 第 1 步 |
+| 方案按“摘要、人物与地点、状态栏、关键场面、幕后”分组；幕后是一张折叠控制卡 | 改 T22 第 3、6 步，附录 A.2 加 `group.summary`、`secret.foldedTitle` 等键 |
+| 稿子折叠时只写“幕后已折叠 · 2 条”，不列标题 | 保留本文写法：折叠时列出无剧透标题，因为[创作工作站 §6](../docs/author-workstation.md#6-工具)规定折叠时给标题；稿子是简化画法 |
+| 开场步骤的卡片顺序、待改句子卡在预览之后、采用不可用的原因在按钮左边 | 改 T23 第 3、4 步，附录 A.2 加 `opening.intro`、`cast.headingOpening` |
+| 开局页、生成中、失败页都有 `h2` 和说明 | 改 T24 第 4、5 步，附录 A.4 加 `start.heading`、`openingRequest.pendingHelp`、`keptCast` |
+| 状态栏的来历是锚在栏目上的气泡，整个栏目可点；阶段写“第 1 步，共 4 步”；数字写“7 / 10”；已了结写“已了结 1 项：…”；进行中的清单条目只有图标 | 改 T25 第 2–4 步（来历用 Base UI 的 Popover；进行中加视觉隐藏文字），附录 A.4 改 `step`、`closed`，加 `ofMax`、`historyTitle`、`historyCurrent`、`historyNote` |
+| 原型旧稿的补充设定用一排标签切换各节 | 本文和新稿都是逐节排列，不改：共享部件里没有标签页组件，逐节排列不需要新部件 |
 
 ### 6.3 突变账
 
