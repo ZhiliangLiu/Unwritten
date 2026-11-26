@@ -14,7 +14,41 @@ function readRows(dir: string, table: 'diagnostic_events' | 'performance_samples
   }
 }
 
+async function waitUntil(check: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 200 && !check(); attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 describe('createLogger', () => {
+  it('入队后自行落库，不需要显式 flush', async () => {
+    const temp = makeTempDataDir();
+    const logger = createLogger({ dataDir: temp.dir, level: 'info', appVersion: '1.0.0' });
+    logger.record({ level: 'info', module: 'core', event: 'core.started' });
+    logger.sample({ metric: 'core.startup', durationMs: 1, outcome: 'ok' });
+    await waitUntil(() => readRows(temp.dir, 'performance_samples').length > 0);
+    const events = readRows(temp.dir, 'diagnostic_events');
+    const samples = readRows(temp.dir, 'performance_samples');
+    await logger.close();
+    temp.cleanup();
+
+    expect(events.map((row) => row.event)).toEqual(['core.started']);
+    expect(samples.map((row) => row.metric)).toEqual(['core.startup']);
+  });
+
+  it('关闭之后不再重新打开诊断库', async () => {
+    const temp = makeTempDataDir();
+    const logger = createLogger({ dataDir: temp.dir, level: 'info', appVersion: '1.0.0' });
+    logger.record({ level: 'info', module: 'core', event: 'before-close' });
+    await logger.close();
+    logger.record({ level: 'info', module: 'core', event: 'after-close' });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const events = readRows(temp.dir, 'diagnostic_events');
+    temp.cleanup();
+
+    expect(events.map((row) => row.event)).toEqual(['before-close']);
+  });
+
   it('写入运行事件和性能样本', async () => {
     const temp = makeTempDataDir();
     const logger = createLogger({ dataDir: temp.dir, level: 'info', appVersion: '1.0.0' });
@@ -135,8 +169,10 @@ describe('createLogger', () => {
     const events = readRows(temp.dir, 'diagnostic_events');
     await logger.close();
     temp.cleanup();
+    const enqueueSchedule = 1;
+    const batchYields = 2;
     expect(events).toHaveLength(200);
-    expect(scheduled).toBe(2);
+    expect(scheduled).toBe(enqueueSchedule + batchYields);
   });
 
   it('不写入凭据和自由文本以外的敏感字段', async () => {

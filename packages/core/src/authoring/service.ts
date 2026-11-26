@@ -6,6 +6,7 @@ import { appError } from '../errors.ts';
 import type { AuthoringService, CoreDeps, LlmService } from '../services.ts';
 import { previewJobView } from '../library/service.ts';
 import { PREVIEW_TOOL_NAME, PREVIEW_TOOL_PARAMETERS, parsePreviewArgs } from './preview-tool.ts';
+import type { PreviewField } from './preview-tool.ts';
 import { PREVIEW_SYSTEM_PROMPT, buildPreviewPrompt } from './preview-prompt.ts';
 import { jobs, playthroughs, routes, turns, workVersions, works } from '../store/schema.ts';
 import type { PreviewJobResult, VersionMeta } from '../store/meta.ts';
@@ -42,6 +43,7 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
     let preview: Preview | null = null;
     let changes: ValidatedChanges | null = null;
     let corrections = 0;
+    const rejected: { last: { errorCount: number; fields: PreviewField[] } | null } = { last: null };
     const tool: LlmTool = {
       name: PREVIEW_TOOL_NAME,
       description: '提交开场预览的标题、简介、公开设定、正文、推荐行动和场景。',
@@ -49,12 +51,15 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
       async execute(args) {
         const started = performance.now();
         const parsed = parsePreviewArgs(args);
+        const failure = parsed.ok ? null : { errorCount: parsed.errors.length, fields: parsed.fields };
+        if (failure) rejected.last = failure;
         deps.logger.sample({
           metric: 'preview.validate',
           durationMs: performance.now() - started,
           outcome: parsed.ok ? 'ok' : 'error',
           jobId,
           workId: job.workId,
+          data: failure ?? undefined,
         });
         if (parsed.ok) {
           preview = parsed.value.preview;
@@ -86,6 +91,11 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
     if (!errorCode && !preview) errorCode = 'invalid_output';
 
     const now = Date.now();
+    const lastFailure = rejected.last;
+    const failureData =
+      errorCode === 'invalid_output' && lastFailure !== null
+        ? { code: errorCode, errorCount: lastFailure.errorCount, fields: lastFailure.fields }
+        : { code: errorCode };
     if (errorCode) {
       deps.db
         .update(jobs)
@@ -99,7 +109,7 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
         event: 'preview.job.failed',
         jobId,
         workId: job.workId,
-        data: { code: errorCode },
+        data: failureData,
       });
       deps.logger.sample({
         metric: 'preview.total',

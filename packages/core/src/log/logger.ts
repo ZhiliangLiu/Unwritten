@@ -129,6 +129,8 @@ export function createLogger(options: LoggerOptions): Logger {
   let reportedFailure = false;
   let lastCleanupDay = '';
   let flushing: Promise<void> | null = null;
+  let scheduled = false;
+  let closed = false;
   const minimumLevel = LEVEL_VALUE[options.level];
 
   const reportFailure = () => {
@@ -290,6 +292,16 @@ export function createLogger(options: LoggerOptions): Logger {
     return flushing;
   };
 
+  const scheduleFlush = () => {
+    if (closed || scheduled || flushing) return;
+    scheduled = true;
+    schedule(() => {
+      scheduled = false;
+      if (closed) return;
+      void startFlush();
+    });
+  };
+
   ensureOpen();
 
   return {
@@ -313,6 +325,7 @@ export function createLogger(options: LoggerOptions): Logger {
         callId: event.callId ?? null,
         data: encodeData(event.data),
       });
+      scheduleFlush();
     },
     sample(sample) {
       if (queue.length >= QUEUE_LIMIT) {
@@ -336,11 +349,13 @@ export function createLogger(options: LoggerOptions): Logger {
         attempt: sample.attempt ?? null,
         data: encodeData(sample.data),
       });
+      scheduleFlush();
     },
     flush() {
       return startFlush();
     },
     async close() {
+      closed = true;
       await startFlush();
       closeClient();
     },
