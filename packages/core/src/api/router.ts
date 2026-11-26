@@ -1,30 +1,14 @@
-import { ORPCError, implement, os } from '@orpc/server';
-import { ERROR_CODES, type ErrorCode } from '@unwritten/contracts';
-import { contract } from '@unwritten/contracts';
-import { appError } from '../errors.ts';
+import { implement, os } from '@orpc/server';
+import { contract, type ErrorCode } from '@unwritten/contracts';
 import type { Services } from '../services.ts';
-
-const errorCodes = new Set<string>(ERROR_CODES);
+import { rpcError } from './rpc-error.ts';
 
 export function createRouter(services: Services) {
-  const errorMiddleware = os.middleware(async ({ next }) => {
+  const errorMiddleware = os.middleware(async ({ next, path }, input) => {
     try {
       return await next();
     } catch (error) {
-      if (error instanceof ORPCError) {
-        if (errorCodes.has(error.code)) {
-          services.logger.record({
-            level: 'warn',
-            module: 'api',
-            event: 'rpc.failed',
-            data: { code: error.code },
-          });
-          throw error;
-        }
-        if (error.code === 'BAD_REQUEST') throw appError('invalid_input', error.message);
-      }
-      services.logger.record({ level: 'error', module: 'api', event: 'rpc.crashed', data: { code: 'internal' } });
-      throw appError('internal', 'unexpected error');
+      throw rpcError(services.logger, error, path.join('.'), input);
     }
   });
 

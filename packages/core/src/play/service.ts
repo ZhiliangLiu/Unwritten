@@ -10,6 +10,7 @@ import type {
   TurnView,
 } from '@unwritten/contracts';
 import { appError } from '../errors.ts';
+import { diagnosticFault, storageError } from '../log/fault.ts';
 import type { CoreDeps, LlmService, PlayService, SummaryService } from '../services.ts';
 import { playthroughs, routes, turnRequests, turns, workVersions, works } from '../store/schema.ts';
 import type { StoredAction, StoredScene, TurnRequestLog, VersionMeta } from '../store/meta.ts';
@@ -104,14 +105,38 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
     };
   };
 
-  const runTurnRequest = async (requestId: string): Promise<void> => {
+  const saveFailure = (
+    requestId: string,
+    routeId: string,
+    attempt: number,
+    code: NonNullable<TurnRequestView['error']>,
+    log?: TurnRequestLog,
+  ) => {
+    try {
+      const updated = deps.db
+        .update(turnRequests)
+        .set({ status: 'failed', error: code, log, updatedAt: Date.now() })
+        .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
+        .run();
+      if (updated.changes) deps.bus.publish({ type: 'turn_request.updated', routeId, requestId, status: 'failed' });
+    } catch (error) {
+      const fault = diagnosticFault(error);
+      deps.logger.record({
+        level: 'error',
+        module: 'play',
+        event: 'turn.request.failed',
+        requestId,
+        data: { code: storageError(fault) ?? 'save', attempt, stage: 'failure_state', ...fault },
+      });
+    }
+  };
+
+  const runTurnRequest = async (requestId: string, attemptStartedAt: number): Promise<void> => {
     const request = deps.db.select().from(turnRequests).where(eq(turnRequests.id, requestId)).get();
     if (!request || request.status !== 'running' || !request.routeId) return;
-    const attemptStartedAt = performance.now();
-    const queuedAt = Date.now();
     deps.logger.sample({
       metric: 'turn.queue',
-      durationMs: Math.max(0, queuedAt - request.updatedAt),
+      durationMs: performance.now() - attemptStartedAt,
       outcome: 'ok',
       requestId,
       attempt: request.attempts,
@@ -127,12 +152,15 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
     const chain = ancestorChain(deps.db, parentId);
     const model = deps.llm.resolve('narrator');
     if (!model) {
-      deps.db
-        .update(turnRequests)
-        .set({ status: 'failed', error: 'llm_not_configured', updatedAt: Date.now() })
-        .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
-        .run();
-      deps.bus.publish({ type: 'turn_request.updated', routeId: route.id, requestId, status: 'failed' });
+      deps.logger.record({
+        level: 'warn',
+        module: 'play',
+        event: 'turn.request.failed',
+        requestId,
+        workId: version.workId,
+        data: { code: 'llm_not_configured', stage: 'configuration', attempt: request.attempts },
+      });
+      saveFailure(requestId, route.id, request.attempts, 'llm_not_configured');
       deps.logger.sample({
         metric: 'turn.total',
         durationMs: performance.now() - attemptStartedAt,
@@ -196,12 +224,15 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
     });
     const log: TurnRequestLog = [];
     if (!context.ok) {
-      deps.db
-        .update(turnRequests)
-        .set({ status: 'failed', error: context.code, log, updatedAt: Date.now() })
-        .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
-        .run();
-      deps.bus.publish({ type: 'turn_request.updated', routeId: route.id, requestId, status: 'failed' });
+      deps.logger.record({
+        level: 'warn',
+        module: 'play',
+        event: 'turn.request.failed',
+        requestId,
+        workId: version.workId,
+        data: { code: context.code, stage: 'context', attempt: request.attempts },
+      });
+      saveFailure(requestId, route.id, request.attempts, context.code, log);
       deps.logger.sample({
         metric: 'turn.total',
         durationMs: performance.now() - attemptStartedAt,
@@ -294,6 +325,7 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
       proposeTool,
     ];
 
+    let modelFault: ReturnType<typeof diagnosticFault> | undefined;
     let errorCode: TurnRequestView['error'] = null;
     try {
       await deps.llm.run({
@@ -306,26 +338,32 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
         ref: { kind: 'turn_request', id: requestId, attempt: request.attempts, workId: version.workId },
       });
     } catch (error) {
-      errorCode = error instanceof LlmRunError ? error.code : 'internal';
+      if (error instanceof LlmRunError) {
+        errorCode = error.code;
+      } else {
+        modelFault = diagnosticFault(error);
+        errorCode = storageError(modelFault) ?? 'internal';
+      }
     }
 
     const proposal = proposalHolder.value;
     if (!errorCode && !proposal) errorCode = 'invalid_output';
     const now = Date.now();
     if (errorCode) {
-      deps.db
-        .update(turnRequests)
-        .set({ status: 'failed', error: errorCode, log, updatedAt: now })
-        .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
-        .run();
-      deps.bus.publish({ type: 'turn_request.updated', routeId: route.id, requestId, status: 'failed' });
       deps.logger.record({
         level: 'warn',
         module: 'play',
         event: 'turn.request.failed',
         requestId,
-        data: { attempt: request.attempts, code: errorCode },
+        data: {
+          attempt: request.attempts,
+          code: errorCode,
+          stage: errorCode === 'invalid_output' && corrections > 0 ? 'validation' : 'model',
+          corrections,
+          ...modelFault,
+        },
       });
+      saveFailure(requestId, route.id, request.attempts, errorCode, log);
       deps.logger.sample({
         metric: 'turn.total',
         durationMs: performance.now() - attemptStartedAt,
@@ -411,29 +449,33 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
         },
         { behavior: 'immediate' },
       );
-    } catch {
-      const failedAt = Date.now();
-      deps.db
-        .update(turnRequests)
-        .set({ status: 'failed', error: 'save', log, updatedAt: failedAt })
-        .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
-        .run();
-      deps.bus.publish({ type: 'turn_request.updated', routeId: route.id, requestId, status: 'failed' });
+    } catch (error) {
+      const fault = diagnosticFault(error);
+      const code = storageError(fault) ?? 'save';
       deps.logger.sample({
         metric: 'turn.commit',
         durationMs: performance.now() - commitStartedAt,
         outcome: 'error',
         requestId,
         attempt: request.attempts,
-        data: { code: 'save' },
+        data: { code },
       });
+      deps.logger.record({
+        level: 'error',
+        module: 'play',
+        event: 'turn.request.failed',
+        workId: version.workId,
+        requestId,
+        data: { attempt: request.attempts, code, stage: 'commit', ...fault },
+      });
+      saveFailure(requestId, route.id, request.attempts, code, log);
       deps.logger.sample({
         metric: 'turn.total',
         durationMs: performance.now() - attemptStartedAt,
         outcome: 'error',
         requestId,
         attempt: request.attempts,
-        data: { code: 'save' },
+        data: { code },
       });
       return;
     }
@@ -489,40 +531,30 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
     });
   };
 
-  const failBackgroundRequest = (requestId: string, startedAt: number) => {
-    const request = deps.db.select().from(turnRequests).where(eq(turnRequests.id, requestId)).get();
-    if (!request?.routeId) return;
-    deps.db
-      .update(turnRequests)
-      .set({ status: 'failed', error: 'internal', updatedAt: Date.now() })
-      .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
-      .run();
-    deps.bus.publish({
-      type: 'turn_request.updated',
-      routeId: request.routeId,
-      requestId,
-      status: 'failed',
-    });
-    deps.logger.record({
-      level: 'error',
-      module: 'play',
-      event: 'turn.request.failed',
-      requestId,
-      data: { attempt: request.attempts, code: 'internal' },
-    });
-    deps.logger.sample({
-      metric: 'turn.total',
-      durationMs: performance.now() - startedAt,
-      outcome: 'error',
-      requestId,
-      attempt: request.attempts,
-      data: { code: 'internal' },
-    });
-  };
-
-  const startTurnRequest = (requestId: string) => {
+  const startTurnRequest = (requestId: string, routeId: string, attempt: number) => {
     const startedAt = performance.now();
-    void queue.add(() => runTurnRequest(requestId)).catch(() => failBackgroundRequest(requestId, startedAt));
+    void queue.add(() =>
+      runTurnRequest(requestId, startedAt).catch((error: unknown) => {
+        const fault = diagnosticFault(error);
+        const code = storageError(fault) ?? 'internal';
+        deps.logger.record({
+          level: 'error',
+          module: 'play',
+          event: 'turn.request.failed',
+          requestId,
+          data: { code, attempt, stage: 'background', ...fault },
+        });
+        saveFailure(requestId, routeId, attempt, code);
+        deps.logger.sample({
+          metric: 'turn.total',
+          durationMs: performance.now() - startedAt,
+          outcome: 'error',
+          requestId,
+          attempt,
+          data: { code },
+        });
+      }),
+    );
   };
 
   return {
@@ -576,25 +608,21 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
           if (active) throw appError('request_in_progress', 'another request is running');
           if (!deps.llm.resolve('narrator')) throw appError('llm_not_configured', 'no narrator model');
           const now = Date.now();
-          try {
-            tx.insert(turnRequests)
-              .values({
-                id: input.requestId,
-                playthroughId: route.playthroughId,
-                routeId: route.id,
-                kind: 'continue',
-                expectedHeadTurnId: route.headTurnId,
-                parentTurnId: route.headTurnId,
-                action: input.action,
-                status: 'running',
-                attempts: 1,
-                createdAt: now,
-                updatedAt: now,
-              })
-              .run();
-          } catch {
-            throw appError('request_in_progress', 'another request is running');
-          }
+          tx.insert(turnRequests)
+            .values({
+              id: input.requestId,
+              playthroughId: route.playthroughId,
+              routeId: route.id,
+              kind: 'continue',
+              expectedHeadTurnId: route.headTurnId,
+              parentTurnId: route.headTurnId,
+              action: input.action,
+              status: 'running',
+              attempts: 1,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .run();
           const row = tx.select().from(turnRequests).where(eq(turnRequests.id, input.requestId)).get();
           return { view: requestView(row!), created: true, routeId: route.id };
         },
@@ -614,7 +642,7 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
           requestId: input.requestId,
           data: { attempt: 1 },
         });
-        startTurnRequest(input.requestId);
+        startTurnRequest(input.requestId, result.routeId, result.view.attempts);
       }
       return result.view;
     },
@@ -666,7 +694,7 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
           requestId: input.requestId,
           data: { attempt: result.view.attempts },
         });
-        startTurnRequest(input.requestId);
+        startTurnRequest(input.requestId, result.routeId, result.view.attempts);
       } else if (result.action === 'superseded') {
         deps.bus.publish({
           type: 'turn_request.updated',

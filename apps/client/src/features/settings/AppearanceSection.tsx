@@ -69,7 +69,7 @@ export function AppearanceSection() {
     <>
       <section id={SETTINGS_SECTION_IDS.appearance} className={styles.section}>
         <h2 className={styles.heading}>{t('settings:appearance.heading')}</h2>
-        <ErrorNotice error={settingsQuery.error} />
+        <ErrorNotice error={settingsQuery.error ?? update.error} />
         <div className={styles.optionRow}>
           <RadioGroup
             label={t('settings:appearance.theme')}

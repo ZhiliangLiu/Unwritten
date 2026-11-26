@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ErrorCodeSchema } from '../errors.ts';
 import { UuidSchema } from './common.ts';
 
-const ClientAreaSchema = z.enum(['library', 'authoring', 'play', 'settings', 'app']);
+const ClientAreaSchema = z.enum(['library', 'authoring', 'play', 'settings', 'app', 'render', 'events']);
 const SampleBase = {
   kind: z.literal('sample'),
   durationMs: z.number().finite().nonnegative(),

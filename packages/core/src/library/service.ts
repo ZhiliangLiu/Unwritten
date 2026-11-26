@@ -127,7 +127,10 @@ export function createLibraryService(deps: CoreDeps): LibraryService {
         },
         { behavior: 'immediate' },
       );
-      if (created) deps.bus.publish({ type: 'works.changed', workId: input.workId });
+      if (created) {
+        deps.bus.publish({ type: 'works.changed', workId: input.workId });
+        deps.logger.record({ level: 'info', module: 'library', event: 'work.created', workId: input.workId });
+      }
       return getWork(input);
     },
     get: getWork,
@@ -153,7 +156,16 @@ export function createLibraryService(deps: CoreDeps): LibraryService {
         },
         { behavior: 'immediate' },
       );
-      if (result.changed) deps.bus.publish({ type: 'works.changed', workId: input.workId });
+      if (result.changed) {
+        deps.bus.publish({ type: 'works.changed', workId: input.workId });
+        deps.logger.record({
+          level: 'info',
+          module: 'library',
+          event: 'work.background.saved',
+          workId: input.workId,
+          data: { contentRev: result.contentRev },
+        });
+      }
       return { contentRev: result.contentRev };
     },
     delete(input: WorkIdInput): Record<string, never> {

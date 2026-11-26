@@ -12,6 +12,7 @@ export type SampleSource = 'core' | 'client' | 'desktop';
 export type SampleOutcome = 'ok' | 'error' | 'interrupted';
 
 export interface LogEvent {
+  id?: string;
   level: LogLevel;
   module: string;
   event: string;
@@ -130,7 +131,7 @@ export function createLogger(options: LoggerOptions): Logger {
   let lastCleanupDay = '';
   let flushing: Promise<void> | null = null;
   let scheduled = false;
-  let closed = false;
+  let closing: Promise<void> | null = null;
   const minimumLevel = LEVEL_VALUE[options.level];
 
   const reportFailure = () => {
@@ -155,11 +156,11 @@ export function createLogger(options: LoggerOptions): Logger {
     try {
       mkdirSync(options.dataDir, { recursive: true });
       const opened = new DatabaseSync(join(options.dataDir, 'diagnostics.db'));
+      client = opened;
       opened.exec('PRAGMA busy_timeout = 0');
       opened.exec('PRAGMA journal_mode = WAL');
       const db = drizzle({ client: opened });
       migrate(db, { migrationsFolder: migrationsFolder() });
-      client = opened;
       insertEvent = opened.prepare(
         `insert into diagnostic_events
           (id, created_at, run_id, level, module, event, work_id, request_id, job_id, call_id, data)
@@ -171,7 +172,6 @@ export function createLogger(options: LoggerOptions): Logger {
            work_id, request_id, job_id, call_id, attempt, data)
          values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       );
-      reportedFailure = false;
       cleanup(clock());
       return true;
     } catch {
@@ -234,6 +234,7 @@ export function createLogger(options: LoggerOptions): Logger {
         }
       }
       client.exec('COMMIT');
+      reportedFailure = false;
       cleanup(now);
     } catch (error) {
       try {
@@ -247,11 +248,6 @@ export function createLogger(options: LoggerOptions): Logger {
 
   const doFlush = async (): Promise<void> => {
     while (queue.length || dropped > 0) {
-      if (!ensureOpen()) {
-        dropped += queue.length;
-        queue.length = 0;
-        return;
-      }
       const batch = queue.splice(0, BATCH_LIMIT);
       const includeDropped = dropped > 0 && batch.length < BATCH_LIMIT;
       if (includeDropped) {
@@ -270,14 +266,21 @@ export function createLogger(options: LoggerOptions): Logger {
           data: JSON.stringify({ count: dropped }),
         });
       }
-      try {
-        writeBatch(batch, clock());
+      let committed = false;
+      if (ensureOpen()) {
+        try {
+          writeBatch(batch, clock());
+          committed = true;
+        } catch {
+          closeClient();
+          reportFailure();
+        }
+      }
+      if (committed) {
         if (includeDropped) dropped = 0;
-      } catch {
-        dropped += batch.length;
-        closeClient();
-        reportFailure();
-        return;
+      } else {
+        dropped += batch.length - Number(includeDropped);
+        if (queue.length === 0) return;
       }
       await new Promise<void>((resolve) => schedule(resolve));
     }
@@ -293,12 +296,11 @@ export function createLogger(options: LoggerOptions): Logger {
   };
 
   const scheduleFlush = () => {
-    if (closed || scheduled || flushing) return;
+    if (scheduled) return;
     scheduled = true;
     schedule(() => {
       scheduled = false;
-      if (closed) return;
-      void startFlush();
+      if (!closing) void startFlush();
     });
   };
 
@@ -306,14 +308,14 @@ export function createLogger(options: LoggerOptions): Logger {
 
   return {
     record(event) {
-      if (LEVEL_VALUE[event.level] < minimumLevel) return;
+      if (closing || LEVEL_VALUE[event.level] < minimumLevel) return;
       if (queue.length >= QUEUE_LIMIT) {
         dropped += 1;
         return;
       }
       queue.push({
         kind: 'event',
-        id: randomUUID(),
+        id: event.id ?? randomUUID(),
         createdAt: clock(),
         runId,
         level: event.level,
@@ -328,6 +330,7 @@ export function createLogger(options: LoggerOptions): Logger {
       scheduleFlush();
     },
     sample(sample) {
+      if (closing) return;
       if (queue.length >= QUEUE_LIMIT) {
         dropped += 1;
         return;
@@ -352,12 +355,15 @@ export function createLogger(options: LoggerOptions): Logger {
       scheduleFlush();
     },
     flush() {
-      return startFlush();
+      return closing ?? (flushing ? flushing.then(startFlush) : startFlush());
     },
-    async close() {
-      closed = true;
-      await startFlush();
-      closeClient();
+    close() {
+      closing ??= (async () => {
+        if (flushing) await flushing;
+        await startFlush();
+        closeClient();
+      })();
+      return closing;
     },
   };
 }

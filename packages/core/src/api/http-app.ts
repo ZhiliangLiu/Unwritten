@@ -7,6 +7,8 @@ import type { Logger } from '../log/logger.ts';
 import type { ClientAssets } from './client-assets.ts';
 import { contentSecurityPolicy, newNonce, renderIndexHtml } from './client-assets.ts';
 import { createRouter } from './router.ts';
+import { rpcError } from './rpc-error.ts';
+import { diagnosticFault } from '../log/fault.ts';
 import { hostGuard, originGuard, tokenGuard } from './security.ts';
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -29,7 +31,27 @@ export interface HttpAppOptions {
 
 export function createHttpApp(options: HttpAppOptions): Hono {
   const app = new Hono();
-  const rpcHandler = new RPCHandler(createRouter(options.services));
+  const rpcHandler = new RPCHandler(createRouter(options.services), {
+    interceptors: [
+      async (interceptor) => {
+        try {
+          return await interceptor.next();
+        } catch (error) {
+          throw rpcError(options.logger, error);
+        }
+      },
+    ],
+  });
+
+  app.onError((error, c) => {
+    options.logger.record({
+      level: 'error',
+      module: 'api',
+      event: 'http.failed',
+      data: { stage: 'response', ...diagnosticFault(error) },
+    });
+    return c.text('internal error', 500);
+  });
 
   app.use(
     '*',
@@ -60,8 +82,16 @@ export function createHttpApp(options: HttpAppOptions): Hono {
       c.header('Cache-Control', 'public, max-age=31536000, immutable');
       c.header('X-Content-Type-Options', 'nosniff');
       return c.body(data);
-    } catch {
-      return c.notFound();
+    } catch (error) {
+      const fault = diagnosticFault(error);
+      if (fault.systemCode === 'ENOENT' || fault.systemCode === 'ENOTDIR') return c.notFound();
+      options.logger.record({
+        level: 'error',
+        module: 'api',
+        event: 'http.failed',
+        data: { stage: 'asset_read', ...fault },
+      });
+      return c.text('internal error', 500);
     }
   });
 

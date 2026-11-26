@@ -4,9 +4,10 @@
   "action": { "cancel": "取消", "retry": "重试", "close": "关闭", "more": "更多操作" },
   "status": { "loading": "正在加载", "saved": "已保存", "saving": "正在保存" },
   "toast": { "region": "通知" },
-  "error": { "details": "详细信息" },
+  "error": { "details": "详细信息", "diagnosticId": "诊断编号", "pageHeading": "页面打开失败" },
   "noToken": {
     "heading": "请从启动时给出的地址打开",
+    "expired": "当前页面的连接凭据已失效。请用本次启动给出的地址重新打开。使用桌面版时，请重启应用。",
     "description": "请从 core 启动时给出的地址重新打开。使用桌面版时，请重启应用。"
   }
 }

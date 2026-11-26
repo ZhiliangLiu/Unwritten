@@ -1,3 +1,4 @@
+import type { ClientLogInput } from '@unwritten/contracts';
 import type { ApiClient } from '../api/client.ts';
 
 export type ClientSample =
@@ -22,10 +23,8 @@ export function reportSample(api: ApiClient, sample: ClientSample): void {
   void api.log.client({ kind: 'sample', ...sample }).catch(() => {});
 }
 
-export function reportError(
-  api: ApiClient,
-  area: 'library' | 'authoring' | 'play' | 'settings' | 'app',
-  code: string,
-): void {
-  void api.log.client({ kind: 'event', area, code: code as never }).catch(() => {});
+type ClientError = Extract<ClientLogInput, { kind: 'event' }>;
+
+export function reportError(api: ApiClient, area: ClientError['area'], code: ClientError['code']): void {
+  void api.log.client({ kind: 'event', area, code }).catch(() => {});
 }

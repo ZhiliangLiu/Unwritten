@@ -96,7 +96,9 @@ export function AuthoringPage({ workId }: { workId: string }) {
             generating={generate.isPending || previewJob?.status === 'running'}
             previewJob={previewJob}
           />
-          {previewJob?.status === 'failed' ? <ErrorNotice code={previewJob.error ?? 'unknown'} /> : null}
+          {previewJob?.status === 'failed' ? (
+            <ErrorNotice code={previewJob.error ?? 'unknown'} diagnosticId={previewJob.id} />
+          ) : null}
           {preview ? (
             <PreviewPanel
               preview={preview}

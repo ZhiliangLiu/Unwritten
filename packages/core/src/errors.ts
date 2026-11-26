@@ -4,6 +4,14 @@ import type { ErrorCode, ErrorData } from '@unwritten/contracts';
 const HTTP_STATUS: Record<ErrorCode, number> = {
   invalid_input: 400,
   internal: 500,
+  background_required: 400,
+  background_too_long: 400,
+  action_too_long: 400,
+  core_unreachable: 503,
+  client_runtime: 500,
+  storage_full: 507,
+  storage_busy: 503,
+  storage_unavailable: 500,
   not_found: 404,
   stale_revision: 409,
   stale_preview: 409,
@@ -40,7 +48,7 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   last_model: 409,
 };
 
-export function appError(code: ErrorCode, message: string, detail: string | null = null) {
+export function appError(code: ErrorCode, message: string, detail: string | null = null, cause?: unknown) {
   const data: ErrorData = { detail };
-  return new ORPCError(code, { status: HTTP_STATUS[code], message, data });
+  return new ORPCError(code, { status: HTTP_STATUS[code], message, data, cause });
 }

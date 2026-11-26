@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { TestConnectionInput, TestConnectionResult } from '@unwritten/contracts';
 import { EMPTY_GENERATION_PARAMS } from '@unwritten/contracts';
 import { appError } from '../errors.ts';
@@ -41,14 +42,16 @@ interface SavedEndpoint {
 export function createConnectionTester(
   deps: ConnectionTesterDeps,
 ): (input: TestConnectionInput) => Promise<TestConnectionResult> {
-  const record = (result: TestConnectionResult) => {
+  const record = (result: TestConnectionResult, httpStatus: number | null = null): TestConnectionResult => {
+    const diagnosticId = result.ok ? undefined : randomUUID();
     deps.logger.record({
       level: result.ok ? 'info' : 'warn',
       module: 'llm',
       event: 'llm.test',
-      data: { ok: result.ok, code: result.code },
+      id: diagnosticId,
+      data: { ok: result.ok, code: result.code, httpStatus },
     });
-    return result;
+    return diagnosticId ? { ...result, diagnosticId } : result;
   };
 
   const runPing = async (
@@ -98,7 +101,7 @@ export function createConnectionTester(
           durationMs: performance.now() - startedAt,
           outcome: 'error',
         });
-        return record({ ok: false, code, detail, savedToolsCapability: false });
+        return record({ ok: false, code, detail, savedToolsCapability: false }, recorder.lastStatus);
       }
 
       if (!outcome.calledToolNames.includes('ping')) {
@@ -107,7 +110,10 @@ export function createConnectionTester(
           durationMs: performance.now() - startedAt,
           outcome: 'error',
         });
-        return record({ ok: false, code: 'no_tool_call', detail: null, savedToolsCapability: false });
+        return record(
+          { ok: false, code: 'no_tool_call', detail: null, savedToolsCapability: false },
+          recorder.lastStatus,
+        );
       }
 
       let savedToolsCapability = false;
@@ -131,7 +137,7 @@ export function createConnectionTester(
       }
 
       deps.logger.sample({ metric: 'llm.connection_test', durationMs: performance.now() - startedAt, outcome: 'ok' });
-      return record({ ok: true, code: null, detail: null, savedToolsCapability });
+      return record({ ok: true, code: null, detail: null, savedToolsCapability }, recorder.lastStatus);
     } finally {
       clearTimeout(timer);
     }

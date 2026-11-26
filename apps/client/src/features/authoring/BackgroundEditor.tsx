@@ -9,6 +9,7 @@ import { errorCode } from '../../shared/api/errors.ts';
 import { useAutosave } from '../../shared/hooks/useAutosave.ts';
 import { reportSample } from '../../shared/lib/log.ts';
 import { Button } from '../../shared/ui/Button.tsx';
+import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
 import { GeneratingMarker } from '../../shared/ui/GeneratingMarker.tsx';
 import { LiveRegion } from '../../shared/ui/LiveRegion.tsx';
 import { TextArea } from '../../shared/ui/TextArea.tsx';
@@ -92,17 +93,12 @@ export function BackgroundEditor({
     onGenerate(latest.draft.contentRev);
   };
 
-  const code = autosave.error ? errorCode(autosave.error) : null;
   const status =
     autosave.status === 'pending' || autosave.status === 'saving'
       ? t('authoring:background.status.saving')
       : autosave.status === 'saved'
         ? t('authoring:background.status.saved')
-        : autosave.status === 'error' && code !== null
-          ? code === 'stale_revision'
-            ? t('authoring:background.status.stale')
-            : t(`errors:${code}`, { code })
-          : null;
+        : null;
 
   const liveMessage = generating
     ? t('authoring:preview.running')
@@ -135,6 +131,10 @@ export function BackgroundEditor({
         {status ? <p className={styles.status}>{status}</p> : null}
         {generating ? <GeneratingMarker label={t('authoring:preview.running')} /> : null}
       </div>
+      <ErrorNotice
+        error={autosave.error}
+        message={errorCode(autosave.error) === 'stale_revision' ? t('authoring:background.status.stale') : undefined}
+      />
       <LiveRegion message={liveMessage} />
     </section>
   );

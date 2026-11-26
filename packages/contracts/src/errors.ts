@@ -1,8 +1,17 @@
 import { z } from 'zod';
+import { UuidSchema } from './schemas/common.ts';
 
 export const ERROR_CODES = [
   'invalid_input',
   'internal',
+  'background_required',
+  'background_too_long',
+  'action_too_long',
+  'core_unreachable',
+  'client_runtime',
+  'storage_full',
+  'storage_busy',
+  'storage_unavailable',
   'not_found',
   'stale_revision',
   'stale_preview',
@@ -42,5 +51,5 @@ export const ERROR_CODES = [
 export const ErrorCodeSchema = z.enum(ERROR_CODES);
 export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 
-export const ErrorDataSchema = z.object({ detail: z.string().nullable() });
+export const ErrorDataSchema = z.object({ detail: z.string().nullable(), diagnosticId: UuidSchema.optional() });
 export type ErrorData = z.infer<typeof ErrorDataSchema>;

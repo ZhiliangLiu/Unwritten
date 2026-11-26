@@ -345,7 +345,9 @@ describe('SettingsPage', () => {
     const { container, unmount } = await renderSettings({
       handlers: {
         'settings.update': () => {
-          throw new ORPCError('save');
+          throw new ORPCError('storage_full', {
+            data: { detail: null, diagnosticId: '00000000-0000-4000-8000-000000000099' },
+          });
         },
       },
     });
@@ -354,6 +356,9 @@ describe('SettingsPage', () => {
     expect(document.documentElement.getAttribute('data-uw-appearance')).toBe('dark');
     await waitFor(() => document.documentElement.getAttribute('data-uw-appearance') === 'system');
     await waitFor(() => (document.body.textContent ?? '').includes('外观设置没有保存，已恢复原来的设置。'));
+    const alert = container.querySelector('[role="alert"]');
+    expect(alert?.textContent).toContain('存储空间不足');
+    expect(alert?.textContent).toContain('00000000-0000-4000-8000-000000000099');
     await unmount();
   });
 

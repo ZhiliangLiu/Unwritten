@@ -134,6 +134,29 @@ describe('createLogger', () => {
     expect(events.map((row) => row.event)).not.toContain('lost');
   });
 
+  it('首批写入被锁时，剩余记录在锁解除后自行落库', async () => {
+    const temp = makeTempDataDir();
+    const logger = createLogger({ dataDir: temp.dir, level: 'info', appVersion: '1.0.0' });
+    const blocker = new DatabaseSync(join(temp.dir, 'diagnostics.db'));
+    try {
+      blocker.exec('BEGIN IMMEDIATE');
+      for (let index = 0; index < 128; index += 1) {
+        logger.record({ level: 'info', module: 'core', event: 'lost' });
+      }
+      logger.record({ level: 'info', module: 'core', event: 'next-batch' });
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      blocker.exec('COMMIT');
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      const rows = readRows(temp.dir, 'diagnostic_events');
+      expect(rows.map((row) => row.event)).toEqual(['next-batch', 'diagnostics.dropped']);
+      expect(JSON.parse(String(rows[1]?.data))).toEqual({ count: 128 });
+    } finally {
+      blocker.close();
+      await logger.close();
+      temp.cleanup();
+    }
+  });
+
   it('有读事务时仍能写入', async () => {
     const temp = makeTempDataDir();
     const logger = createLogger({ dataDir: temp.dir, level: 'info', appVersion: '1.0.0' });
@@ -192,6 +215,35 @@ describe('createLogger', () => {
     expect(encoded).not.toContain('sk-very-secret-value');
     expect(encoded).not.toContain('不应入库');
     expect(JSON.parse(String(events[0]?.data))).toEqual({ count: 2 });
+  });
+
+  it('上一轮 flush 尚未完成时，新 flush 也等待它前面入队的记录', async () => {
+    const temp = makeTempDataDir();
+    const logger = createLogger({ dataDir: temp.dir, level: 'info', appVersion: '1.0.0' });
+    try {
+      const first = logger.flush();
+      logger.record({ level: 'info', module: 'core', event: 'new-event' });
+      await logger.flush();
+      expect(readRows(temp.dir, 'diagnostic_events').map((row) => row.event)).toEqual(['new-event']);
+      await first;
+    } finally {
+      await logger.close();
+      temp.cleanup();
+    }
+  });
+
+  it('关闭时提交在上一轮 flush 之后入队的记录', async () => {
+    const temp = makeTempDataDir();
+    const logger = createLogger({ dataDir: temp.dir, level: 'info', appVersion: '1.0.0' });
+    try {
+      const flushing = logger.flush();
+      logger.record({ level: 'info', module: 'core', event: 'core.stopped' });
+      await Promise.all([flushing, logger.close()]);
+      expect(readRows(temp.dir, 'diagnostic_events').map((row) => row.event)).toEqual(['core.stopped']);
+    } finally {
+      await logger.close();
+      temp.cleanup();
+    }
   });
 
   it('关闭后数据目录里没有日志文件', async () => {

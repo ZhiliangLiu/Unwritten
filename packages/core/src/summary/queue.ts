@@ -1,5 +1,6 @@
 import { eq, inArray, sql } from 'drizzle-orm';
 import PQueue from 'p-queue';
+import { diagnosticFault, storageError } from '../log/fault.ts';
 import type { CoreDeps, LlmService, SummaryService } from '../services.ts';
 import { ancestorChain } from '../play/chain.ts';
 import { playthroughs, turnSummaries, turns, workVersions } from '../store/schema.ts';
@@ -14,13 +15,18 @@ export const SUMMARY_BACKFILL_MAX = 200;
 export function createSummaryService(deps: CoreDeps & { llm: LlmService }): SummaryService {
   const queue = new PQueue({ concurrency: SUMMARY_CONCURRENCY });
 
-  const recordFailure = (turnId: string, code: string, workId: string | null) => {
+  const recordFailure = (
+    turnId: string,
+    code: string,
+    workId: string | null,
+    fault?: ReturnType<typeof diagnosticFault>,
+  ) => {
     deps.logger.record({
       level: 'warn',
       module: 'summary',
       event: 'summary.failed',
       workId: workId ?? undefined,
-      data: { turnId, code },
+      data: { turnId, code, ...fault },
     });
   };
 
@@ -50,6 +56,7 @@ export function createSummaryService(deps: CoreDeps & { llm: LlmService }): Summ
     }
 
     let code: string | null = null;
+    let fault: ReturnType<typeof diagnosticFault> | undefined;
     let text = '';
     try {
       const result = await deps.llm.complete({
@@ -68,7 +75,12 @@ export function createSummaryService(deps: CoreDeps & { llm: LlmService }): Summ
       });
       text = result.text;
     } catch (error) {
-      code = error instanceof LlmRunError ? error.code : 'internal';
+      if (error instanceof LlmRunError) {
+        code = error.code;
+      } else {
+        fault = diagnosticFault(error);
+        code = storageError(fault) ?? 'internal';
+      }
     }
 
     if (code === null) {
@@ -100,7 +112,7 @@ export function createSummaryService(deps: CoreDeps & { llm: LlmService }): Summ
       }
     }
 
-    recordFailure(turnId, code ?? 'internal', workId);
+    recordFailure(turnId, code ?? 'internal', workId, fault);
     deps.logger.sample({
       metric: 'summary.total',
       durationMs: performance.now() - startedAt,
@@ -114,8 +126,9 @@ export function createSummaryService(deps: CoreDeps & { llm: LlmService }): Summ
     if (deps.shutdown.aborted) return;
     void queue
       .add(() => run(turnId, routeId))
-      .catch(() => {
-        recordFailure(turnId, 'internal', null);
+      .catch((error: unknown) => {
+        const fault = diagnosticFault(error);
+        recordFailure(turnId, storageError(fault) ?? 'internal', null, fault);
       });
   };
 

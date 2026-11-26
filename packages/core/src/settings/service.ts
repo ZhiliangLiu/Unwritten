@@ -43,13 +43,13 @@ export function createSettingsService(deps: CoreDeps): SettingsService {
           },
           { behavior: 'immediate' },
         );
-      } catch {
+      } catch (error) {
         deps.logger.sample({
           metric: 'settings.update',
           durationMs: performance.now() - startedAt,
           outcome: 'error',
         });
-        throw appError('save', 'settings write failed');
+        throw appError('save', 'settings write failed', null, error);
       }
       deps.bus.publish({ type: 'settings.changed', appearance: next });
       deps.logger.record({

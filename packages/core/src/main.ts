@@ -1,6 +1,6 @@
 import './llm/fetch-guard-install.ts';
 import { parseCliArgs } from './cli.ts';
-import { startCore } from './app.ts';
+import { CoreStartupError, startCore } from './app.ts';
 import { createLlmService } from './llm/service.ts';
 import { createLibraryService } from './library/service.ts';
 import { createSettingsService } from './settings/service.ts';
@@ -31,7 +31,20 @@ async function run(): Promise<void> {
   process.on('SIGTERM', () => void shutdown());
 }
 
-void run().catch(() => {
-  process.stderr.write('unwritten: core failed to start\n');
+const startupMessages = {
+  data_locked: 'The data directory is already in use. Close the other instance and try again.',
+  port_in_use: 'The requested port is already in use. Choose another port and try again.',
+  data_dir: 'The data directory is unavailable. Check its location and permissions.',
+  startup: 'Core could not start. Check diagnostics.db in the data directory.',
+};
+
+void run().catch((error: unknown) => {
+  if (error instanceof CoreStartupError) {
+    process.stderr.write(`unwritten: ${startupMessages[error.reason]} (${error.diagnosticId})\n`);
+  } else {
+    process.stderr.write(
+      'unwritten: invalid startup arguments. Check --data-dir, --port, --client-dir, --client-origin and --log-level.\n',
+    );
+  }
   process.exit(1);
 });

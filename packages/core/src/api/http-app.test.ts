@@ -1,8 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_APPEARANCE } from '@unwritten/contracts';
-import type { Logger } from '../log/logger.ts';
+import { createLogger, type Logger } from '../log/logger.ts';
 import { createEventBus } from '../events/bus.ts';
 import type { Services } from '../services.ts';
 import { appError } from '../errors.ts';
@@ -282,6 +283,83 @@ describe('createHttpApp', () => {
       });
       expect(response.status).toBe(409);
     } finally {
+      temp.cleanup();
+    }
+  });
+
+  it('在运行中按 RPC 诊断编号查到过程和故障，省略异常与输入原文', async () => {
+    const temp = makeTempDataDir();
+    const runtimeLogger = createLogger({ dataDir: temp.dir, level: 'info', appVersion: '1.0.0' });
+    const db = new DatabaseSync(join(temp.dir, 'diagnostics.db'));
+    try {
+      const bodyMarker = '不存在的虚构背景';
+      const errorMarker = 'private-error-marker';
+      const workId = '00000000-0000-4000-8000-000000000001';
+      const services = fakeServices({
+        logger: runtimeLogger,
+        library: {
+          ...fakeServices().library,
+          saveBackground: () => {
+            const cause = Object.assign(new Error(errorMarker), { code: 'ERR_SQLITE_ERROR', errcode: 13 });
+            throw new Error('Query failed', { cause });
+          },
+        },
+      });
+      const app = createHttpApp({ token, getPort: () => 4317, assets: null, services, logger: runtimeLogger });
+      const request = (path: string, body: string) =>
+        app.request(`http://127.0.0.1:4317/api/${path}`, {
+          method: 'POST',
+          body,
+          headers: headers({ 'content-type': 'application/json' }),
+        });
+      const input = { workId, baseContentRev: 0, background: bodyMarker };
+      const failure = await request('works/saveBackground', JSON.stringify({ json: input }));
+      expect(failure.status).toBe(507);
+      const { json } = (await failure.json()) as { json: { code: string; data: { diagnosticId: string } } };
+      expect(json.code).toBe('storage_full');
+      expect(JSON.stringify(json)).not.toContain(errorMarker);
+
+      const invalid = await request(
+        'works/saveBackground',
+        JSON.stringify({ json: { ...input, background: bodyMarker.repeat(20_000) } }),
+      );
+      expect(invalid.status).toBe(400);
+      expect(await invalid.json()).toMatchObject({
+        json: { code: 'background_too_long', data: { diagnosticId: expect.any(String) } },
+      });
+      const malformed = await request('works/saveBackground', '{');
+      expect(malformed.status).toBe(400);
+      expect(await malformed.json()).toMatchObject({
+        json: { code: 'invalid_input', data: { diagnosticId: expect.any(String) } },
+      });
+
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      const entries = db.prepare('select id, work_id, data from diagnostic_events order by rowid').all();
+      expect(entries).toHaveLength(3);
+      expect(entries[0]).toEqual({
+        id: json.data.diagnosticId,
+        work_id: workId,
+        data: expect.any(String),
+      });
+      expect(JSON.parse(String(entries[0]?.data))).toEqual({
+        code: 'storage_full',
+        stage: 'operation',
+        procedure: 'works.saveBackground',
+        errorType: 'sqlite',
+        sqliteCode: 13,
+      });
+      expect(JSON.parse(String(entries[1]?.data))).toEqual({
+        code: 'background_too_long',
+        stage: 'input',
+        procedure: 'works.saveBackground',
+        issueCount: 1,
+      });
+      expect(JSON.parse(String(entries[2]?.data))).toEqual({ code: 'invalid_input', stage: 'transport' });
+      expect(JSON.stringify(entries)).not.toContain(bodyMarker);
+      expect(JSON.stringify(entries)).not.toContain(errorMarker);
+    } finally {
+      db.close();
+      await runtimeLogger.close();
       temp.cleanup();
     }
   });
