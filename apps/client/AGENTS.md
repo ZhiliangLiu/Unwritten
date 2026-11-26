@@ -30,6 +30,7 @@
   1. 在 `packages/tokens/tokens.json` 增加基元或每套主题的语义值，由生成脚本导出 CSS；
   2. 更新对应的设计文档。动效 token 写在 `docs/motion.md`，其他 token 写在 `docs/theme.md`；
   3. 颜色类 token 补上对比度检查，运行 `node scripts/check-tokens.mjs` 和 `node --test packages/tokens/build-css.test.mjs`。
+- **表单控件的外观只有一份。** 标签、控件框、说明、错误的样式都在 `shared/ui/Field.module.css`，文本框、数字框、下拉、多行文本都用它；单行控件加 `singleLine`，以 `border-box` 固定为 `--uw-size-control-md` 高。各组件的模块只写自己独有的部分（下拉的箭头和弹层、多行文本的行数）。各写一份时，`<input>` 默认 `content-box`、`<button>` 默认 `border-box`，同一组 token 会量出不同的高度。判据：`grep -rln "color-border-control" apps/client/src --include="*.module.css"` 只命中 `Field.module.css` 和 `RadioGroup.module.css`（分段选择不是输入框）。
 - 卡片、按钮、输入框始终保留一条边框，不需要显示时设为 `transparent`，以便在强制颜色模式下仍有轮廓（[a11y §7](../../docs/a11y.md#7-系统偏好)）。
 
 ## 3. 动效

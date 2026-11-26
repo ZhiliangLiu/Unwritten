@@ -1,5 +1,7 @@
 .field {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
   gap: var(--uw-space-1);
 }
 
@@ -13,9 +15,8 @@
 }
 
 .control {
-  min-block-size: var(--uw-size-control-md);
+  inline-size: 100%;
   padding-inline: var(--uw-space-3);
-  padding-block: var(--uw-space-1);
   font-family: var(--uw-typography-body-font-family);
   font-size: var(--uw-typography-body-font-size);
   font-weight: var(--uw-typography-body-font-weight);
@@ -28,11 +29,24 @@
   transition: var(--uw-transition-feedback);
 }
 
+.singleLine {
+  box-sizing: border-box;
+  block-size: var(--uw-size-control-md);
+  padding-block: 0;
+}
+
 .control::placeholder {
   color: var(--uw-color-text-muted);
 }
 
-.control[data-invalid] {
+.control:disabled,
+.control[data-disabled] {
+  opacity: var(--uw-opacity-disabled);
+  cursor: default;
+}
+
+.control[data-invalid],
+.control[aria-invalid='true'] {
   border-color: var(--uw-color-danger);
 }
 
@@ -44,7 +58,8 @@
   letter-spacing: var(--uw-typography-mono-letter-spacing);
 }
 
-.description {
+.description,
+.error {
   margin: 0;
   font-family: var(--uw-typography-caption-font-family);
   font-size: var(--uw-typography-caption-font-size);
@@ -55,11 +70,5 @@
 }
 
 .error {
-  margin: 0;
-  font-family: var(--uw-typography-caption-font-family);
-  font-size: var(--uw-typography-caption-font-size);
-  font-weight: var(--uw-typography-caption-font-weight);
-  line-height: var(--uw-typography-caption-line-height);
-  letter-spacing: var(--uw-typography-caption-letter-spacing);
   color: var(--uw-color-danger);
 }

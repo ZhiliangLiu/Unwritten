@@ -1,6 +1,7 @@
 import { Field } from '@base-ui/react/field';
 import { Select as BaseSelect } from '@base-ui/react/select';
 import { Check, ChevronDown } from 'lucide-react';
+import fieldStyles from './Field.module.css';
 import styles from './Select.module.css';
 
 export function Select({
@@ -19,8 +20,8 @@ export function Select({
   disabled?: boolean;
 }) {
   return (
-    <Field.Root className={styles.field} disabled={disabled}>
-      <Field.Label className={styles.label}>{label}</Field.Label>
+    <Field.Root className={fieldStyles.field} disabled={disabled}>
+      <Field.Label className={fieldStyles.label}>{label}</Field.Label>
       <BaseSelect.Root
         value={value}
         onValueChange={(next) => {
@@ -29,8 +30,8 @@ export function Select({
         disabled={disabled}
         items={options}
       >
-        <BaseSelect.Trigger className={styles.trigger}>
-          <BaseSelect.Value />
+        <BaseSelect.Trigger className={`${fieldStyles.control} ${fieldStyles.singleLine} ${styles.trigger}`}>
+          <BaseSelect.Value className={styles.value} />
           <BaseSelect.Icon className={styles.icon}>
             <ChevronDown aria-hidden='true' />
           </BaseSelect.Icon>
@@ -55,7 +56,7 @@ export function Select({
           </BaseSelect.Positioner>
         </BaseSelect.Portal>
       </BaseSelect.Root>
-      {description ? <Field.Description className={styles.description}>{description}</Field.Description> : null}
+      {description ? <Field.Description className={fieldStyles.description}>{description}</Field.Description> : null}
     </Field.Root>
   );
 }

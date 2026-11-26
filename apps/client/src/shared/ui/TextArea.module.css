@@ -1,69 +1,7 @@
-.field {
-  display: grid;
-  gap: var(--uw-space-1);
-}
-
-.label {
-  font-family: var(--uw-typography-caption-font-family);
-  font-size: var(--uw-typography-caption-font-size);
-  font-weight: var(--uw-typography-caption-font-weight);
-  line-height: var(--uw-typography-caption-line-height);
-  letter-spacing: var(--uw-typography-caption-letter-spacing);
-  color: var(--uw-color-text-muted);
-}
-
-.control {
-  inline-size: 100%;
+.multiLine {
   min-block-size: calc(var(--uw-typography-body-line-height) * 1em * var(--uw-textarea-rows));
   max-block-size: calc(var(--uw-typography-body-line-height) * 1em * 10);
-  padding-inline: var(--uw-space-3);
   padding-block: var(--uw-space-2);
-  font-family: var(--uw-typography-body-font-family);
-  font-size: var(--uw-typography-body-font-size);
-  font-weight: var(--uw-typography-body-font-weight);
-  line-height: var(--uw-typography-body-line-height);
-  letter-spacing: var(--uw-typography-body-letter-spacing);
-  color: var(--uw-color-text);
-  background-color: var(--uw-color-surface-sunken);
-  border: var(--uw-border-width) solid var(--uw-color-border-control);
-  border-radius: var(--uw-radius-md);
   field-sizing: content;
   resize: none;
-  transition: var(--uw-transition-feedback);
-}
-
-.control::placeholder {
-  color: var(--uw-color-text-muted);
-}
-
-.control[aria-invalid='true'] {
-  border-color: var(--uw-color-danger);
-}
-
-.mono {
-  font-family: var(--uw-typography-mono-font-family);
-  font-size: var(--uw-typography-mono-font-size);
-  font-weight: var(--uw-typography-mono-font-weight);
-  line-height: var(--uw-typography-mono-line-height);
-  letter-spacing: var(--uw-typography-mono-letter-spacing);
-}
-
-.description {
-  margin: 0;
-  font-family: var(--uw-typography-caption-font-family);
-  font-size: var(--uw-typography-caption-font-size);
-  font-weight: var(--uw-typography-caption-font-weight);
-  line-height: var(--uw-typography-caption-line-height);
-  letter-spacing: var(--uw-typography-caption-letter-spacing);
-  color: var(--uw-color-text-muted);
-}
-
-.error {
-  margin: 0;
-  font-family: var(--uw-typography-caption-font-family);
-  font-size: var(--uw-typography-caption-font-size);
-  font-weight: var(--uw-typography-caption-font-weight);
-  line-height: var(--uw-typography-caption-line-height);
-  letter-spacing: var(--uw-typography-caption-letter-spacing);
-  color: var(--uw-color-danger);
 }

@@ -44,10 +44,10 @@
       "max": "最高"
     },
     "thinkingBudget": "思考预算（token）",
-    "temperature": "temperature",
-    "topP": "top_p",
-    "topK": "top_k",
-    "minP": "min_p",
+    "temperature": "温度（temperature）",
+    "topP": "核采样（top_p）",
+    "topK": "候选数（top_k）",
+    "minP": "最低概率（min_p）",
     "unsetHint": "留空表示不设置，由服务端决定。",
     "reason": {
       "noModel": "先选一个模型。",

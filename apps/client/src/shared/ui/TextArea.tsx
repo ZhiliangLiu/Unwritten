@@ -1,6 +1,7 @@
 import { Field } from '@base-ui/react/field';
 import { useCallback, useId } from 'react';
 import type { KeyboardEvent, Ref } from 'react';
+import fieldStyles from './Field.module.css';
 import styles from './TextArea.module.css';
 
 export function TextArea({
@@ -47,14 +48,14 @@ export function TextArea({
   );
 
   return (
-    <Field.Root className={styles.field} disabled={disabled} invalid={Boolean(error)}>
-      <Field.Label className={styles.label} htmlFor={id}>
+    <Field.Root className={fieldStyles.field} disabled={disabled} invalid={Boolean(error)}>
+      <Field.Label className={fieldStyles.label} htmlFor={id}>
         {label}
       </Field.Label>
       <textarea
         ref={setRef}
         id={id}
-        className={`${styles.control} ${mono ? styles.mono : ''}`}
+        className={`${fieldStyles.control} ${styles.multiLine} ${mono ? fieldStyles.mono : ''}`}
         value={value}
         onChange={(event) => onValueChange(event.target.value)}
         onKeyDown={onKeyDown}
@@ -67,12 +68,12 @@ export function TextArea({
         aria-invalid={error ? true : undefined}
       />
       {description ? (
-        <Field.Description className={styles.description} id={descriptionId}>
+        <Field.Description className={fieldStyles.description} id={descriptionId}>
           {description}
         </Field.Description>
       ) : null}
       {error ? (
-        <Field.Error className={styles.error} id={errorId} match>
+        <Field.Error className={fieldStyles.error} id={errorId} match>
           {error}
         </Field.Error>
       ) : null}
