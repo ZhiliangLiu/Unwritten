@@ -39,7 +39,7 @@ export const PREVIEW_TOOL_PARAMETERS = {
     changes: {
       type: 'string',
       description:
-        '每行一个 JSON。引用人物或事物写名字；引用事实写本次第几行（如 L2）。para 是出处在正文里的段号，从 1 起。必须恰好有一行主角：\n' +
+        '每行一个 JSON。引用人物或事物写名字；引用本次新写的事实，先给那行起一个 "id"（如 "f1"），再写这个 id。para 是出处在正文里的段号，从 1 起。必须恰好有一行主角：\n' +
         '{"type":"new_entity","kind":"character","name":"主角的名字","known_as":"","profile":"一句话档案","para":"1","protagonist":"true"}\n' +
         '其余可用的类型：\n' +
         '{"type":"new_entity","kind":"character|place|item|group|other","name":"真名","known_as":"主角此刻的称呼，正文或选项会写到它时必填","profile":"一句话档案","para":"1"}\n' +
@@ -48,7 +48,8 @@ export const PREVIEW_TOOL_PARAMETERS = {
         '{"type":"trait","subject":"名字","key":"特征名","statement":"一句话","para":"2"}\n' +
         '{"type":"relation","subject":"名字","object":"名字","key":"acquaintance","stage":"heard_of|met|familiar","statement":"一句话","para":"2"}\n' +
         '{"type":"promise","subject":"名字","object":"名字","key":"约定名","status":"agreed|kept|broken","statement":"一句话","para":"3"}\n' +
-        '{"type":"knowledge","fact":"L2","holder":"名字","level":"heard|suspects|confirmed|misled","perceived_statement":"他听到或相信的说法","via":"名字","para":"3"}\n' +
+        '{"type":"knowledge","fact":"f1","holder":"名字","level":"heard|suspects|confirmed|misled","perceived_statement":"他听到或相信的说法","via":"名字","para":"3"}\n' +
+        '引用本次新写的事实要给它起 "id"，例如 {"type":"event",…,"id":"f1"}；每行的 id 不能重复。\n' +
         '开场里的 event 必须写明 witnesses。',
     },
   },
@@ -171,13 +172,17 @@ export function parsePreviewArgs(args: Record<string, unknown>): PreviewParse {
       fail('present', `参数 present：最多 ${STORY_LIMITS.presentMax} 个。`);
     }
     const refs: Array<{ created: number }> = [];
+    const characters = changes.entities
+      .filter((entity) => entity.kind === 'character')
+      .flatMap((entity) => (entity.knownAs ? [entity.name, entity.knownAs] : [entity.name]));
     for (const token of present) {
       const matches = changes.entities.filter(
         (entity) => entity.kind === 'character' && (entity.name === token || entity.knownAs === token),
       );
       const match = matches[0];
       if (matches.length !== 1 || !match) {
-        fail('present', `参数 present：找不到「${token}」，在场的人物必须是 changes 里新增的人物。`);
+        const hint = characters.length ? `本次新增的人物：${characters.join('、')}。` : '';
+        fail('present', `参数 present：找不到「${token}」。${hint}在场的人物必须是 changes 里新增的人物。`);
         continue;
       }
       refs.push({ created: match.line });

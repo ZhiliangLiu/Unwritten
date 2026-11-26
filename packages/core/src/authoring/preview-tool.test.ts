@@ -79,9 +79,12 @@ describe('parsePreviewArgs', () => {
     if (!leaked.ok) expect(leaked.fields).toEqual(['leak']);
   });
 
-  it('在场人物必须是本次新增的人物', () => {
+  it('在场人物必须是本次新增的人物，并列出现有的人', () => {
     const result = parsePreviewArgs({ ...valid, present: '陌生人' });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.errors.some((error) => error.includes('找不到「陌生人」'))).toBe(true);
+    if (!result.ok) {
+      expect(result.errors.some((error) => error.includes('找不到「陌生人」'))).toBe(true);
+      expect(result.errors.some((error) => error.includes('本次新增的人物'))).toBe(true);
+    }
   });
 });

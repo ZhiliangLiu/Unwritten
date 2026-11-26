@@ -20,7 +20,7 @@ export const PROPOSE_TURN_PARAMETERS = {
     changes: {
       type: 'string',
       description:
-        '每行一个 JSON，这一回合没有变化时填空字符串。引用人物或事物写编号（如 @3）或名字；引用事实写编号（如 #12），或写本次第几行（如 L2）。para 是出处在正文里的段号，从 1 起。可用的类型：\n' +
+        '每行一个 JSON，这一回合没有变化时填空字符串。引用人物或事物写编号（如 @3）或名字；引用事实写编号（如 #12），或本次事实行自己起的 id（如 f1）。para 是出处在正文里的段号，从 1 起。可用的类型：\n' +
         '{"type":"new_entity","kind":"character|place|item|group|other","name":"真名","known_as":"主角此刻的称呼，不知道时留空","profile":"一句话档案","para":"1"}\n' +
         '{"type":"name","entity":"@3","name":"称呼","holder":"@1","para":"2"}\n' +
         '{"type":"event","subject":"@3","object":"@1","statement":"一句话","witnesses":"@1,@3","para":"2"}\n' +
@@ -29,6 +29,7 @@ export const PROPOSE_TURN_PARAMETERS = {
         '{"type":"promise","subject":"@3","object":"@1","key":"约定名","status":"agreed|kept|broken","statement":"一句话","para":"3"}\n' +
         '{"type":"knowledge","fact":"#12","holder":"@4","level":"heard|suspects|confirmed|misled","perceived_statement":"他听到或相信的说法","via":"@3","para":"3"}\n' +
         '{"type":"scene","place":"地点","time":"故事时间","present":"@3,@4"}\n' +
+        '引用本次新写的事实要给它起 "id"，例如 {"type":"event",…,"id":"f1"}；每行的 id 不能重复。\n' +
         '新人物和已有人物同名时：是同一个人，就用编号引用，不要新增；是另一个人，加上 "distinct":"true"，并在 profile 里写明区别。省略 witnesses 时，默认上一回合在场的人加主角；场景有变化时必须写明。不在场的人得知一件事，必须写 via。',
     },
     ending: { type: 'string', description: '填 "false"' },
