@@ -151,6 +151,26 @@ describe('parseChanges', () => {
     }
   });
 
+  it('一行 JSON 数组里的多条变化各自成立', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedNorthCape(opened.db);
+      const result = parseChanges(
+        JSON.stringify([
+          { type: 'new_entity', kind: 'character', name: '守夜人', profile: '', para: '1' },
+          { type: 'new_entity', kind: 'character', name: '摆渡人', profile: '', para: '2' },
+          { type: 'event', subject: '守夜人', statement: '守夜人点亮了灯', witnesses: '@1', para: '1' },
+        ]),
+        turnContext(opened.db, seeded.versionId, seeded.headTurnId),
+      );
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.entities.map((entity) => entity.name)).toEqual(['守夜人', '摆渡人']);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
   it('引用没发过的编号被拒绝', () => {
     const { temp, opened } = setup();
     try {
