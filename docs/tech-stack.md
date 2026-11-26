@@ -20,7 +20,7 @@
 | 仓库 | pnpm 12 workspaces + catalog、Turborepo 2 |
 | 语言与编译 | TypeScript 7（原生编译器）、Node 24 |
 | 构建 | Vite 8（client）、tsdown（core、desktop）、Lightning CSS |
-| desktop | Electron 45、electron-builder 26、electron-updater 6、@electron/fuses、shell-env |
+| desktop | Electron 45、electron-builder 26、@electron/fuses、shell-env；electron-updater 在签名之后接入 |
 | client | React 19 + React Compiler、Base UI 1、CSS Modules、TanStack Router 1、TanStack Query 5、Zustand 5、React Hook Form 7、TanStack Virtual 3、i18next + react-i18next、lucide-react、jsdiff |
 | contracts | Zod 4、oRPC contract 1 |
 | core | Hono 4 + @hono/node-server、oRPC server 1、Drizzle ORM 1 + drizzle-kit 1、`node:sqlite`、pi-ai + pi-agent-core 1、p-queue |
@@ -46,12 +46,17 @@
 | 技术 | 用途 | 理由 |
 | --- | --- | --- |
 | **Electron 45** | 外壳 | 选它的理由见[架构总览 §2](./architecture.md#2-进程模型)。内置 Chromium 156，`@starting-style`、View Transitions、`text-autospace`、`text-spacing-trim` 都能直接用 |
-| **electron-builder 26** | 打包、签名、macOS 公证、安装包 | 使用量远超官方的 Electron Forge，签名、公证、增量更新都很成熟 |
-| **electron-updater 6** | 自动更新 | 与 electron-builder 配套；用 GitHub Releases 作为更新源 |
-| **@electron/fuses** | 打包时关闭不需要的 Electron 能力 | 例如关闭 `RunAsNode`、开启 asar 完整性校验，缩小攻击面。在 electron-builder 的配置里声明 |
+| **electron-builder 26** | 打包、安装包；签名和 macOS 公证留给发布时 | 使用量远超官方的 Electron Forge，签名、公证、增量更新都很成熟 |
+| **@electron/fuses** | 打包时关闭不需要的 Electron 能力 | 关闭 `RunAsNode`、`NODE_OPTIONS` 和命令行调试参数，开启 Cookie 加密、asar 完整性校验和只从 asar 加载应用，缩小攻击面。写在 electron-builder 配置的 `electronFuses` 里，由 electron-builder 调用，不单独安装 |
 | **shell-env** | 从访达或 Dock 启动时，读取登录 shell 的环境变量 | providers.json 里的 `$VAR` 写法依赖它（[LLM 端点 §3](./llm-endpoints.md#3-key-的来源与保护)） |
 
-desktop 的主进程代码只有几百行：开窗口、启动和看护 core、同步原生外观、自动更新。它用 tsdown 打包。client 和 core 的构建产物都放进安装包的资源目录：窗口不直接加载 client 的文件，而是由 core 通过 HTTP 提供。
+electron-updater 在应用签名之后再接入：未签名的 macOS 应用无法自动更新。
+
+desktop 的主进程代码只有几百行：开窗口、启动和看护 core、同步原生外观。它用 tsdown 打包，`shell-env`、`zod` 和 `@unwritten/contracts/desktop` 都打进 `dist/main.js`，只有 `electron` 留作外部导入，所以安装包里没有 desktop 的运行期 `node_modules`，这些包也就都放在 `devDependencies`。
+
+client 和 core 的构建产物都放进安装包的资源目录：窗口不直接加载 client 的文件，而是由 core 通过 HTTP 提供。打包前，`apps/desktop/scripts/stage.mjs` 构建 core 和 client，用 `pnpm deploy --prod --config.node-linker=hoisted` 把 core 连同运行依赖放进暂存目录（扁平的 `node_modules`，没有符号链接），删掉 `node_modules/.bin`，再复制 client 的构建产物；electron-builder 用 `extraResources` 把两个目录放到 `resources/core` 和 `resources/client`。core 依赖的 pi-ai 会按需导入多家服务商的 SDK，所以 core 不打成单文件。
+
+pnpm 默认不运行依赖的安装脚本，而 Electron 本体是安装脚本下载的，所以 `pnpm-workspace.yaml` 的 `allowBuilds` 放行 `electron`。依赖版本遵守发布满两周的约定，写在 catalog 里。
 
 ## 5. client
 
@@ -154,12 +159,19 @@ unwritten/
 ├─ apps/
 │  ├─ desktop/                    Electron 主进程
 │  │  ├─ src/
-│  │  │  ├─ main.ts               入口：单实例锁、启动 core、打开窗口
-│  │  │  ├─ core-process.ts       用 utilityProcess 启动并看护 core
-│  │  │  ├─ window.ts             BrowserWindow 与安全设置
-│  │  │  ├─ native-theme.ts       把外观偏好同步到 nativeTheme
-│  │  │  ├─ shell-env.ts          读取登录 shell 的环境变量
-│  │  │  └─ updater.ts            自动更新
+│  │  │  ├─ main.ts               入口：数据目录、单实例锁、登录 shell 环境、启动 core、开窗口、错误对话框、退出
+│  │  │  ├─ paths.ts              按打包、开发、未打包三种模式算出 core 入口、client 目录、端口和数据目录
+│  │  │  ├─ core-process.ts       启动并看护 core：发 start、等 ready、超时、意外退出、停止
+│  │  │  ├─ diagnostics.ts        desktop 的诊断缓冲，经 log 消息交给 core
+│  │  │  ├─ shell-env.ts          带超时地读取登录 shell 的环境变量
+│  │  │  ├─ window.ts             BrowserWindow、安全设置、导航拦截、渲染进程崩溃后重开
+│  │  │  ├─ navigation.ts         判定一个地址是放行、交给系统浏览器还是丢弃
+│  │  │  ├─ menu-template.ts      原生菜单的模板
+│  │  │  ├─ startup-error.ts      启动失败与意外退出的对话框内容
+│  │  │  ├─ electron-adapters.ts  把 utilityProcess、dialog、nativeTheme、Menu 接到上面的纯逻辑
+│  │  │  ├─ strings.ts            desktop 的文案读取
+│  │  │  └─ i18n/zh-CN.json       desktop 的文案
+│  │  ├─ scripts/stage.mjs        打包前把 core 和 client 放进暂存目录
 │  │  ├─ electron-builder.yml
 │  │  └─ package.json
 │  └─ client/                     React 客户端（纯 web）
