@@ -1,0 +1,24 @@
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--uw-space-2);
+}
+
+.mark {
+  flex: none;
+  block-size: var(--uw-size-icon-md);
+  inline-size: var(--uw-size-icon-md);
+}
+
+.wordmark {
+  block-size: var(--uw-size-icon-md);
+  inline-size: auto;
+}
+
+.ink {
+  fill: var(--uw-color-ink);
+}
+
+.accent {
+  fill: var(--uw-color-accent);
+}

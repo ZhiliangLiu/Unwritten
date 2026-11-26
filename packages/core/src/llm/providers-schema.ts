@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ThinkingFormatSchema, ThinkingLevelSchema } from '@unwritten/contracts';
 
 export const PROVIDERS_FILE_VERSION = 1;
 
@@ -8,6 +9,7 @@ const ModelEntrySchema = z.looseObject({
   maxTokens: z.number().int().positive().optional(),
   tools: z.boolean().optional(),
   reasoning: z.boolean().optional(),
+  thinkingFormat: ThinkingFormatSchema.optional(),
   vision: z.boolean().optional(),
 });
 
@@ -20,7 +22,20 @@ const EndpointEntrySchema = z.looseObject({
   models: z.array(ModelEntrySchema),
 });
 
-const PurposeRefSchema = z.object({ provider: z.string().min(1), model: z.string().min(1) });
+const PurposeRefSchema = z.object({
+  provider: z.string().min(1),
+  model: z.string().min(1),
+  params: z
+    .object({
+      thinking: ThinkingLevelSchema.optional(),
+      thinkingBudget: z.number().int().positive().optional(),
+      temperature: z.number().min(0).max(2).optional(),
+      topP: z.number().gt(0).max(1).optional(),
+      topK: z.number().int().positive().optional(),
+      minP: z.number().min(0).max(1).optional(),
+    })
+    .optional(),
+});
 
 export const ProvidersFileSchema = z.looseObject({
   version: z.literal(PROVIDERS_FILE_VERSION),

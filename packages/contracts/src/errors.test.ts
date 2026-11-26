@@ -10,6 +10,11 @@ describe('ERROR_CODES', () => {
   it('每一项都是 snake_case', () => {
     for (const code of ERROR_CODES) expect(code).toMatch(/^[a-z]+(_[a-z]+)*$/);
   });
+
+  it('包含第二个里程碑的错误码', () => {
+    expect(ERROR_CODES).toContain('thinking_unsupported');
+    expect(ERROR_CODES).toContain('last_model');
+  });
 });
 
 describe('appearanceAttributes', () => {

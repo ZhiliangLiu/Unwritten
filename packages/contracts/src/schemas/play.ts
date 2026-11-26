@@ -16,7 +16,7 @@ export const TurnViewSchema = z.object({
   originRequest: z.object({ id: UuidSchema, attempt: z.number().int().positive() }).nullable(),
   depth: z.number().int().nonnegative(),
   action: ActionViewSchema.nullable(),
-  prose: z.string(),
+  paragraphs: z.array(z.string()),
   options: z.array(z.object({ text: z.string() })),
   createdAt: TimestampSchema,
 });

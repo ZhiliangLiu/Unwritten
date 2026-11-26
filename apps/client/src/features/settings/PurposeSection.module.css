@@ -1,0 +1,8 @@
+.list {
+  display: grid;
+  gap: var(--uw-space-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}

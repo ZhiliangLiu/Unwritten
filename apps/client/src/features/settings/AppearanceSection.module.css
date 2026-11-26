@@ -1,0 +1,45 @@
+.section {
+  display: grid;
+  gap: var(--uw-space-4);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--uw-typography-section-title-font-family);
+  font-size: var(--uw-typography-section-title-font-size);
+  font-weight: var(--uw-typography-section-title-font-weight);
+  line-height: var(--uw-typography-section-title-line-height);
+  letter-spacing: var(--uw-typography-section-title-letter-spacing);
+}
+
+.optionRow > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--uw-space-4);
+}
+
+.help {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  color: var(--uw-color-text-muted);
+}
+
+.sampleCard {
+  margin: 0;
+  padding: var(--uw-space-5);
+  background-color: var(--uw-color-page);
+  border: var(--uw-border-width) solid var(--uw-color-border);
+  border-radius: var(--uw-radius-lg);
+}
+
+.sample {
+  margin: 0;
+  font-family: var(--uw-prose-font);
+  font-size: var(--uw-prose-size);
+  line-height: var(--uw-prose-leading);
+  color: var(--uw-color-ink);
+}

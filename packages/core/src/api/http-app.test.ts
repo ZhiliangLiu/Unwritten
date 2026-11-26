@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_APPEARANCE } from '@unwritten/contracts';
 import type { Logger } from '../log/logger.ts';
 import { createEventBus } from '../events/bus.ts';
 import type { Services } from '../services.ts';
@@ -34,6 +35,9 @@ function fakeServices(overrides: Partial<Services> = {}): Services {
       saveBackground: () => {
         throw new Error('not used');
       },
+      delete: () => {
+        throw new Error('not used');
+      },
     },
     llm: {
       listProviders: () => ({
@@ -41,13 +45,24 @@ function fakeServices(overrides: Partial<Services> = {}): Services {
         revision: 'absent',
         problem: null,
         endpoints: [],
-        defaultModel: null,
-        defaultModelUsable: false,
+        purposes: [],
       }),
       createEndpoint: async () => {
         throw new Error('not used');
       },
       updateEndpoint: async () => {
+        throw new Error('not used');
+      },
+      removeEndpoint: async () => {
+        throw new Error('not used');
+      },
+      addModel: async () => {
+        throw new Error('not used');
+      },
+      updateModel: async () => {
+        throw new Error('not used');
+      },
+      removeModel: async () => {
         throw new Error('not used');
       },
       setPurpose: async () => {
@@ -57,6 +72,9 @@ function fakeServices(overrides: Partial<Services> = {}): Services {
       resolve: () => null,
       estimateTokens: () => 0,
       run: async () => ({ requiredToolTerminated: true }),
+      complete: async () => {
+        throw new Error('not used');
+      },
       pruneCalls: () => 0,
     },
     authoring: {
@@ -79,8 +97,22 @@ function fakeServices(overrides: Partial<Services> = {}): Services {
       retry: () => {
         throw new Error('not used');
       },
+      getJournal: () => {
+        throw new Error('not used');
+      },
       recoverInterrupted: () => 0,
       pruneOldRequestLogs: () => 0,
+      whenIdle: async () => {},
+    },
+    settings: {
+      get: () => DEFAULT_APPEARANCE,
+      update: () => {
+        throw new Error('not used');
+      },
+    },
+    summary: {
+      enqueue: () => {},
+      backfill: () => 0,
       whenIdle: async () => {},
     },
     ...overrides,
@@ -180,6 +212,30 @@ describe('createHttpApp', () => {
     }
   });
 
+  it('首页带上存下的外观偏好', async () => {
+    const temp = assets();
+    try {
+      const app = createHttpApp({
+        token,
+        getPort: () => 4317,
+        assets: loadClientAssets(temp.dir),
+        services: fakeServices({
+          settings: {
+            get: () => ({ ...DEFAULT_APPEARANCE, proseSize: '5' }),
+            update: () => {
+              throw new Error('not used');
+            },
+          },
+        }),
+        logger,
+      });
+      const response = await app.request('http://127.0.0.1:4317/', { headers: { host: '127.0.0.1:4317' } });
+      expect(await response.text()).toContain('data-uw-prose-size="5"');
+    } finally {
+      temp.cleanup();
+    }
+  });
+
   it('只提供 assets 目录里的静态文件', async () => {
     const temp = assets();
     try {
@@ -225,6 +281,36 @@ describe('createHttpApp', () => {
         headers: headers(),
       });
       expect(response.status).toBe(409);
+    } finally {
+      temp.cleanup();
+    }
+  });
+
+  it('设置过程已挂到路由上', async () => {
+    const temp = assets();
+    try {
+      const services = fakeServices({
+        settings: {
+          get: () => DEFAULT_APPEARANCE,
+          update: () => {
+            throw new Error('not used');
+          },
+        },
+      });
+      const app = createHttpApp({
+        token,
+        getPort: () => 4317,
+        assets: loadClientAssets(temp.dir),
+        services,
+        logger,
+      });
+      const response = await app.request('http://127.0.0.1:4317/api/settings/get', {
+        method: 'POST',
+        body: '{}',
+        headers: headers(),
+      });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ json: DEFAULT_APPEARANCE });
     } finally {
       temp.cleanup();
     }

@@ -4,6 +4,7 @@ import type { Socket } from 'node:net';
 export type FakeStep =
   | { kind: 'tool_call'; name: string; arguments: string }
   | { kind: 'text'; text: string }
+  | { kind: 'thinking_then_tool_call'; thinking: string; chunkDelayMs: number; name: string; arguments: string }
   | { kind: 'http_error'; status: number; message: string }
   | { kind: 'redirect'; status: 301 | 302 | 303 | 307 | 308; location: string }
   | { kind: 'drop_mid_stream' }
@@ -147,6 +148,74 @@ function sendText(
   response.end();
 }
 
+async function sendThinkingThenToolCall(
+  response: ServerResponse,
+  step: Extract<FakeStep, { kind: 'thinking_then_tool_call' }>,
+  model: string,
+  stream: boolean,
+  promptTokens: number,
+): Promise<void> {
+  const toolCall = {
+    index: 0,
+    id: `call_${Math.random().toString(36).slice(2, 10)}`,
+    type: 'function',
+    function: { name: step.name, arguments: step.arguments },
+  };
+  const usage = {
+    prompt_tokens: promptTokens,
+    completion_tokens: estimateTokens(step.arguments) + estimateTokens(step.thinking),
+    total_tokens: promptTokens + estimateTokens(step.arguments) + estimateTokens(step.thinking),
+  };
+  if (!stream) {
+    response.end(
+      JSON.stringify({
+        id: newId(),
+        object: 'chat.completion',
+        created: Math.floor(Date.now() / 1000),
+        model,
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: null, reasoning_content: step.thinking, tool_calls: [toolCall] },
+            finish_reason: 'tool_calls',
+          },
+        ],
+        usage,
+      }),
+    );
+    return;
+  }
+  response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
+  sendSse(response, chunk(model, { role: 'assistant', content: null }));
+  for (let index = 0; index < step.thinking.length; index += 20) {
+    sendSse(response, chunk(model, { reasoning_content: step.thinking.slice(index, index + 20) }));
+    await new Promise((resolve) => setTimeout(resolve, step.chunkDelayMs));
+  }
+  sendSse(
+    response,
+    chunk(model, {
+      tool_calls: [
+        {
+          index: 0,
+          id: toolCall.id,
+          type: 'function',
+          function: { name: toolCall.function.name, arguments: '' },
+        },
+      ],
+    }),
+  );
+  for (let index = 0; index < step.arguments.length; index += 40) {
+    sendSse(
+      response,
+      chunk(model, { tool_calls: [{ index: 0, function: { arguments: step.arguments.slice(index, index + 40) } }] }),
+    );
+  }
+  sendSse(response, chunk(model, {}, 'tool_calls'));
+  sendSse(response, { ...chunk(model, {}), choices: [], usage });
+  response.write('data: [DONE]\n\n');
+  response.end();
+}
+
 export function startFakeOpenAiServer(options?: { apiKey?: string }): Promise<FakeOpenAiServer> {
   const steps: FakeStep[] = [];
   const requests: RecordedRequest[] = [];
@@ -202,6 +271,10 @@ export function startFakeOpenAiServer(options?: { apiKey?: string }): Promise<Fa
     }
     if (step.kind === 'text') {
       sendText(response, step, model, stream, promptTokens);
+      return;
+    }
+    if (step.kind === 'thinking_then_tool_call') {
+      await sendThinkingThenToolCall(response, step, model, stream, promptTokens);
       return;
     }
     if (step.kind === 'http_error') {

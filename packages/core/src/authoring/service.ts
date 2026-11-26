@@ -10,6 +10,9 @@ import { PREVIEW_SYSTEM_PROMPT, buildPreviewPrompt } from './preview-prompt.ts';
 import { jobs, playthroughs, routes, turns, workVersions, works } from '../store/schema.ts';
 import type { PreviewJobResult, VersionMeta } from '../store/meta.ts';
 import { PUBLIC_SETTING_PLAN_ITEM_ID } from '../store/meta.ts';
+import { indexTurnProse } from '../store/prose-index.ts';
+import { allocateEntityIds, writeChanges } from '../story/writer.ts';
+import type { ValidatedChanges } from '../story/types.ts';
 import type { LlmTool } from '../llm/types.ts';
 import { LlmRunError } from '../llm/types.ts';
 
@@ -37,6 +40,7 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
     });
 
     let preview: Preview | null = null;
+    let changes: ValidatedChanges | null = null;
     let corrections = 0;
     const tool: LlmTool = {
       name: PREVIEW_TOOL_NAME,
@@ -53,7 +57,8 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
           workId: job.workId,
         });
         if (parsed.ok) {
-          preview = parsed.value;
+          preview = parsed.value.preview;
+          changes = parsed.value.changes;
           return { text: '已收到。', terminate: true };
         }
         corrections += 1;
@@ -113,7 +118,7 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
         .update(jobs)
         .set({
           status: 'done',
-          result: { preview: completedPreview, adoption: null } as PreviewJobResult,
+          result: { preview: completedPreview, changes: changes ?? undefined, adoption: null } as PreviewJobResult,
           updatedAt: now,
         })
         .where(and(eq(jobs.id, jobId), eq(jobs.status, 'running')))
@@ -269,6 +274,22 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
           if (!draft) throw appError('not_found', 'draft not found');
           if (job.input.contentRev !== draft.contentRev) throw appError('stale_preview', 'preview is stale');
           const preview = job.result.preview;
+          const changes = job.result.changes;
+          if (!changes) throw appError('stale_preview', 'preview predates story facts');
+          const createdIds = allocateEntityIds(changes);
+          const scenePresent = (changes.scene?.present ?? []).map((ref) => {
+            if ('created' in ref) {
+              const entity = changes.entities.find((candidate) => candidate.line === ref.created);
+              return { name: entity?.name ?? '', id: createdIds.get(ref.created) ?? '' };
+            }
+            return { name: '', id: ref.existing };
+          });
+          const openingScene = {
+            place: preview.scene.place,
+            time: preview.scene.time,
+            present: scenePresent.map((item) => item.name),
+            presentIds: scenePresent.map((item) => item.id),
+          };
           const now = Date.now();
           const nextRev = draft.contentRev + 1;
           const publishedId = randomUUID();
@@ -283,7 +304,8 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
             opening: {
               prose: preview.prose,
               options: preview.options,
-              scene: { ...preview.scene, present: [] },
+              scene: openingScene,
+              changes,
             },
             narration: { language: preview.language },
           };
@@ -323,6 +345,17 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
               createdAt: now,
             })
             .run();
+          writeChanges(tx, {
+            changes,
+            createdIds,
+            turnId: rootTurnId,
+            versionId: publishedId,
+            entityVersionIds: [draft.id, publishedId],
+            entityOrigin: 'version',
+            protagonistId: null,
+            parentPresentIds: [],
+          });
+          indexTurnProse(tx, rootTurnId, preview.prose);
           tx.insert(routes)
             .values({
               id: adoptedRouteId,
@@ -333,7 +366,10 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
             })
             .run();
           tx.update(jobs)
-            .set({ result: { preview, adoption: { versionId: publishedId, routeId: adoptedRouteId } }, updatedAt: now })
+            .set({
+              result: { preview, changes, adoption: { versionId: publishedId, routeId: adoptedRouteId } },
+              updatedAt: now,
+            })
             .where(eq(jobs.id, job.id))
             .run();
           return adoptedRouteId;

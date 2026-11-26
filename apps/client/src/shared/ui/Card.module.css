@@ -1,0 +1,7 @@
+.card {
+  padding: var(--uw-space-4);
+  background-color: var(--uw-color-surface);
+  border: var(--uw-border-width) solid var(--uw-color-border);
+  border-radius: var(--uw-radius-lg);
+  box-shadow: var(--uw-elevation-surface);
+}

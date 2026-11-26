@@ -30,6 +30,9 @@ function fakeServices(): Services {
       saveBackground: () => {
         throw new Error('not used');
       },
+      delete: () => {
+        throw new Error('not used');
+      },
     },
     llm: {
       listProviders: () => ({
@@ -37,13 +40,24 @@ function fakeServices(): Services {
         revision: 'absent',
         problem: null,
         endpoints: [],
-        defaultModel: null,
-        defaultModelUsable: false,
+        purposes: [],
       }),
       createEndpoint: async () => {
         throw new Error('not used');
       },
       updateEndpoint: async () => {
+        throw new Error('not used');
+      },
+      removeEndpoint: async () => {
+        throw new Error('not used');
+      },
+      addModel: async () => {
+        throw new Error('not used');
+      },
+      updateModel: async () => {
+        throw new Error('not used');
+      },
+      removeModel: async () => {
         throw new Error('not used');
       },
       setPurpose: async () => {
@@ -53,6 +67,9 @@ function fakeServices(): Services {
       resolve: () => null,
       estimateTokens: () => 0,
       run: async () => ({ requiredToolTerminated: true }),
+      complete: async () => {
+        throw new Error('not used');
+      },
       pruneCalls: () => 0,
     },
     authoring: {
@@ -75,8 +92,24 @@ function fakeServices(): Services {
       retry: () => {
         throw new Error('not used');
       },
+      getJournal: () => {
+        throw new Error('not used');
+      },
       recoverInterrupted: () => 0,
       pruneOldRequestLogs: () => 0,
+      whenIdle: async () => {},
+    },
+    settings: {
+      get: () => {
+        throw new Error('not used');
+      },
+      update: () => {
+        throw new Error('not used');
+      },
+    },
+    summary: {
+      enqueue: () => {},
+      backfill: () => 0,
       whenIdle: async () => {},
     },
   };
@@ -95,6 +128,8 @@ describe('startCore', () => {
       {
         llm: () => services.llm,
         library: () => services.library,
+        settings: () => services.settings,
+        summary: () => services.summary,
         authoring: () => services.authoring,
         play: () => services.play,
       },

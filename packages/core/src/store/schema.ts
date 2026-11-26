@@ -1,5 +1,16 @@
 import { sql } from 'drizzle-orm';
-import { index, integer, real, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
+import {
+  check,
+  index,
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+  type AnySQLiteColumn,
+} from 'drizzle-orm/sqlite-core';
+import { ENTITY_KINDS, KNOWLEDGE_LEVELS, type Appearance } from '@unwritten/contracts';
 import type {
   PreviewJobInput,
   PreviewJobResult,
@@ -9,6 +20,7 @@ import type {
   TurnRequestLog,
   VersionMeta,
 } from './meta.ts';
+import { FACT_KINDS, type EntityProfile, type FactData } from '../story/types.ts';
 
 export const works = sqliteTable('works', {
   id: text('id').primaryKey(),
@@ -167,4 +179,98 @@ export const llmCalls = sqliteTable(
     createdAt: integer('created_at').notNull(),
   },
   (table) => [index('llm_calls_created_idx').on(table.createdAt)],
+);
+
+export const entities = sqliteTable(
+  'entities',
+  {
+    versionId: text('version_id')
+      .notNull()
+      .references(() => workVersions.id, { onDelete: 'cascade' }),
+    id: text('id').notNull(),
+    kind: text('kind', { enum: ENTITY_KINDS }).notNull(),
+    name: text('name').notNull(),
+    profile: text('profile', { mode: 'json' }).$type<EntityProfile>().notNull(),
+    isProtagonist: integer('is_protagonist').notNull().default(0),
+    castSlot: text('cast_slot'),
+    originTurnId: text('origin_turn_id').references(() => turns.id, { onDelete: 'cascade' }),
+    rev: integer('rev').notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.versionId, table.id] }),
+    index('entities_origin_idx').on(table.versionId, table.originTurnId),
+  ],
+);
+
+export const entityNames = sqliteTable(
+  'entity_names',
+  {
+    versionId: text('version_id')
+      .notNull()
+      .references(() => workVersions.id, { onDelete: 'cascade' }),
+    entityId: text('entity_id').notNull(),
+    name: text('name').notNull(),
+    holderId: text('holder_id'),
+    originTurnId: text('origin_turn_id').references(() => turns.id, { onDelete: 'cascade' }),
+    sourcePara: integer('source_para'),
+  },
+  (table) => [index('entity_names_entity_idx').on(table.versionId, table.entityId)],
+);
+
+export const facts = sqliteTable(
+  'facts',
+  {
+    versionId: text('version_id')
+      .notNull()
+      .references(() => workVersions.id, { onDelete: 'cascade' }),
+    id: text('id').notNull(),
+    originTurnId: text('origin_turn_id').references(() => turns.id, { onDelete: 'cascade' }),
+    sourcePara: integer('source_para'),
+    kind: text('kind', { enum: FACT_KINDS }).notNull(),
+    subjectId: text('subject_id'),
+    objectId: text('object_id'),
+    key: text('key'),
+    statement: text('statement').notNull(),
+    data: text('data', { mode: 'json' }).$type<FactData>(),
+    rev: integer('rev').notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.versionId, table.id] }),
+    index('facts_origin_idx').on(table.versionId, table.originTurnId),
+  ],
+);
+
+export const knowledge = sqliteTable(
+  'knowledge',
+  {
+    versionId: text('version_id')
+      .notNull()
+      .references(() => workVersions.id, { onDelete: 'cascade' }),
+    factId: text('fact_id').notNull(),
+    holderId: text('holder_id').notNull(),
+    level: text('level', { enum: KNOWLEDGE_LEVELS }).notNull(),
+    perceivedStatement: text('perceived_statement'),
+    viaId: text('via_id'),
+    originTurnId: text('origin_turn_id').references(() => turns.id, { onDelete: 'cascade' }),
+    sourcePara: integer('source_para'),
+  },
+  (table) => [index('knowledge_fact_idx').on(table.versionId, table.factId)],
+);
+
+export const turnSummaries = sqliteTable('turn_summaries', {
+  turnId: text('turn_id')
+    .primaryKey()
+    .references(() => turns.id, { onDelete: 'cascade' }),
+  summary: text('summary').notNull(),
+  createdAt: integer('created_at').notNull(),
+});
+
+export const appSettings = sqliteTable(
+  'app_settings',
+  {
+    id: integer('id').primaryKey(),
+    appearance: text('appearance', { mode: 'json' }).$type<Appearance>().notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [check('app_settings_single_row', sql`${table.id} = 1`)],
 );

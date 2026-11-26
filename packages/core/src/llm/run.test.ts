@@ -1,12 +1,14 @@
 import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { EMPTY_GENERATION_PARAMS } from '@unwritten/contracts';
 import type { Logger } from '../log/logger.ts';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
 import { openDatabase } from '../store/db.ts';
 import { startFakeOpenAiServer } from '../test-support/fake-openai-server.ts';
-import { rawToolStep } from '../test-support/llm-steps.ts';
-import { createRunner, opencodeHeaders } from './run.ts';
+import { rawToolStep, thinkingToolStep } from '../test-support/llm-steps.ts';
+import { createCompleter, createRunner, opencodeHeaders } from './run.ts';
+import type { RuntimeTarget } from './pi.ts';
 import type { LlmTool } from './types.ts';
 
 const logger: Logger = {
@@ -37,25 +39,40 @@ function input() {
   };
 }
 
-function setup(baseUrl: string, timeouts = { firstOutputMs: 2_000, stallMs: 2_000 }) {
+function setup(
+  baseUrl: string,
+  timeouts = { firstOutputMs: 2_000, stallMs: 2_000 },
+  overrides: Partial<RuntimeTarget> = {},
+) {
   const temp = makeTempDataDir();
   const opened = openDatabase(join(temp.dir, 'library.db'));
+  const targetFor = (): RuntimeTarget => ({
+    endpointId: 'test',
+    endpointName: 'Test',
+    baseUrl,
+    modelId: 'm',
+    apiKey: undefined,
+    contextWindow: 32_768,
+    maxOutputTokens: 1_024,
+    thinkingFormat: 'auto',
+    params: EMPTY_GENERATION_PARAMS,
+    ...overrides,
+  });
   const runner = createRunner({
     db: opened.db,
     logger,
     shutdown: new AbortController().signal,
     timeouts,
-    targetFor: () => ({
-      endpointId: 'test',
-      endpointName: 'Test',
-      baseUrl,
-      modelId: 'm',
-      apiKey: undefined,
-      contextWindow: 32_768,
-      maxOutputTokens: 1_024,
-    }),
+    targetFor,
   });
-  return { temp, opened, runner };
+  const completer = createCompleter({
+    db: opened.db,
+    logger,
+    shutdown: new AbortController().signal,
+    timeouts,
+    targetFor,
+  });
+  return { temp, opened, runner, completer };
 }
 
 describe('createRunner', () => {
@@ -170,5 +187,209 @@ describe('createRunner', () => {
       'x-opencode-session': 'session',
     });
     expect(opencodeHeaders('https://example.com/v1', 'session')).toEqual({});
+  });
+
+  it('openai 写法按档位发 reasoning_effort', async () => {
+    const server = await startFakeOpenAiServer();
+    const { temp, opened, runner } = setup(server.baseUrl, undefined, {
+      thinkingFormat: 'openai',
+      params: { ...EMPTY_GENERATION_PARAMS, thinking: 'high', temperature: 0.7, topK: 40 },
+    });
+    try {
+      server.enqueue(rawToolStep('propose_turn', { prose: '雨声' }));
+      await runner(input());
+      const body = server.requests.at(-1)?.body as Record<string, unknown>;
+      expect(body.reasoning_effort).toBe('high');
+      expect(body.temperature).toBe(0.7);
+      expect(body.top_k).toBe(40);
+      expect(body).not.toHaveProperty('enable_thinking');
+    } finally {
+      await server.close();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('openai 写法的关闭发 none', async () => {
+    const server = await startFakeOpenAiServer();
+    const { temp, opened, runner } = setup(server.baseUrl, undefined, {
+      thinkingFormat: 'openai',
+      params: { ...EMPTY_GENERATION_PARAMS, thinking: 'off' },
+    });
+    try {
+      server.enqueue(rawToolStep('propose_turn', { prose: '雨声' }));
+      await runner(input());
+      const body = (server.requests.at(-1)?.body ?? {}) as Record<string, unknown>;
+      expect(body.reasoning_effort).toBe('none');
+    } finally {
+      await server.close();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('xhigh 不被压低', async () => {
+    const server = await startFakeOpenAiServer();
+    const { temp, opened, runner } = setup(server.baseUrl, undefined, {
+      thinkingFormat: 'openai',
+      params: { ...EMPTY_GENERATION_PARAMS, thinking: 'xhigh' },
+    });
+    try {
+      server.enqueue(rawToolStep('propose_turn', { prose: '雨声' }));
+      await runner(input());
+      const body = (server.requests.at(-1)?.body ?? {}) as Record<string, unknown>;
+      expect(body.reasoning_effort).toBe('xhigh');
+    } finally {
+      await server.close();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('qwen 写法发 enable_thinking 和预算', async () => {
+    const server = await startFakeOpenAiServer();
+    const { temp, opened, runner } = setup(server.baseUrl, undefined, {
+      thinkingFormat: 'qwen',
+      params: { ...EMPTY_GENERATION_PARAMS, thinking: 'medium', thinkingBudget: 2048 },
+      maxOutputTokens: 8192,
+    });
+    try {
+      server.enqueue(rawToolStep('propose_turn', { prose: '雨声' }));
+      await runner(input());
+      const body = server.requests.at(-1)?.body as Record<string, unknown>;
+      expect(body.enable_thinking).toBe(true);
+      expect(body.thinking_budget).toBe(2048);
+      expect(body).not.toHaveProperty('reasoning_effort');
+    } finally {
+      await server.close();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('qwen 写法的关闭', async () => {
+    const server = await startFakeOpenAiServer();
+    const { temp, opened, runner } = setup(server.baseUrl, undefined, {
+      thinkingFormat: 'qwen',
+      params: { ...EMPTY_GENERATION_PARAMS, thinking: 'off' },
+    });
+    try {
+      server.enqueue(rawToolStep('propose_turn', { prose: '雨声' }));
+      await runner(input());
+      const body = (server.requests.at(-1)?.body ?? {}) as Record<string, unknown>;
+      expect(body.enable_thinking).toBe(false);
+    } finally {
+      await server.close();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('qwen-chat-template 写法', async () => {
+    const server = await startFakeOpenAiServer();
+    const { temp, opened, runner } = setup(server.baseUrl, undefined, {
+      thinkingFormat: 'qwen-chat-template',
+      params: { ...EMPTY_GENERATION_PARAMS, thinking: 'low' },
+    });
+    try {
+      server.enqueue(rawToolStep('propose_turn', { prose: '雨声' }));
+      await runner(input());
+      const body = server.requests.at(-1)?.body as { chat_template_kwargs?: { enable_thinking?: boolean } };
+      expect(body.chat_template_kwargs?.enable_thinking).toBe(true);
+    } finally {
+      await server.close();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('没设档位时不带任何思考字段', async () => {
+    const server = await startFakeOpenAiServer();
+    const { temp, opened, runner } = setup(server.baseUrl, undefined, {
+      thinkingFormat: 'openai',
+      params: { ...EMPTY_GENERATION_PARAMS, temperature: 0.5 },
+    });
+    try {
+      server.enqueue(rawToolStep('propose_turn', { prose: '雨声' }));
+      await runner(input());
+      const body = server.requests.at(-1)?.body as Record<string, unknown>;
+      expect(body).not.toHaveProperty('reasoning_effort');
+      expect(body).not.toHaveProperty('enable_thinking');
+      expect(body).not.toHaveProperty('chat_template_kwargs');
+      expect(body).not.toHaveProperty('thinking');
+      expect(body).not.toHaveProperty('reasoning');
+      expect(body.temperature).toBe(0.5);
+    } finally {
+      await server.close();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('思考输出也算模型有输出', async () => {
+    const server = await startFakeOpenAiServer();
+    const { temp, opened, runner } = setup(
+      server.baseUrl,
+      { firstOutputMs: 300, stallMs: 900 },
+      {
+        thinkingFormat: 'openai',
+        params: { ...EMPTY_GENERATION_PARAMS, thinking: 'high' },
+      },
+    );
+    try {
+      server.enqueue(thinkingToolStep('propose_turn', { prose: '雨声' }, '想'.repeat(200), 100));
+      await expect(runner(input())).resolves.toEqual({ requiredToolTerminated: true });
+      server.enqueue({ kind: 'hang' }, { kind: 'hang' });
+      await expect(runner(input())).rejects.toMatchObject({ code: 'timeout' });
+    } finally {
+      await server.close();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('complete 返回文本并写调用记录', async () => {
+    const server = await startFakeOpenAiServer();
+    const { temp, opened, completer } = setup(server.baseUrl);
+    try {
+      server.enqueue({ kind: 'text', text: '灯塔亮到天明。' });
+      const result = await completer({
+        purpose: 'background',
+        system: 'system',
+        prompt: 'prompt',
+        sessionId: 'route',
+        ref: { kind: 'turn', id: 'turn', attempt: 1, workId: null },
+        maxOutputTokens: 512,
+      });
+      expect(result.text).toBe('灯塔亮到天明。');
+      const rows = opened.db.all<{ ref_kind: string }>(sql`select ref_kind from llm_calls`);
+      expect(rows).toEqual([{ ref_kind: 'turn' }]);
+    } finally {
+      await server.close();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('complete 收到空文本按无效输出处理', async () => {
+    const server = await startFakeOpenAiServer();
+    const { temp, opened, completer } = setup(server.baseUrl);
+    try {
+      server.enqueue({ kind: 'text', text: '' });
+      await expect(
+        completer({
+          purpose: 'background',
+          system: 'system',
+          prompt: 'prompt',
+          sessionId: 'route',
+          ref: { kind: 'turn', id: 'turn', attempt: 1, workId: null },
+          maxOutputTokens: 512,
+        }),
+      ).rejects.toMatchObject({ code: 'invalid_output' });
+    } finally {
+      await server.close();
+      opened.close();
+      temp.cleanup();
+    }
   });
 });

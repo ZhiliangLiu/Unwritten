@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { createEventBus } from '../events/bus.ts';
 import type { Logger } from '../log/logger.ts';
@@ -27,6 +28,9 @@ const previewArgs = {
   place: '钟铺',
   time: '深夜',
   language: 'zh-CN',
+  present: '',
+  changes:
+    '{"type":"new_entity","kind":"character","name":"守夜人","known_as":"","profile":"","para":"1","protagonist":"true"}',
 };
 
 function setup() {
@@ -99,6 +103,101 @@ describe('createAuthoringService', () => {
       await authoring.whenIdle();
       library.saveBackground({ workId, baseContentRev: 1, background: '新背景' });
       expect(() => authoring.adoptPreview({ workId, jobId })).toThrow();
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('开场没有主角被拒绝并让模型修正', async () => {
+    const { temp, opened, llm, library, authoring } = setup();
+    try {
+      library.create({ workId });
+      library.saveBackground({ workId, baseContentRev: 0, background: '雨夜' });
+      llm.enqueue(
+        {
+          args: {
+            ...previewArgs,
+            changes: '{"type":"new_entity","kind":"character","name":"守夜人","profile":"","para":"1"}',
+          },
+        },
+        { args: previewArgs },
+      );
+      authoring.generatePreview({ workId, jobId, contentRev: 1 });
+      await authoring.whenIdle();
+      expect(library.get({ workId }).latestPreviewJob?.status).toBe('done');
+      expect(llm.runs).toHaveLength(1);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('采用开场写入主角和出场人物', async () => {
+    const { temp, opened, llm, library, authoring } = setup();
+    try {
+      library.create({ workId });
+      library.saveBackground({ workId, baseContentRev: 0, background: '雨夜' });
+      llm.enqueue({
+        args: {
+          ...previewArgs,
+          present: '撑伞的女人',
+          changes:
+            '{"type":"new_entity","kind":"character","name":"守夜人","known_as":"","profile":"","para":"1","protagonist":"true"}\n{"type":"new_entity","kind":"character","name":"沈岚","known_as":"撑伞的女人","profile":"带着黑伞","para":"1"}',
+        },
+      });
+      authoring.generatePreview({ workId, jobId, contentRev: 1 });
+      await authoring.whenIdle();
+      const adopted = authoring.adoptPreview({ workId, jobId });
+      const work = opened.db.get<{ draft_id: string; published_id: string }>(
+        sql`select draft_id, published_id from works where id = ${workId}`,
+      );
+      expect(work).toBeTruthy();
+      const publishedRows = opened.db.all<{ id: string; name: string; is_protagonist: number }>(
+        sql`select id, name, is_protagonist from entities where version_id = ${work?.published_id ?? ''}`,
+      );
+      const draftRows = opened.db.all<{ id: string; name: string }>(
+        sql`select id, name from entities where version_id = ${work?.draft_id ?? ''}`,
+      );
+      expect(publishedRows).toHaveLength(2);
+      expect(draftRows.map((row) => row.id).sort()).toEqual(publishedRows.map((row) => row.id).sort());
+      const protagonist = publishedRows.find((row) => row.is_protagonist === 1);
+      expect(protagonist?.name).toBe('守夜人');
+      const nameRows = opened.db.all<{ name: string }>(
+        sql`select name from entity_names where version_id = ${work?.published_id ?? ''} and holder_id = ${protagonist?.id ?? ''}`,
+      );
+      expect(nameRows.map((row) => row.name)).toContain('撑伞的女人');
+      const route = opened.db.get<{ head_turn_id: string }>(
+        sql`select head_turn_id from routes where id = ${adopted.routeId}`,
+      );
+      const turn = opened.db.get<{ scene: string }>(
+        sql`select scene from turns where id = ${route?.head_turn_id ?? ''}`,
+      );
+      const scene = turn ? (JSON.parse(turn.scene) as { presentIds: string[] }) : null;
+      expect(scene?.presentIds).toHaveLength(1);
+      expect(scene?.presentIds[0]).toBe(publishedRows.find((row) => row.name === '沈岚')?.id);
+      expect(opened.db.all(sql`select * from prose_fts where prose_fts match '盖住钟'`).length).toBeGreaterThan(0);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('旧预览不能采用', async () => {
+    const { temp, opened, llm, library, authoring } = setup();
+    try {
+      library.create({ workId });
+      library.saveBackground({ workId, baseContentRev: 0, background: '雨夜' });
+      llm.enqueue({ args: previewArgs });
+      authoring.generatePreview({ workId, jobId, contentRev: 1 });
+      await authoring.whenIdle();
+      opened.db.run(sql`update jobs set result = json_remove(result, '$.changes') where id = ${jobId}`);
+      try {
+        authoring.adoptPreview({ workId, jobId });
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toMatchObject({ code: 'stale_preview' });
+      }
     } finally {
       opened.close();
       temp.cleanup();

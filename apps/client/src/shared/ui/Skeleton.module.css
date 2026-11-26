@@ -1,0 +1,23 @@
+.blocks {
+  display: grid;
+  gap: var(--uw-space-2);
+}
+
+.block {
+  background-color: var(--uw-color-surface-sunken);
+  border-radius: var(--uw-radius-sm);
+  animation: var(--uw-animation-pulse);
+}
+
+.lines {
+  block-size: var(--uw-size-control-sm);
+}
+
+.card {
+  block-size: var(--uw-space-16);
+  border-radius: var(--uw-radius-lg);
+}
+
+.prose {
+  block-size: var(--uw-text-md);
+}

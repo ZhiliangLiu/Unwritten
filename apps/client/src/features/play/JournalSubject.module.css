@@ -1,0 +1,54 @@
+.subject {
+  display: grid;
+  gap: var(--uw-space-2);
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  gap: var(--uw-space-2);
+}
+
+.name {
+  margin: 0;
+  font-family: var(--uw-typography-subtitle-font-family);
+  font-size: var(--uw-typography-subtitle-font-size);
+  font-weight: var(--uw-typography-subtitle-font-weight);
+  line-height: var(--uw-typography-subtitle-line-height);
+  letter-spacing: var(--uw-typography-subtitle-letter-spacing);
+}
+
+.lines {
+  display: grid;
+  gap: var(--uw-space-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.line {
+  display: grid;
+  gap: var(--uw-space-1);
+}
+
+.textRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--uw-space-2);
+}
+
+.text {
+  margin: 0;
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  font-weight: var(--uw-typography-body-font-weight);
+  line-height: var(--uw-typography-body-line-height);
+  letter-spacing: var(--uw-typography-body-letter-spacing);
+  color: var(--uw-color-text);
+  overflow-wrap: anywhere;
+}
+
+.jump {
+  justify-self: start;
+  color: var(--uw-color-accent-text);
+}

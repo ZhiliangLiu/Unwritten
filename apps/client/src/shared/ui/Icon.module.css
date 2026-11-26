@@ -1,0 +1,11 @@
+.sm {
+  inline-size: var(--uw-size-icon-sm);
+  block-size: var(--uw-size-icon-sm);
+  stroke-width: var(--uw-size-icon-stroke);
+}
+
+.md {
+  inline-size: var(--uw-size-icon-md);
+  block-size: var(--uw-size-icon-md);
+  stroke-width: var(--uw-size-icon-stroke);
+}

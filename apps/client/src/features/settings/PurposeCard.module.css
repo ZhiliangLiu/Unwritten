@@ -1,0 +1,87 @@
+.header {
+  display: grid;
+  gap: var(--uw-space-1);
+}
+
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--uw-space-2);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--uw-typography-subtitle-font-family);
+  font-size: var(--uw-typography-subtitle-font-size);
+  font-weight: var(--uw-typography-subtitle-font-weight);
+  line-height: var(--uw-typography-subtitle-line-height);
+  letter-spacing: var(--uw-typography-subtitle-letter-spacing);
+}
+
+.help {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  color: var(--uw-color-text-muted);
+}
+
+.current {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  color: var(--uw-color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.mono {
+  font-family: var(--uw-typography-mono-font-family);
+  font-size: var(--uw-typography-mono-font-size);
+  letter-spacing: var(--uw-typography-mono-letter-spacing);
+}
+
+.inherited {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  color: var(--uw-color-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--uw-space-2);
+}
+
+.status {
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  color: var(--uw-color-text-muted);
+}
+
+.testResult {
+  display: grid;
+  gap: var(--uw-space-1);
+}
+
+.testError {
+  margin: 0;
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  line-height: var(--uw-typography-body-line-height);
+  color: var(--uw-color-danger);
+}
+
+.detail {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  color: var(--uw-color-text-muted);
+  overflow-wrap: anywhere;
+}

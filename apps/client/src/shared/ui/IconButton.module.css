@@ -1,0 +1,47 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: var(--uw-size-target-min);
+  min-block-size: var(--uw-size-target-min);
+  padding: var(--uw-space-1);
+  color: var(--uw-color-text);
+  background-color: transparent;
+  border: var(--uw-border-width) solid transparent;
+  border-radius: var(--uw-radius-md);
+  transition-property: color, background-color, border-color, transform;
+  transition-duration: var(--uw-motion-duration-fast);
+  transition-timing-function: var(--uw-motion-ease-standard);
+  cursor: pointer;
+}
+
+.button:active:not([data-disabled]) {
+  transform: scale(var(--uw-motion-scale-press));
+}
+
+.button[data-disabled] {
+  opacity: var(--uw-opacity-disabled);
+  cursor: default;
+}
+
+.text:hover:not([data-disabled]) {
+  background-color: var(--uw-color-surface-hover);
+}
+
+.text:active:not([data-disabled]) {
+  background-color: var(--uw-color-surface-pressed);
+}
+
+.secondary {
+  background-color: var(--uw-color-surface);
+  border-color: var(--uw-color-border);
+  box-shadow: var(--uw-elevation-surface);
+}
+
+.secondary:hover:not([data-disabled]) {
+  background-color: var(--uw-color-surface-hover);
+}
+
+.secondary:active:not([data-disabled]) {
+  background-color: var(--uw-color-surface-pressed);
+}

@@ -56,6 +56,7 @@ test.afterAll(async () => {
 test('从界面配置模型、创作、连续游玩并重启续玩', async ({ page }) => {
   await page.goto(url);
   await page.getByRole('link', { name: '设置' }).click();
+  await page.getByRole('button', { name: '添加端点' }).click();
   await page.getByLabel('端点名称').fill('测试端点');
   await page.getByLabel('接口地址').fill(server.baseUrl);
   await page.getByLabel('模型 ID').fill('test-model');
@@ -88,9 +89,10 @@ test('从界面配置模型、创作、连续游玩并重启续玩', async ({ pa
   await expect(page.getByRole('heading', { name: '预览开场' })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('雨声盖住钟声。')).toBeVisible();
   await page.getByRole('textbox', { name: /故事背景/ }).fill('改过的背景');
-  await page.getByRole('button', { name: '保存背景' }).click();
+  await expect(page.getByText('已保存')).toBeVisible({ timeout: 10_000 });
   await expect(page.getByRole('button', { name: '采用开场并存入作品库' })).toBeDisabled();
   await page.getByRole('textbox', { name: /故事背景/ }).fill('雨夜修钟铺');
+  await expect(page.getByText('已保存')).toBeVisible({ timeout: 10_000 });
   server.enqueue(
     proposePreviewStep({
       title: '雨夜修钟铺',
@@ -106,6 +108,7 @@ test('从界面配置模型、创作、连续游玩并重启续玩', async ({ pa
   await page.getByRole('button', { name: '生成开场预览' }).click();
   await expect(page.getByRole('button', { name: '采用开场并存入作品库' })).toBeEnabled({ timeout: 20_000 });
   await page.getByRole('button', { name: '采用开场并存入作品库' }).click();
+  await page.getByRole('link', { name: '开始故事' }).click();
 
   await expect(page.getByText('雨声盖住钟声。')).toBeVisible();
   server.enqueue(

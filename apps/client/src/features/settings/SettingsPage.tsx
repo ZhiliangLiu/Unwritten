@@ -1,277 +1,58 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { queryKeys } from '../../shared/api/query.ts';
 import { useApi } from '../../shared/api/context.tsx';
-import { ErrorNotice } from '../../shared/ui/Notice.tsx';
-import styles from '../../app/app.module.css';
-import { beginEndpointEdit } from './endpoint-edit.ts';
+import { queryKeys } from '../../shared/api/query.ts';
+import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
+import { Page } from '../../shared/ui/Page.tsx';
+import { Skeleton } from '../../shared/ui/Skeleton.tsx';
+import { AddEndpointForm } from './AddEndpointForm.tsx';
+import { AppearanceSection } from './AppearanceSection.tsx';
+import { ConfigProblem } from './ConfigProblem.tsx';
+import { EndpointSection } from './EndpointSection.tsx';
+import { PurposeSection } from './PurposeSection.tsx';
+import { SETTINGS_SECTION_IDS, SettingsNav } from './SettingsNav.tsx';
+import styles from './SettingsPage.module.css';
 
 export function SettingsPage() {
-  const api = useApi();
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
+  const api = useApi();
   const config = useQuery({ queryKey: queryKeys.llm, queryFn: () => api.llm.providers.list() });
-  const [name, setName] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
-  const [modelId, setModelId] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [makeDefault, setMakeDefault] = useState(true);
-  const [testResult, setTestResult] = useState<{ ok: boolean; code: string | null; detail: string | null } | null>(
-    null,
-  );
-  const [error, setError] = useState<unknown>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editModelId, setEditModelId] = useState('');
-  const [editKeyAction, setEditKeyAction] = useState<'keep' | 'set' | 'remove'>('keep');
-  const [editKeyValue, setEditKeyValue] = useState('');
-
-  const test = useMutation({
-    mutationFn: () =>
-      api.llm.test({
-        baseUrl,
-        modelId,
-        key: apiKey.trim() ? { action: 'set', value: apiKey.trim() } : { action: 'none' },
-      }),
-    onSuccess: (result) => setTestResult({ ok: result.ok, code: result.code, detail: result.detail }),
-    onError: setError,
-  });
-
-  const create = useMutation({
-    mutationFn: () =>
-      api.llm.endpoints.create({
-        requestId: crypto.randomUUID(),
-        baseRevision: config.data?.revision ?? 'absent',
-        name,
-        baseUrl,
-        modelId,
-        apiKey: apiKey.trim() || null,
-        makeDefault,
-      }),
-    onSuccess: () => {
-      setApiKey('');
-      setTestResult(null);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.llm });
-    },
-    onError: setError,
-  });
-
-  const setDefault = useMutation({
-    mutationFn: ({ endpointId, model }: { endpointId: string; model: string }) =>
-      api.llm.purposes.set({
-        baseRevision: config.data?.revision ?? 'absent',
-        purpose: 'default',
-        model: { endpointId, modelId: model },
-      }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.llm });
-    },
-    onError: setError,
-  });
-
-  const update = useMutation({
-    mutationFn: (endpointId: string) =>
-      api.llm.endpoints.update({
-        baseRevision: config.data?.revision ?? 'absent',
-        endpointId,
-        name: editName,
-        modelId: editModelId,
-        key:
-          editKeyAction === 'keep'
-            ? { action: 'keep' }
-            : editKeyAction === 'set'
-              ? { action: 'set', value: editKeyValue.trim() }
-              : { action: 'remove' },
-      }),
-    onSuccess: () => {
-      setEditingId(null);
-      setEditKeyAction('keep');
-      setEditKeyValue('');
-      void queryClient.invalidateQueries({ queryKey: queryKeys.llm });
-    },
-    onError: setError,
-  });
+  const writesDisabled =
+    config.data?.status === 'invalid' || config.data?.status === 'too_new' || Boolean(config.data?.problem);
 
   return (
-    <section className={styles.page}>
-      <h1 className={styles.heading}>{t('settings:page.heading')}</h1>
-      <ErrorNotice error={error ?? config.error} />
-      <div className={styles.card}>
-        <h2>{t('settings:current.heading')}</h2>
-        {config.data?.defaultModel ? (
-          <p>
-            {config.data.endpoints.find((endpoint) => endpoint.id === config.data?.defaultModel?.endpointId)?.name ??
-              config.data.defaultModel.endpointId}{' '}
-            · {config.data.defaultModel.modelId}
-          </p>
-        ) : (
-          <p className={styles.muted}>{t('settings:current.empty')}</p>
-        )}
-      </div>
-      {config.data?.problem ? (
-        <div className={styles.notice} role='alert'>
-          {config.data.problem.kind === 'syntax' ? (
-            <p>
-              {t('settings:problem.syntax', {
-                line: config.data.problem.line,
-                column: config.data.problem.column,
-              })}
-            </p>
-          ) : null}
-          {config.data.problem.kind === 'schema' ? (
-            <p>{t('settings:problem.schema', { path: config.data.problem.path })}</p>
-          ) : null}
-          {config.data.problem.kind === 'too_new' ? <p>{t('settings:problem.tooNew')}</p> : null}
-          {'message' in config.data.problem ? <p className={styles.detail}>{config.data.problem.message}</p> : null}
-        </div>
-      ) : null}
-      <form
-        className={styles.form}
-        onSubmit={(event) => {
-          event.preventDefault();
-          create.mutate();
-        }}
-      >
-        <h2>{t('settings:endpoint.add')}</h2>
-        <label className={styles.label}>
-          {t('settings:endpoint.name')}
-          <input className={styles.input} value={name} onChange={(event) => setName(event.target.value)} />
-        </label>
-        <label className={styles.label}>
-          {t('settings:endpoint.address')}
-          <input className={styles.input} value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} />
-        </label>
-        <label className={styles.label}>
-          {t('settings:endpoint.modelId')}
-          <input className={styles.input} value={modelId} onChange={(event) => setModelId(event.target.value)} />
-        </label>
-        <label className={styles.label}>
-          {t('settings:endpoint.key')}
-          <input
-            className={styles.input}
-            type='password'
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value)}
-          />
-          <span className={styles.muted}>{t('settings:endpoint.keyHelp')}</span>
-        </label>
-        <label className={styles.row}>
-          <input type='checkbox' checked={makeDefault} onChange={(event) => setMakeDefault(event.target.checked)} />
-          {t('settings:endpoint.default')}
-        </label>
-        <div className={styles.row}>
-          <button type='button' className={styles.button} onClick={() => test.mutate()} disabled={test.isPending}>
-            {t(test.isPending ? 'settings:endpoint.testing' : 'settings:endpoint.test')}
-          </button>
-          <button type='submit' className={styles.button} disabled={create.isPending}>
-            {t('settings:endpoint.save')}
-          </button>
-        </div>
-        {testResult ? (
-          <>
-            <p className={styles.muted}>
-              {t(testResult.ok ? 'settings:endpoint.testOk' : `errors:${testResult.code ?? 'unknown'}`, {
-                code: testResult.code,
-              })}
-            </p>
-            {testResult.detail ? <p className={styles.detail}>{testResult.detail}</p> : null}
-          </>
-        ) : null}
-      </form>
-      <div className={styles.cards}>
-        {config.data?.endpoints.map((endpoint) => (
-          <article className={styles.card} key={endpoint.id}>
-            <h2>{endpoint.name}</h2>
-            <p className={styles.muted}>{endpoint.baseUrl}</p>
-            <p>
-              {endpoint.models.map((model) => model.id).join(', ')} ·{' '}
-              {t(
-                endpoint.key.hasKey
-                  ? 'settings:endpoint.keySet'
-                  : endpoint.key.source === 'env'
-                    ? 'settings:endpoint.keyEnvMissing'
-                    : 'settings:endpoint.keyMissing',
-              )}
-            </p>
-            {endpoint.models[0] ? (
-              <div className={styles.row}>
-                <button
-                  className={`${styles.button} ${styles.secondary}`}
-                  onClick={() => setDefault.mutate({ endpointId: endpoint.id, model: endpoint.models[0]!.id })}
-                >
-                  {t('settings:endpoint.default')}
-                </button>
-                <button
-                  className={`${styles.button} ${styles.secondary}`}
-                  onClick={() => {
-                    const next = beginEndpointEdit(endpoint);
-                    setEditingId(next.id);
-                    setEditName(next.name);
-                    setEditModelId(next.modelId);
-                    setEditKeyAction(next.keyAction);
-                    setEditKeyValue(next.keyValue);
-                  }}
-                >
-                  {t('settings:endpoint.edit')}
-                </button>
-              </div>
+    <Page
+      title={t('settings:page.heading')}
+      heading='content'
+      toolbar={{ start: { kind: 'back', to: '/', label: t('common:nav.library') } }}
+      width='page'
+    >
+      <div className={styles.layout}>
+        <SettingsNav />
+        <div className={styles.content}>
+          {config.data?.problem ? <ConfigProblem problem={config.data.problem} /> : null}
+          <ErrorNotice error={config.error} />
+          <AppearanceSection />
+          <section id={SETTINGS_SECTION_IDS.models} className={styles.models}>
+            <h2 className={styles.heading}>{t('settings:models.heading')}</h2>
+            <p className={styles.description}>{t('settings:purpose.description')}</p>
+            {config.data ? (
+              <>
+                <PurposeSection
+                  purposes={config.data.purposes}
+                  endpoints={config.data.endpoints}
+                  revision={config.data.revision}
+                  disabled={writesDisabled}
+                />
+                <EndpointSection config={config.data} disabled={writesDisabled} />
+                <AddEndpointForm config={config.data} disabled={writesDisabled} />
+              </>
+            ) : config.isPending ? (
+              <Skeleton variant='lines' count={6} />
             ) : null}
-            {editingId === endpoint.id ? (
-              <div className={styles.form}>
-                <label className={styles.label}>
-                  {t('settings:endpoint.name')}
-                  <input
-                    className={styles.input}
-                    value={editName}
-                    onChange={(event) => setEditName(event.target.value)}
-                  />
-                </label>
-                <label className={styles.label}>
-                  {t('settings:endpoint.modelId')}
-                  <input
-                    className={styles.input}
-                    value={editModelId}
-                    onChange={(event) => setEditModelId(event.target.value)}
-                  />
-                </label>
-                <label className={styles.label}>
-                  {t('settings:endpoint.key')}
-                  <select
-                    className={styles.input}
-                    value={editKeyAction}
-                    onChange={(event) => setEditKeyAction(event.target.value as 'keep' | 'set' | 'remove')}
-                  >
-                    <option value='keep'>{t('settings:endpoint.keyKeep')}</option>
-                    <option value='set'>{t('settings:endpoint.keySetAction')}</option>
-                    <option value='remove'>{t('settings:endpoint.keyRemove')}</option>
-                  </select>
-                </label>
-                {editKeyAction === 'set' ? (
-                  <input
-                    className={styles.input}
-                    type='password'
-                    value={editKeyValue}
-                    onChange={(event) => setEditKeyValue(event.target.value)}
-                  />
-                ) : null}
-                <div className={styles.row}>
-                  <button
-                    className={styles.button}
-                    onClick={() => update.mutate(endpoint.id)}
-                    disabled={update.isPending}
-                  >
-                    {t('settings:endpoint.save')}
-                  </button>
-                  <button className={`${styles.button} ${styles.secondary}`} onClick={() => setEditingId(null)}>
-                    {t('common:action.cancel')}
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </article>
-        ))}
+          </section>
+        </div>
       </div>
-    </section>
+    </Page>
   );
 }

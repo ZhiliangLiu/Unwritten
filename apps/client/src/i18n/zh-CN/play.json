@@ -1,5 +1,6 @@
 {
   "turn": { "opening": "开场", "heading": "第 {{count}} 回合" },
+  "page": { "untitled": "未命名的故事" },
   "input": {
     "label": "你的行动",
     "placeholder": "写下你想做的事，或想说的话",
@@ -8,9 +9,39 @@
   },
   "pending": {
     "running": "正在写下一段",
-    "complete": "新的一段已写好",
+    "complete": "新的剧情已到达",
     "failed": "本段未完成",
-    "retry": "重试这次行动"
+    "retry": "重试这次行动",
+    "rewrite": "改写行动"
   },
-  "history": { "latest": "回到最新" }
+  "action": { "heading": "你的行动", "prefix": "你的行动：" },
+  "options": { "label": "推荐行动" },
+  "replace": {
+    "title": "输入框里还有你写的内容",
+    "description": "要改用这个推荐行动吗？你写的内容会被清空。",
+    "confirm": "改用推荐行动",
+    "cancel": "继续编辑"
+  },
+  "history": { "latest": "回到最新" },
+  "journal": {
+    "open": "手记",
+    "title": "手记",
+    "empty": {
+      "heading": "手记还是空的",
+      "description": "认识的人、去过的地方和发生过的事，会随着故事记在这里。"
+    },
+    "group": {
+      "character": "人物",
+      "place": "地点",
+      "item": "物品",
+      "group": "组织",
+      "other": "其他",
+      "events": "发生过的事"
+    },
+    "jump": "跳回原文：{{source}}",
+    "jumpText": "跳回原文 · {{source}}",
+    "tab": { "all": "全部", "character": "人物", "place": "地点", "item": "物品", "events": "事件" },
+    "source": { "opening": "开场第 {{para}} 段", "turn": "第 {{depth}} 回合第 {{para}} 段" },
+    "level": { "heard": "听说", "suspects": "猜测", "confirmed": "确认", "misled": "误信" }
+  }
 }

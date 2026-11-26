@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AppearanceSchema } from './schemas/appearance.ts';
 import { UuidSchema } from './schemas/common.ts';
 import { TurnRequestStatusSchema } from './schemas/play.ts';
 import { JobStatusSchema } from './schemas/works.ts';
@@ -14,5 +15,6 @@ export const CoreEventSchema = z.discriminatedUnion('type', [
     status: TurnRequestStatusSchema,
   }),
   z.object({ type: z.literal('turn.committed'), routeId: UuidSchema, turnId: UuidSchema }),
+  z.object({ type: z.literal('settings.changed'), appearance: AppearanceSchema }),
 ]);
 export type CoreEvent = z.infer<typeof CoreEventSchema>;

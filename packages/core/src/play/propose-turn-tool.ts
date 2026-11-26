@@ -1,6 +1,6 @@
-import type { StoredOption, StoredScene } from '../store/meta.ts';
+import type { StoredOption } from '../store/meta.ts';
 import type { ParseResult } from '../text/turn-text.ts';
-import { normalizeProse, parseJsonLines, parseOptionLines } from '../text/turn-text.ts';
+import { normalizeProse, parseOptionLines, splitParagraphs } from '../text/turn-text.ts';
 
 export const PROPOSE_TURN_TOOL_NAME = 'propose_turn';
 
@@ -10,9 +10,6 @@ export const TURN_LIMITS = {
   optionsMin: 1,
   optionsMax: 6,
   optionTextMax: 100,
-  placeMax: 100,
-  timeMax: 100,
-  presentMax: 20,
 } as const;
 
 export const PROPOSE_TURN_PARAMETERS = {
@@ -23,7 +20,16 @@ export const PROPOSE_TURN_PARAMETERS = {
     changes: {
       type: 'string',
       description:
-        '每行一个 JSON。只接受场景：{"type":"scene","place":"…","time":"…","present":"甲,乙"}。场景没有变化时填空字符串',
+        '每行一个 JSON，这一回合没有变化时填空字符串。引用人物或事物写编号（如 @3）或名字；引用事实写编号（如 #12），或写本次第几行（如 L2）。para 是出处在正文里的段号，从 1 起。可用的类型：\n' +
+        '{"type":"new_entity","kind":"character|place|item|group|other","name":"真名","known_as":"主角此刻的称呼，不知道时留空","profile":"一句话档案","para":"1"}\n' +
+        '{"type":"name","entity":"@3","name":"称呼","holder":"@1","para":"2"}\n' +
+        '{"type":"event","subject":"@3","object":"@1","statement":"一句话","witnesses":"@1,@3","para":"2"}\n' +
+        '{"type":"trait","subject":"@3","key":"特征名","statement":"一句话","para":"2"}\n' +
+        '{"type":"relation","subject":"@1","object":"@3","key":"acquaintance","stage":"heard_of|met|familiar","statement":"一句话","para":"2"}\n' +
+        '{"type":"promise","subject":"@3","object":"@1","key":"约定名","status":"agreed|kept|broken","statement":"一句话","para":"3"}\n' +
+        '{"type":"knowledge","fact":"#12","holder":"@4","level":"heard|suspects|confirmed|misled","perceived_statement":"他听到或相信的说法","via":"@3","para":"3"}\n' +
+        '{"type":"scene","place":"地点","time":"故事时间","present":"@3,@4"}\n' +
+        '新人物和已有人物同名时：是同一个人，就用编号引用，不要新增；是另一个人，加上 "distinct":"true"，并在 profile 里写明区别。省略 witnesses 时，默认上一回合在场的人加主角；场景有变化时必须写明。不在场的人得知一件事，必须写 via。',
     },
     ending: { type: 'string', description: '填 "false"' },
   },
@@ -31,10 +37,11 @@ export const PROPOSE_TURN_PARAMETERS = {
   additionalProperties: false,
 } as const;
 
-export interface ProposedTurn {
+export interface ProposedTurnDraft {
   prose: string;
+  paragraphs: string[];
   options: StoredOption[];
-  scene: StoredScene;
+  changesRaw: string;
 }
 
 function stringArg(args: Record<string, unknown>, key: string, errors: string[]): string | null {
@@ -46,45 +53,7 @@ function stringArg(args: Record<string, unknown>, key: string, errors: string[])
   return value;
 }
 
-function sceneFrom(value: Record<string, unknown>, line: number, errors: string[]): StoredScene | null {
-  if (value.type !== 'scene') {
-    errors.push(`第 ${line} 行 changes：本作品只接受 scene 类型`);
-    return null;
-  }
-  if (typeof value.place !== 'string' || !value.place.trim()) {
-    errors.push(`第 ${line} 行 changes.place：必须是非空字符串`);
-    return null;
-  }
-  if (typeof value.time !== 'string' || !value.time.trim()) {
-    errors.push(`第 ${line} 行 changes.time：必须是非空字符串`);
-    return null;
-  }
-  if (
-    Array.from(value.place.trim()).length > TURN_LIMITS.placeMax ||
-    Array.from(value.time.trim()).length > TURN_LIMITS.timeMax
-  ) {
-    errors.push(`第 ${line} 行 changes：地点或时间超过 ${TURN_LIMITS.placeMax} 个字符`);
-    return null;
-  }
-  if (typeof value.present !== 'string') {
-    errors.push(`第 ${line} 行 changes.present：必须是字符串`);
-    return null;
-  }
-  const present = value.present
-    .split(/[,，、]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-  if (present.length > TURN_LIMITS.presentMax) {
-    errors.push(`第 ${line} 行 changes.present：最多 ${TURN_LIMITS.presentMax} 人`);
-    return null;
-  }
-  return { place: value.place.trim(), time: value.time.trim(), present };
-}
-
-export function parseProposeTurnArgs(
-  args: Record<string, unknown>,
-  parentScene: StoredScene,
-): ParseResult<ProposedTurn> {
+export function parseProposeTurnArgs(args: Record<string, unknown>): ParseResult<ProposedTurnDraft> {
   const errors: string[] = [];
   const proseRaw = stringArg(args, 'prose', errors);
   const optionsRaw = stringArg(args, 'options', errors);
@@ -92,9 +61,10 @@ export function parseProposeTurnArgs(
   const ending = stringArg(args, 'ending', errors);
 
   let prose = '';
+  let paragraphs: string[] = [];
   if (proseRaw !== null) {
     prose = normalizeProse(proseRaw);
-    const paragraphs = prose.split(/\n{2,}/).filter((paragraph) => paragraph.length > 0);
+    paragraphs = splitParagraphs(prose);
     if (paragraphs.length < 1 || paragraphs.length > TURN_LIMITS.paragraphsMax) {
       errors.push(`参数 prose 的段落数必须在 1 到 ${TURN_LIMITS.paragraphsMax} 之间`);
     }
@@ -114,29 +84,13 @@ export function parseProposeTurnArgs(
     else options = parsed.value;
   }
 
-  let scene = parentScene;
-  if (changesRaw !== null && changesRaw.trim()) {
-    const parsed = parseJsonLines(changesRaw, 'changes');
-    if (!parsed.ok) errors.push(...parsed.errors);
-    else {
-      let sceneCount = 0;
-      for (const { line, value } of parsed.value) {
-        if ((value as Record<string, unknown>).type === 'scene') {
-          sceneCount += 1;
-          if (sceneCount > 1) errors.push('changes 里最多只能有一条 scene');
-          const parsedScene = sceneFrom(value as Record<string, unknown>, line, errors);
-          if (parsedScene) scene = parsedScene;
-        } else {
-          errors.push(`第 ${line} 行 changes：本作品只接受 scene 类型`);
-        }
-      }
-    }
-  }
-
   if (ending !== null && ending.trim() !== 'false') {
     errors.push('这部作品没有结束条件，ending 只能填 "false"');
   }
 
   if (errors.length) return { ok: false, errors };
-  return { ok: true, value: { prose, options, scene } };
+  return {
+    ok: true,
+    value: { prose, paragraphs, options, changesRaw: changesRaw ?? '' },
+  };
 }

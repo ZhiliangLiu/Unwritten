@@ -2,7 +2,6 @@ import { readFileSync, statSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { Hono } from 'hono';
 import { RPCHandler } from '@orpc/server/fetch';
-import { DEFAULT_APPEARANCE } from '@unwritten/contracts';
 import type { Services } from '../services.ts';
 import type { Logger } from '../log/logger.ts';
 import type { ClientAssets } from './client-assets.ts';
@@ -74,7 +73,7 @@ export function createHttpApp(options: HttpAppOptions): Hono {
     c.header('Content-Security-Policy', contentSecurityPolicy(nonce));
     c.header('X-Content-Type-Options', 'nosniff');
     c.header('Referrer-Policy', 'no-referrer');
-    return c.html(renderIndexHtml(options.assets, nonce, DEFAULT_APPEARANCE));
+    return c.html(renderIndexHtml(options.assets, nonce, options.services.settings.get()));
   });
 
   return app;

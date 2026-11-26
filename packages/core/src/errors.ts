@@ -36,6 +36,8 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   invalid_output: 502,
   interrupted: 409,
   save: 500,
+  thinking_unsupported: 400,
+  last_model: 409,
 };
 
 export function appError(code: ErrorCode, message: string, detail: string | null = null) {

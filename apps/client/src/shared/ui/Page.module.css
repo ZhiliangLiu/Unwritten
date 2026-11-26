@@ -1,0 +1,65 @@
+.page {
+  min-block-size: 100vh;
+}
+
+.main {
+  display: grid;
+  gap: var(--uw-space-6);
+  padding-inline: var(--uw-space-6);
+  padding-block: var(--uw-space-8);
+  transition: var(--uw-transition-dialog);
+}
+
+@starting-style {
+  .main {
+    opacity: 0;
+    transform: translateY(var(--uw-motion-distance-md));
+  }
+}
+
+.content {
+  max-inline-size: var(--uw-size-page-max);
+  margin-inline: auto;
+}
+
+.prose {
+  max-inline-size: var(--uw-prose-measure);
+  margin-inline: auto;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--uw-space-4);
+}
+
+.headingText {
+  display: grid;
+  gap: var(--uw-space-1);
+}
+
+.pageTitle {
+  margin: 0;
+  font-family: var(--uw-typography-page-title-font-family);
+  font-size: var(--uw-typography-page-title-font-size);
+  font-weight: var(--uw-typography-page-title-font-weight);
+  line-height: var(--uw-typography-page-title-line-height);
+  letter-spacing: var(--uw-typography-page-title-letter-spacing);
+}
+
+.subtitle {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--uw-space-2);
+}
