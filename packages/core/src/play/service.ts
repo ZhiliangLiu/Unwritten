@@ -337,31 +337,6 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
       return;
     }
 
-    if (errorCode) {
-      deps.db
-        .update(turnRequests)
-        .set({ status: 'failed', error: errorCode, log, updatedAt: now })
-        .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
-        .run();
-      deps.bus.publish({ type: 'turn_request.updated', routeId: route.id, requestId, status: 'failed' });
-      deps.logger.record({
-        level: 'warn',
-        module: 'play',
-        event: 'turn.request.failed',
-        requestId,
-        data: { attempt: request.attempts, code: errorCode },
-      });
-      deps.logger.sample({
-        metric: 'turn.total',
-        durationMs: performance.now() - attemptStartedAt,
-        outcome: errorCode === 'interrupted' ? 'interrupted' : 'error',
-        requestId,
-        attempt: request.attempts,
-        data: { code: errorCode },
-      });
-      return;
-    }
-
     if (!proposal) return;
     const commitStartedAt = performance.now();
     let committed: { superseded: boolean; turnId: string | null };

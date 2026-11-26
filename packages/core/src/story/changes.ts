@@ -311,7 +311,9 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
     }
     if (type === 'event' || type === 'trait' || type === 'relation' || type === 'promise') {
       const subject = resolveEntity(item.value.subject, line, 'subject');
-      const object = item.value.object === undefined ? null : resolveEntity(item.value.object, line, 'object');
+      const objectRequired = type === 'relation' || type === 'promise';
+      const object =
+        item.value.object === undefined && !objectRequired ? null : resolveEntity(item.value.object, line, 'object');
       const key =
         type === 'event'
           ? null

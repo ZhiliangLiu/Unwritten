@@ -286,6 +286,27 @@ describe('parseChanges', () => {
     }
   });
 
+  it('关系和约定缺少客体时被拒绝，不会被悄悄丢掉', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedNorthCape(opened.db);
+      const result = parseChanges(
+        changeLines(
+          { type: 'relation', subject: '@1', key: 'trust', statement: '他信任她', para: '1' },
+          { type: 'promise', subject: '@1', key: 'return', status: 'agreed', statement: '他答应回来', para: '1' },
+        ),
+        turnContext(opened.db, seeded.versionId, seeded.headTurnId),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toEqual(['第 1 行 changes.object：不能为空', '第 2 行 changes.object：不能为空']);
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
   it('认识阶段只能取三个值', () => {
     const { temp, opened } = setup();
     try {

@@ -371,6 +371,30 @@ describe('createRunner', () => {
     }
   });
 
+  it('complete 持续输出时不受首字超时限制，停住时按 timeout 失败', async () => {
+    const server = await startFakeOpenAiServer();
+    const { temp, opened, completer } = setup(server.baseUrl, { firstOutputMs: 300, stallMs: 900 });
+    const call = () =>
+      completer({
+        purpose: 'background',
+        system: 'system',
+        prompt: 'prompt',
+        sessionId: 'route',
+        ref: { kind: 'turn', id: 'turn', attempt: 1, workId: null },
+        maxOutputTokens: 512,
+      });
+    try {
+      server.enqueue({ kind: 'text', text: '潮'.repeat(400), chunkDelayMs: 100 });
+      await expect(call()).resolves.toEqual({ text: '潮'.repeat(400) });
+      server.enqueue({ kind: 'hang' }, { kind: 'hang' });
+      await expect(call()).rejects.toMatchObject({ code: 'timeout' });
+    } finally {
+      await server.close();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
   it('complete 收到空文本按无效输出处理', async () => {
     const server = await startFakeOpenAiServer();
     const { temp, opened, completer } = setup(server.baseUrl);

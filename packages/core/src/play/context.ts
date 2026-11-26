@@ -83,15 +83,16 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
 
   let available = budget - requiredTokens - reserved;
   const promiseLines: string[] = [];
+  const promises = openPromises(input.projection);
   let promiseOmitted = 0;
-  for (const promise of openPromises(input.projection)) {
+  for (const [index, promise] of promises.entries()) {
     const cost = input.estimateTokens(`- #99 @99 → @99：${promise.statement}\n`);
-    if (cost <= available) {
-      promiseLines.push(renderPromiseLine(input.projection, input.codebook, promise));
-      available -= cost;
-    } else {
-      promiseOmitted += 1;
+    if (cost > available) {
+      promiseOmitted = promises.length - index;
+      break;
     }
+    promiseLines.push(renderPromiseLine(input.projection, input.codebook, promise));
+    available -= cost;
   }
   if (promiseOmitted) {
     const line = `另有 ${promiseOmitted} 条约定未列出，可用 list_catalog 查看。`;
@@ -111,14 +112,14 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
     });
   const indexLines: string[] = [];
   let indexOmitted = 0;
-  for (const entity of indexEntities) {
+  for (const [index, entity] of indexEntities.entries()) {
     const cost = input.estimateTokens(`${renderEntityLineWithCode(input.projection, '@99', entity.id)}\n`);
-    if (cost <= available) {
-      indexLines.push(renderEntityLine(input.projection, input.codebook, entity.id));
-      available -= cost;
-    } else {
-      indexOmitted += 1;
+    if (cost > available) {
+      indexOmitted = indexEntities.length - index;
+      break;
     }
+    indexLines.push(renderEntityLine(input.projection, input.codebook, entity.id));
+    available -= cost;
   }
   if (indexOmitted) {
     const line = `另有 ${indexOmitted} 个未出场的人物和地点，可用 list_catalog 查看。`;
@@ -141,16 +142,17 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
   const summaryTurns = earlier.filter((turn) => !recent.includes(turn));
   const summaryLines: string[] = [];
   let omittedTurns = 0;
-  for (const turn of [...summaryTurns].reverse()) {
+  const newestFirst = [...summaryTurns].reverse();
+  for (const [index, turn] of newestFirst.entries()) {
     const summary = input.projection.summaries.get(turn.id) ?? (turn.action ? `玩家行动：${turn.action.text}` : '开场');
     const line = `T${turn.depth} ${summary}`;
     const cost = input.estimateTokens(`${line}\n`);
-    if (cost <= available) {
-      summaryLines.push(line);
-      available -= cost;
-    } else {
-      omittedTurns += 1;
+    if (cost > available) {
+      omittedTurns = newestFirst.length - index;
+      break;
     }
+    summaryLines.push(line);
+    available -= cost;
   }
   summaryLines.reverse();
 
