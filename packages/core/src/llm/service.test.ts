@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { EMPTY_GENERATION_PARAMS } from '@unwritten/contracts';
 import type { Logger } from '../log/logger.ts';
 import { createEventBus } from '../events/bus.ts';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
@@ -47,9 +48,11 @@ describe('createLlmService', () => {
         makeDefault: true,
       });
       expect(created.config.endpoints[0]?.baseUrl).toBe('http://127.0.0.1:11434/v1');
-      expect(created.config.defaultModel).toEqual({ endpointId: created.endpointId, modelId: 'qwen' });
+      expect(created.config.purposes.find((view) => view.purpose === 'default')?.effectiveModel).toEqual({
+        endpointId: created.endpointId,
+        modelId: 'qwen',
+      });
       expect(service.resolve('narrator')).toMatchObject({ endpointId: created.endpointId, modelId: 'qwen' });
-      expect(created.config.defaultModelUsable).toBe(true);
     } finally {
       opened.close();
       temp.cleanup();
@@ -147,7 +150,7 @@ describe('createLlmService', () => {
     }
   });
 
-  it('修改模型 id 时把默认用途一起改掉，视图不泄露 key', async () => {
+  it('修改端点名称和 key 时视图不泄露 key', async () => {
     const { temp, opened, service } = setup();
     try {
       const created = await service.createEndpoint({
@@ -163,10 +166,8 @@ describe('createLlmService', () => {
         baseRevision: created.config.revision,
         endpointId: created.endpointId,
         name: '改名',
-        modelId: 'new-model',
         key: { action: 'keep' },
       });
-      expect(updated.defaultModel).toEqual({ endpointId: created.endpointId, modelId: 'new-model' });
       expect(JSON.stringify(updated)).not.toContain('sk-secret-value');
       expect(updated.endpoints[0]?.key).toEqual({ hasKey: true, source: 'file', envVar: null });
     } finally {
@@ -190,6 +191,144 @@ describe('createLlmService', () => {
       );
       expect(service.pruneCalls()).toBe(1);
       expect(opened.db.all<{ id: string }>(sql`select id from llm_calls`)).toEqual([{ id: 'new' }]);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('用途视图回落到默认', async () => {
+    const { temp, opened, service } = setup();
+    try {
+      const created = await service.createEndpoint({
+        requestId: requestId as never,
+        baseRevision: 'absent',
+        name: '本机模型',
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        modelId: 'qwen',
+        apiKey: null,
+        makeDefault: true,
+      });
+      const views = created.config.purposes;
+      const narrator = views.find((view) => view.purpose === 'narrator');
+      const fallback = views.find((view) => view.purpose === 'default');
+      expect(narrator).toMatchObject({
+        inherited: true,
+        effectiveModel: { endpointId: created.endpointId, modelId: 'qwen' },
+        problem: null,
+      });
+      expect(fallback?.inherited).toBe(false);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('给不支持思考的模型设档位被拒绝', async () => {
+    const { temp, opened, service, file } = setup();
+    try {
+      const created = await service.createEndpoint({
+        requestId: requestId as never,
+        baseRevision: 'absent',
+        name: '本机模型',
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        modelId: 'qwen',
+        apiKey: null,
+        makeDefault: true,
+      });
+      const updated = await service.updateModel({
+        baseRevision: created.config.revision,
+        endpointId: created.endpointId,
+        modelId: 'qwen',
+        reasoning: false,
+        thinkingFormat: 'auto',
+      });
+      const before = readFileSync(file, 'utf8');
+      await expect(
+        service.setPurpose({
+          baseRevision: updated.revision,
+          purpose: 'narrator',
+          model: { endpointId: created.endpointId, modelId: 'qwen' },
+          params: { ...EMPTY_GENERATION_PARAMS, thinking: 'high' },
+        }),
+      ).rejects.toMatchObject({ code: 'thinking_unsupported' });
+      expect(readFileSync(file, 'utf8')).toBe(before);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('删除最后一个模型被拒绝，删除其他模型清掉引用', async () => {
+    const { temp, opened, service } = setup();
+    try {
+      const created = await service.createEndpoint({
+        requestId: requestId as never,
+        baseRevision: 'absent',
+        name: '本机模型',
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        modelId: 'first',
+        apiKey: null,
+        makeDefault: true,
+      });
+      const added = await service.addModel({
+        baseRevision: created.config.revision,
+        endpointId: created.endpointId,
+        modelId: 'second',
+      });
+      const assigned = await service.setPurpose({
+        baseRevision: added.revision,
+        purpose: 'narrator',
+        model: { endpointId: created.endpointId, modelId: 'second' },
+        params: EMPTY_GENERATION_PARAMS,
+      });
+      const removed = await service.removeModel({
+        baseRevision: assigned.revision,
+        endpointId: created.endpointId,
+        modelId: 'second',
+      });
+      expect(removed.purposes.find((view) => view.purpose === 'narrator')?.model).toBeNull();
+      await expect(
+        service.removeModel({
+          baseRevision: removed.revision,
+          endpointId: created.endpointId,
+          modelId: 'first',
+        }),
+      ).rejects.toMatchObject({ code: 'last_model' });
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('把模型改成不支持思考时清掉用途里的思考档位', async () => {
+    const { temp, opened, service } = setup();
+    try {
+      const created = await service.createEndpoint({
+        requestId: requestId as never,
+        baseRevision: 'absent',
+        name: '本机模型',
+        baseUrl: 'http://127.0.0.1:11434/v1',
+        modelId: 'qwen',
+        apiKey: null,
+        makeDefault: true,
+      });
+      const assigned = await service.setPurpose({
+        baseRevision: created.config.revision,
+        purpose: 'narrator',
+        model: { endpointId: created.endpointId, modelId: 'qwen' },
+        params: { ...EMPTY_GENERATION_PARAMS, thinking: 'high', temperature: 0.7 },
+      });
+      const updated = await service.updateModel({
+        baseRevision: assigned.revision,
+        endpointId: created.endpointId,
+        modelId: 'qwen',
+        reasoning: false,
+        thinkingFormat: 'auto',
+      });
+      const narrator = updated.purposes.find((view) => view.purpose === 'narrator');
+      expect(narrator?.params.thinking).toBeNull();
+      expect(narrator?.params.temperature).toBe(0.7);
     } finally {
       opened.close();
       temp.cleanup();

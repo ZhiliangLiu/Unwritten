@@ -2,9 +2,13 @@
   "page": { "heading": "写背景" },
   "background": {
     "label": "故事背景",
+    "placeholder": "例如：末班渡轮停航前，你遇见了一个坚持等下一班船的人。",
     "help": "玩家是谁？身在何处？眼前发生了什么？",
-    "save": "保存背景",
-    "unsaved": "有尚未保存的背景"
+    "status": {
+      "saving": "正在保存",
+      "saved": "已保存",
+      "stale": "草稿已在别处更新。你正在写的内容已保留，保存时会覆盖。"
+    }
   },
   "preview": {
     "generate": "生成开场预览",
@@ -13,7 +17,15 @@
     "failed": "开场预览没有生成成功，请重试",
     "heading": "预览开场",
     "setting": "公开设定",
-    "adopt": "采用开场并存入作品库"
+    "options": "推荐行动",
+    "adopt": "采用开场并存入作品库",
+    "stale": "已过期",
+    "staleHelp": "背景改过了，这份预览基于旧的背景。请重新生成后再采用。"
+  },
+  "cast": {
+    "heading": "出场人物",
+    "protagonist": "主角",
+    "knownAs": "主角称作：{{name}}"
   },
   "published": { "heading": "已存入作品库", "play": "开始故事", "back": "返回作品库" }
 }

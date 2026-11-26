@@ -7,6 +7,7 @@ import { createApiClient } from '../shared/api/client.ts';
 import { queryClient, queryKeys } from '../shared/api/query.ts';
 import { ApiProvider } from '../shared/api/context.tsx';
 import { applyAppearance, followSystemAppearance } from '../theme/appearance.ts';
+import { ToastProvider } from '../shared/ui/Toaster.tsx';
 import { router } from './router.tsx';
 import { NoTokenPage } from './NoTokenPage.tsx';
 
@@ -15,7 +16,6 @@ export function App() {
   const [api] = useState(() => (token ? createApiClient(token) : null));
 
   useEffect(() => {
-    applyAppearance('system');
     return followSystemAppearance();
   }, []);
 
@@ -42,6 +42,13 @@ export function App() {
               void queryClient.invalidateQueries({ queryKey: queryKeys.route(event.routeId) });
               void queryClient.invalidateQueries({ queryKey: queryKeys.works });
             }
+            if (event.type === 'turn.committed') {
+              void queryClient.invalidateQueries({ queryKey: queryKeys.journal(event.routeId) });
+            }
+            if (event.type === 'settings.changed') {
+              applyAppearance(event.appearance);
+              queryClient.setQueryData(queryKeys.settings, event.appearance);
+            }
           }
           if (cancelled) return;
           await queryClient.invalidateQueries();
@@ -63,7 +70,9 @@ export function App() {
   return (
     <ApiProvider value={api}>
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
       </QueryClientProvider>
     </ApiProvider>
   );

@@ -5,6 +5,7 @@ import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
 import { DataDirLockedError, openDatabase, type OpenedDatabase } from './db.ts';
+import { indexTurnProse } from './prose-index.ts';
 
 const workId = '00000000-0000-4000-8000-000000000001';
 const versionId = '00000000-0000-4000-8000-000000000002';
@@ -105,6 +106,118 @@ describe('openDatabase', () => {
       });
       expect(result.locked).toBe(true);
       expect(result.name).toBe(DataDirLockedError.name);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('新迁移建出故事表和全文索引', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    try {
+      const names = opened.db.all<{ name: string }>(sql`select name from sqlite_master`).map((row) => row.name);
+      for (const name of [
+        'entities',
+        'entity_names',
+        'facts',
+        'knowledge',
+        'turn_summaries',
+        'app_settings',
+        'prose_fts',
+        'turns_delete_fts',
+      ]) {
+        expect(names).toContain(name);
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('称呼的唯一索引把空持有者视为同一个', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    try {
+      seed(opened);
+      opened.db.run(
+        sql`insert into entity_names (version_id, entity_id, name, holder_id, origin_turn_id, source_para)
+            values (${versionId}, 'e1', '守夜人', null, null, null)`,
+      );
+      expect(() =>
+        opened.db.run(
+          sql`insert into entity_names (version_id, entity_id, name, holder_id, origin_turn_id, source_para)
+              values (${versionId}, 'e1', '守夜人', null, null, null)`,
+        ),
+      ).toThrow();
+      expect(() =>
+        opened.db.run(
+          sql`insert into entity_names (version_id, entity_id, name, holder_id, origin_turn_id, source_para)
+              values (${versionId}, 'e1', '守夜人', 'holder', null, null)`,
+        ),
+      ).not.toThrow();
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('每个版本只能有一个主角', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    try {
+      seed(opened);
+      opened.db.run(
+        sql`insert into entities (version_id, id, kind, name, profile, is_protagonist)
+            values (${versionId}, 'p1', 'character', '主角', '{"text":""}', 1)`,
+      );
+      expect(() =>
+        opened.db.run(
+          sql`insert into entities (version_id, id, kind, name, profile, is_protagonist)
+              values (${versionId}, 'p2', 'character', '另一个', '{"text":""}', 1)`,
+        ),
+      ).toThrow();
+      expect(() =>
+        opened.db.run(
+          sql`insert into entities (version_id, id, kind, name, profile, is_protagonist)
+              values (${versionId}, 'p3', 'character', '配角', '{"text":""}', 0)`,
+        ),
+      ).not.toThrow();
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('删除回合时清掉它的全文索引行', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    try {
+      seed(opened);
+      const extraTurnId = '00000000-0000-4000-8000-000000000021';
+      opened.db.run(
+        sql`insert into turns (id, playthrough_id, parent_id, depth, prose, options, scene, status, created_at)
+            values (${extraTurnId}, ${playthroughId}, ${turnId}, 1, '灯还亮着', '[]',
+                    '{"place":"钟铺","time":"深夜","present":[]}', 'committed', ${Date.now()})`,
+      );
+      indexTurnProse(opened.db, extraTurnId, '灯还亮着');
+      expect(opened.db.all(sql`select * from prose_fts where turn_id = ${extraTurnId}`)).toHaveLength(1);
+      opened.db.run(sql`delete from turns where id = ${extraTurnId}`);
+      expect(opened.db.all(sql`select * from prose_fts where turn_id = ${extraTurnId}`)).toHaveLength(0);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('trigram 检索中文', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    try {
+      seed(opened);
+      indexTurnProse(opened.db, turnId, '灯塔守夜人在渡口等船');
+      const hits = opened.db.all(sql`select * from prose_fts where prose_fts match '守夜人'`);
+      expect(hits).toHaveLength(1);
     } finally {
       opened.close();
       temp.cleanup();

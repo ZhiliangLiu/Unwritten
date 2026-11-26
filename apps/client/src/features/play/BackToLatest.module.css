@@ -1,0 +1,10 @@
+.button {
+  transition: var(--uw-transition-popup);
+}
+
+@starting-style {
+  .button {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--uw-motion-distance-sm)));
+  }
+}

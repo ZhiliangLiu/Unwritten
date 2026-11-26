@@ -1,6 +1,7 @@
 import { Agent } from '@earendil-works/pi-agent-core';
 import { createModels, createProvider, type AssistantMessage, type Model } from '@earendil-works/pi-ai';
 import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy';
+import type { GenerationParams, ThinkingFormat } from '@unwritten/contracts';
 import packageJson from '../../package.json' with { type: 'json' };
 import type { LlmTool } from './types.ts';
 
@@ -12,6 +13,8 @@ export interface RuntimeTarget {
   apiKey: string | undefined;
   contextWindow: number;
   maxOutputTokens: number;
+  thinkingFormat: ThinkingFormat;
+  params: GenerationParams;
 }
 
 export interface Transport {
@@ -34,6 +37,7 @@ export interface CompletionOutcome {
   errorMessage: string | null;
   calledToolNames: string[];
   usage: UsageTotals;
+  text: string;
 }
 
 const IDENTITY = {
@@ -43,7 +47,53 @@ const IDENTITY = {
 
 const EMPTY_USAGE: UsageTotals = { input: 0, output: 0, cacheRead: 0, cost: 0, costFromProvider: false };
 
+type OpenAiCompat = NonNullable<Model<'openai-completions'>['compat']>;
+
+function thinkingCompat(format: ThinkingFormat): Partial<OpenAiCompat> {
+  if (format === 'auto') return {};
+  if (format === 'openai') return { thinkingFormat: 'openai', supportsReasoningEffort: true };
+  if (format === 'qwen') {
+    return { thinkingFormat: 'qwen', supportsReasoningEffort: false, thinkingTokenBudgetField: 'thinking_budget' };
+  }
+  if (format === 'qwen-chat-template') {
+    return { thinkingFormat: 'qwen-chat-template', supportsReasoningEffort: false };
+  }
+  if (format === 'deepseek') return { thinkingFormat: 'deepseek', supportsReasoningEffort: false };
+  if (format === 'openrouter') return { thinkingFormat: 'openrouter' };
+  return { thinkingFormat: 'zai', supportsReasoningEffort: false };
+}
+
+type ReasoningLevel = Exclude<GenerationParams['thinking'], null | 'off'>;
+
+interface RequestOptions {
+  reasoning?: ReasoningLevel;
+  thinkingBudgets?: { minimal: number; low: number; medium: number; high: number };
+  temperature?: number;
+  samplingParams?: Record<string, number>;
+}
+
+function requestOptions(params: GenerationParams): RequestOptions {
+  const options: RequestOptions = {};
+  if (params.thinking !== null && params.thinking !== 'off') options.reasoning = params.thinking;
+  if (params.thinkingBudget !== null) {
+    options.thinkingBudgets = {
+      minimal: params.thinkingBudget,
+      low: params.thinkingBudget,
+      medium: params.thinkingBudget,
+      high: params.thinkingBudget,
+    };
+  }
+  if (params.temperature !== null) options.temperature = params.temperature;
+  const samplingParams: Record<string, number> = {};
+  if (params.topP !== null) samplingParams.top_p = params.topP;
+  if (params.topK !== null) samplingParams.top_k = params.topK;
+  if (params.minP !== null) samplingParams.min_p = params.minP;
+  if (Object.keys(samplingParams).length > 0) options.samplingParams = samplingParams;
+  return options;
+}
+
 function build(target: RuntimeTarget): { models: ReturnType<typeof createModels>; model: Model<'openai-completions'> } {
+  const thinkingSet = target.params.thinking !== null;
   const model: Model<'openai-completions'> = {
     id: target.modelId,
     name: target.modelId,
@@ -51,17 +101,18 @@ function build(target: RuntimeTarget): { models: ReturnType<typeof createModels>
     provider: target.endpointId,
     baseUrl: target.baseUrl,
     input: ['text'],
-    reasoning: false,
+    reasoning: thinkingSet,
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
     contextWindow: target.contextWindow,
     maxTokens: target.maxOutputTokens,
     compat: {
       supportsStore: false,
       supportsDeveloperRole: false,
-      supportsReasoningEffort: false,
       maxTokensField: 'max_tokens',
+      ...thinkingCompat(target.thinkingFormat),
     },
   };
+  if (thinkingSet) model.thinkingLevelMap = { off: 'none', xhigh: 'xhigh', max: 'max' };
   const provider = createProvider({
     id: target.endpointId,
     name: target.endpointName,
@@ -100,6 +151,10 @@ function outcomeOf(message: AssistantMessage): CompletionOutcome {
     errorMessage: message.errorMessage ?? null,
     calledToolNames: toolNamesOf(message),
     usage: usageOf(message),
+    text: message.content
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+      .join(''),
   };
 }
 
@@ -123,7 +178,7 @@ export async function completeOnce(
   input: { system: string; user: string; tools: LlmTool[]; maxTokens: number },
 ): Promise<CompletionOutcome> {
   const { models, model } = build(target);
-  const message = await models.complete(
+  const message = await models.completeSimple(
     model,
     {
       systemPrompt: input.system,
@@ -131,6 +186,7 @@ export async function completeOnce(
       tools: toolsOf(input.tools),
     },
     {
+      ...requestOptions(target.params),
       fetch: transport.fetch,
       headers: transport.headers,
       sessionId: transport.sessionId,
@@ -167,13 +223,14 @@ export function createAgentSession(
     initialState: {
       systemPrompt: input.system,
       model,
-      thinkingLevel: 'off',
+      thinkingLevel: target.params.thinking ?? 'off',
       tools: agentTools,
       messages: [],
     },
     streamFn: (current, context, options) =>
       models.streamSimple(current, context, {
         ...options,
+        ...requestOptions(target.params),
         fetch: transport.fetch,
         headers: { ...options?.headers, ...transport.headers },
         maxRetries: 0,
@@ -205,6 +262,7 @@ export function createAgentSession(
           errorMessage: agent.state.errorMessage ?? 'assistant did not reply',
           calledToolNames: [],
           usage: EMPTY_USAGE,
+          text: '',
         };
       }
       const usage = assistants.reduce((total, message) => addUsage(total, usageOf(message)), EMPTY_USAGE);

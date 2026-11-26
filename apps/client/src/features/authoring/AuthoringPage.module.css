@@ -1,0 +1,4 @@
+.sections {
+  display: grid;
+  gap: var(--uw-space-8);
+}

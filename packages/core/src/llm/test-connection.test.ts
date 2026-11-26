@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { EMPTY_GENERATION_PARAMS } from '@unwritten/contracts';
 import { emptyProvidersFile } from './providers-schema.ts';
 import { createProvidersStore } from './providers-file.ts';
 import { createConnectionTester } from './test-connection.ts';
@@ -8,6 +9,7 @@ import { pingStep } from '../test-support/llm-steps.ts';
 import { startFakeOpenAiServer } from '../test-support/fake-openai-server.ts';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
 import type { Logger } from '../log/logger.ts';
+import type { RuntimeTarget } from './pi.ts';
 
 const logger: Logger = {
   record() {},
@@ -16,7 +18,7 @@ const logger: Logger = {
   async close() {},
 };
 
-function setup() {
+function setup(targetFor: () => RuntimeTarget | null = () => null) {
   const temp = makeTempDataDir();
   const file = join(temp.dir, 'providers.json');
   const store = createProvidersStore(file, () => {});
@@ -25,6 +27,7 @@ function setup() {
     logger,
     shutdown: new AbortController().signal,
     env: {},
+    targetFor,
   });
   return { temp, file, store, tester };
 }
@@ -117,6 +120,31 @@ describe('createConnectionTester', () => {
         await server.close();
       }
     } finally {
+      temp.cleanup();
+    }
+  });
+
+  it('按用途测试时带上用途的参数', async () => {
+    const server = await startFakeOpenAiServer();
+    const target: RuntimeTarget = {
+      endpointId: 'ep',
+      endpointName: '测试',
+      baseUrl: server.baseUrl,
+      modelId: 'm',
+      apiKey: undefined,
+      contextWindow: 32_768,
+      maxOutputTokens: 1_024,
+      thinkingFormat: 'openai',
+      params: { ...EMPTY_GENERATION_PARAMS, thinking: 'high' },
+    };
+    const { temp, tester } = setup(() => target);
+    try {
+      server.enqueue(pingStep());
+      const result = await tester({ purpose: 'narrator' });
+      expect(result.ok).toBe(true);
+      expect(server.requests.at(-1)?.body).toMatchObject({ reasoning_effort: 'high' });
+    } finally {
+      await server.close();
       temp.cleanup();
     }
   });

@@ -43,6 +43,7 @@ export async function startCore(options: CliOptions, factories: ServiceFactories
       outcome: 'ok',
     });
     logger.record({ level: 'info', module: 'core', event: 'store.migrated' });
+    logger.record({ level: 'info', module: 'core', event: 'story.backfill', data: { ...opened.backfill } });
 
     const shutdown = new AbortController();
     const bus = createEventBus();
@@ -55,13 +56,16 @@ export async function startCore(options: CliOptions, factories: ServiceFactories
     };
     const llm = factories.llm(deps);
     const library = factories.library(deps);
+    const settings = factories.settings(deps);
+    const summary = factories.summary({ ...deps, llm });
     const authoring = factories.authoring({ ...deps, llm });
-    const play = factories.play({ ...deps, llm });
-    const services: Services = { llm, library, authoring, play, bus, logger };
+    const play = factories.play({ ...deps, llm, summary });
+    const services: Services = { llm, library, authoring, play, settings, summary, bus, logger };
 
     const recoverStarted = performance.now();
     const turnRequests = play.recoverInterrupted();
     const jobs = authoring.recoverInterrupted();
+    const summaries = summary.backfill();
     llm.pruneCalls();
     play.pruneOldRequestLogs();
     logger.sample({ metric: 'core.recover', durationMs: performance.now() - recoverStarted, outcome: 'ok' });
@@ -69,7 +73,7 @@ export async function startCore(options: CliOptions, factories: ServiceFactories
       level: 'info',
       module: 'core',
       event: 'recovery.interrupted',
-      data: { turnRequests, jobs },
+      data: { turnRequests, jobs, summaries },
     });
 
     const token = randomBytes(32).toString('base64url');
@@ -106,7 +110,7 @@ export async function startCore(options: CliOptions, factories: ServiceFactories
             (server as { closeAllConnections?: () => void }).closeAllConnections?.();
             await closingServer;
           }
-          await Promise.all([authoring.whenIdle(), play.whenIdle()]);
+          await Promise.all([authoring.whenIdle(), play.whenIdle(), summary.whenIdle()]);
           opened?.close();
           logger.record({ level: 'info', module: 'core', event: 'core.stopped' });
           await logger.close();

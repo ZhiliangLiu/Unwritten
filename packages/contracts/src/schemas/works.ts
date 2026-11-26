@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ErrorCodeSchema } from '../errors.ts';
 import { ContentRevSchema, LanguageTagSchema, TimestampSchema, UuidSchema } from './common.ts';
+import { EntityKindSchema } from './story.ts';
 
 export const BACKGROUND_MAX_LENGTH = 20_000;
 
@@ -17,6 +18,14 @@ export const WorkSummarySchema = z.object({
   updatedAt: TimestampSchema,
 });
 
+export const PreviewCastMemberSchema = z.object({
+  kind: EntityKindSchema,
+  name: z.string(),
+  knownAs: z.string().nullable(),
+  profile: z.string(),
+  protagonist: z.boolean(),
+});
+
 export const PreviewSchema = z.object({
   title: z.string(),
   blurb: z.string(),
@@ -25,6 +34,7 @@ export const PreviewSchema = z.object({
   options: z.array(z.object({ text: z.string() })),
   scene: z.object({ place: z.string(), time: z.string() }),
   language: LanguageTagSchema,
+  cast: z.array(PreviewCastMemberSchema).default([]),
 });
 
 export const JobStatusSchema = z.enum(['running', 'done', 'failed']);
@@ -69,6 +79,7 @@ export const AdoptPreviewOutputSchema = z.object({ routeId: UuidSchema });
 export type WorkStatus = z.infer<typeof WorkStatusSchema>;
 export type WorkSummary = z.infer<typeof WorkSummarySchema>;
 export type Preview = z.infer<typeof PreviewSchema>;
+export type PreviewCastMember = z.infer<typeof PreviewCastMemberSchema>;
 export type JobStatus = z.infer<typeof JobStatusSchema>;
 export type PreviewJobView = z.infer<typeof PreviewJobViewSchema>;
 export type WorkDetail = z.infer<typeof WorkDetailSchema>;

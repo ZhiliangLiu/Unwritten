@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { Database } from '../store/db.ts';
 import { turns } from '../store/schema.ts';
-import type { StoredAction, StoredOption, StoredScene } from '../store/meta.ts';
+import { StoredSceneSchema, type StoredAction, type StoredOption } from '../store/meta.ts';
 
 export type TurnRow = typeof turns.$inferSelect;
 
@@ -48,7 +48,7 @@ export function ancestorChain(
       action: row.action ? (JSON.parse(row.action) as StoredAction) : null,
       prose: row.prose,
       options: JSON.parse(row.options) as StoredOption[],
-      scene: JSON.parse(row.scene) as StoredScene,
+      scene: StoredSceneSchema.parse(JSON.parse(row.scene)),
       ending: row.ending,
       status: row.status,
       createdAt: row.created_at,

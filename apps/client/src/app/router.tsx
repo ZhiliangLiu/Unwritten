@@ -1,5 +1,5 @@
-import { Link, Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
-import { useTranslation } from 'react-i18next';
+import { Outlet, createRootRoute, createRoute, createRouter, useNavigate } from '@tanstack/react-router';
+import { useShortcut } from '../shared/hooks/useShortcut.ts';
 import { LibraryPage } from '../features/library/LibraryPage.tsx';
 import { AuthoringPage } from '../features/authoring/AuthoringPage.tsx';
 import { SettingsPage } from '../features/settings/SettingsPage.tsx';
@@ -7,23 +7,13 @@ import { PlayPage } from '../features/play/PlayPage.tsx';
 import styles from './app.module.css';
 
 function RootLayout() {
-  const { t } = useTranslation();
+  const navigate = useNavigate();
+  useShortcut({ key: ',', mod: true }, () => {
+    void navigate({ to: '/settings' });
+  });
   return (
     <div className={styles.shell}>
-      <header className={styles.toolbar}>
-        <strong className={styles.brand}>{t('common:app.name')}</strong>
-        <nav className={styles.nav}>
-          <Link className={styles.link} activeProps={{ className: styles.active }} to='/'>
-            {t('common:nav.library')}
-          </Link>
-          <Link className={styles.link} activeProps={{ className: styles.active }} to='/settings'>
-            {t('common:nav.settings')}
-          </Link>
-        </nav>
-      </header>
-      <main className={styles.main}>
-        <Outlet />
-      </main>
+      <Outlet />
     </div>
   );
 }
@@ -48,7 +38,7 @@ const playRoute = createRoute({
   },
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, settingsRoute, worksEditRoute, playRoute]);
+export const routeTree = rootRoute.addChildren([indexRoute, settingsRoute, worksEditRoute, playRoute]);
 
 export const router = createRouter({ routeTree });
 

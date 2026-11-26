@@ -19,4 +19,5 @@ export const worksContract = {
   saveBackground: oc.input(SaveBackgroundInputSchema).output(SaveBackgroundOutputSchema),
   generatePreview: oc.input(GeneratePreviewInputSchema).output(PreviewJobViewSchema),
   adoptPreview: oc.input(AdoptPreviewInputSchema).output(AdoptPreviewOutputSchema),
+  delete: oc.input(WorkIdInputSchema).output(z.object({})),
 };

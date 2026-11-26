@@ -337,7 +337,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
 
 | 文件 | 作用 | 归属 |
 | --- | --- | --- |
-| `docs/llm-endpoints.md`、`docs/turn-loop.md`、`docs/data-model.md`、`docs/diagnostics.md`、`docs/architecture.md`、`docs/milestone-2.md`、`docs/gameplay-flow.md` | 把 §1.3、§1.5 的决定写进设计 | T00 |
+| `docs/llm-endpoints.md`、`docs/turn-loop.md`、`docs/data-model.md`、`docs/diagnostics.md`、`docs/architecture.md`、`docs/milestone-2.md` | 把 §1.3、§1.5 的决定写进设计 | T00 |
 | `apps/client/AGENTS.md` | client 规范：补“模块边界”“状态与数据流”“加载、空、错误”“滚动与浮层”“测试”五节 | T01 |
 | `packages/core/AGENTS.md` | 新建：core 规范 | T01 |
 | `tasks/AGENTS.md` | 新建：任务文件的写作规范 | T01 |
@@ -758,7 +758,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
 - [x] 6. 稿子和本文 T07、T13–T15 的描述不一致时：稿子符合设计文档，就改本文对应任务；稿子不符合设计文档，就改稿子。两者都改不了时，按 §0.3 汇报维护者。
 - [x] 7. 把截图清单和差异处置写进 §6 台账，请维护者确认。
 
-**完成判据。** `tasks/assets/milestone-2/` 里每个页面状态都有浅色和深色两张截图；`logo-paths.json` 能被 `JSON.parse` 解析，`full.rings` 至少一条路径；维护者在台账里确认。
+**完成判据。** `tasks/assets/milestone-2/` 里每个页面状态都有浅色和深色两张截图；`logo-paths.json` 能被 `JSON.parse` 解析，`full.ink` 至少一条路径；维护者在台账里确认。
 
 ### T03 契约与接口先行
 
@@ -766,7 +766,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
 
 **依赖。** T00。
 
-**拥有的文件。** §4 里归属 T03 的全部文件。
+**拥有的文件。** §4 里归属 T03 的全部文件，以及 `apps/client/src/features/settings/endpoint-edit.test.ts`（T03 新增的必填能力字段需要同步测试夹具）。
 
 **先读。** [LLM 端点 §7、§10](../docs/llm-endpoints.md#7-用途分配)（T00 改过的版本）；[数据模型 §4–§5](../docs/data-model.md#4-故事事实)；[主题与 token §9](../docs/theme.md#9-外观偏好与切换)；本文 §1.5、§2.3、§2.8、§2.9；现有的 `packages/contracts/src/**`、`packages/core/src/services.ts`、`packages/core/src/api/router.ts`、`packages/core/src/llm/types.ts`。
 
@@ -1117,7 +1117,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
   - `play.getJournal` → `play.getJournal(input)`。
   - `settings.get` → `settings.get()`；`settings.update` → `settings.update(input)`。
 - [ ] 21. `packages/core/src/app.ts`：在 `library` 之后构造 `const settings = factories.settings(deps);`、`const summary = factories.summary({ ...deps, llm });`；`play` 改成 `factories.play({ ...deps, llm, summary })`；`services` 加上 `settings`、`summary`；`close()` 里 `Promise.all` 加上 `summary.whenIdle()`。`main.ts` 的工厂对象加 `settings: (deps) => createSettingsService(deps)`、`summary: (deps) => createSummaryService(deps)`。
-- [ ] 22. 让现有测试跟上接口：`app.test.ts`、`api/http-app.test.ts`、`app.integration.test.ts` 里构造工厂或服务的地方，补上 `settings`、`summary`（集成测试用真实的 `createSettingsService`、`createSummaryService`；单元测试的假服务里，新方法用 `throw new Error('not used')`）。`play/service.test.ts` 构造 `createPlayService` 时补 `summary: createRecordingSummary()`。只补构造参数，不改任何断言。
+- [ ] 22. 让现有测试跟上接口：`app.test.ts`、`api/http-app.test.ts`、`app.integration.test.ts` 里构造工厂或服务的地方，补上 `settings`、`summary`（集成测试用真实的 `createSettingsService`、`createSummaryService`；单元测试的假服务里，新方法用 `throw new Error('not used')`）。`play/service.test.ts` 构造 `createPlayService` 时补 `summary: createRecordingSummary()`。`apps/client/src/features/settings/endpoint-edit.test.ts` 的模型夹具补 `reasoning: null` 和 `thinkingFormat: 'auto'`。只补构造参数，不改任何断言。
 - [ ] 23. `apps/client/src/i18n/zh-CN/errors.json` 加两个键，文案见附录 A.2。
 
 **接线点。**
@@ -1445,7 +1445,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
   - `ProjName.seq` 是 SQLite 的 `rowid`，同一深度有多条称呼时，`seq` 大的是后写的。
   - `facts` 和 `knowledge` 是已经按覆盖规则取过最新值的结果；`event` 没有覆盖，全部保留。
 - [ ] 3. `store/meta.ts`：
-  - `StoredSceneSchema` 加 `presentIds: z.array(z.string()).default([])`。`present` 仍是这一回合结束时在场者真名的快照，`presentIds` 是对应的实体 id；M1 的旧回合没有 `presentIds`，读出来是空数组。
+  - `StoredSceneSchema` 加 `presentIds: z.array(z.string()).default([])`。`present` 仍是这一回合结束时在场者真名的快照，`presentIds` 是对应的实体 id；M1 的旧回合没有 `presentIds`，由 T11 在 `play/chain.ts` 用 `StoredSceneSchema.parse` 读取时补成空数组。
   - `VersionMetaSchema` 的 `opening` 对象加 `changes: ValidatedChangesSchema.optional()`。
   - `PreviewJobResultSchema` 加 `changes: ValidatedChangesSchema.optional()`。
   - `TurnRequestLogSchema` 的元素对象加 `args: z.record(z.string(), z.string()).optional()` 和 `records: z.array(z.string()).optional()`。
@@ -2012,7 +2012,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
   export function renderCatalogPage(p: StoryProjection, cb: CodeBook, category: CatalogCategory, cursor: number): string;
   export function renderWhoKnows(p: StoryProjection, cb: CodeBook, factId: string): string;
   export function renderTurnText(turn: ChainTurn): string;
-  export function renderSearchHits(hits: SearchHit[]): string;
+  export function renderSearchHits(hits: SearchHit[], query: string): string;
   export function clipToolResult(text: string): string;
   export function sourceLabel(depth: number, para: number | null): string;
 
@@ -2302,7 +2302,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
 
 **依赖。** T05（`RuntimeTarget` 带参数）、T08、T09、T12（`SummaryService.enqueue` 的真实现；只依赖接口时也可以先开工，测试里用 `createRecordingSummary`）。
 
-**拥有的文件。** `packages/core/src/play/context.ts`、`narrator-prompt.ts`、`propose-turn-tool.ts`、`service.ts` 及测试；`packages/core/src/story/tools.ts` 及测试。
+**拥有的文件。** `packages/core/src/play/context.ts`、`narrator-prompt.ts`、`propose-turn-tool.ts`、`service.ts`、`chain.ts` 及测试；`packages/core/src/story/tools.ts` 及测试。
 
 **先读。** [回合循环 §1–§6、§9、§11](../docs/turn-loop.md#1-一回合的流程)；附录 B.2、B.3、B.4、C；T08、T09 的全部接口；现有的 `play/` 全部文件。
 
@@ -2356,7 +2356,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
   各块的格式照附录 C.1，按下面的顺序和预算组装（[回合循环 §3](../docs/turn-loop.md#3-上下文哪些直接给哪些让模型查)“预算”）：
   1. `budget = model.contextWindow - model.maxOutputTokens - estimateTokens(toolSchemaText) - estimateTokens(NARRATOR_SYSTEM_PROMPT)`。
   2. **必需材料**：作品设定块、叙事要求块、主角块、当前场景块、最新回合（head）的原文块、玩家行动块。估算之和超过预算 → `{ ok: false, code: 'context_too_small' }`。不截断任何必需材料。
-  3. 先为三条省略说明各预留一份最坏情况的长度（数字按 `99999` 估算）：索引的省略说明、回合的省略说明。
+  3. 先为两条省略说明各预留一份最坏情况的长度（数字按 `99999` 估算）：索引的省略说明、回合的省略说明。
   4. **索引**：`未了结的约定` 块整块放入（放不下时只放能放下的前几行，并在块末写明“另有 N 条约定未列出，可用 list_catalog 查看”）。然后是实体索引：除主角外的全部可见实体，先已出场的，再未出场的；每组内按 `originDepth` 从大到小，相同时按真名的码位升序（附录 C.1，排序必须确定，否则编号会随运行变化）；一条一条加，放不下就停，剩下的写一行省略说明（附录 C.1）。
   5. **更早的回合原文**：从 head 的父回合往开场方向一个一个加原文块，放不下就停。
   6. **摘要行**：剩下没放原文的回合，从新到旧一条一条加摘要行（有摘要用摘要；没有摘要时用 `玩家行动：<原话>`；开场回合固定写 `开场`），放不下就停。
@@ -2449,6 +2449,7 @@ W7   T18 真实模型走查与收口（依赖 T17）
 **注意事项。**
 
 - 投影和编号簿在一次请求的整个工具循环里共用同一份，不要在工具里重新读投影：同一次请求里模型看到的编号必须一直有效。
+- `play/chain.ts` 的 `ancestorChain` 用 `StoredSceneSchema.parse` 解析 `scene`，让 M1 旧回合缺少的 `presentIds` 得到空数组。
 - 工具不写库（§0.2）。只有 `propose_turn` 校验通过后，在提交事务里写入。
 - 提交事务里不 `await`。`allocateEntityIds`、`writeChanges`、`indexTurnProse` 都是同步的。
 - 事务失败时整体回滚：回合、事实、索引一起没有。不要把事实写入放到事务外面。
@@ -3146,7 +3147,7 @@ T08 的 `render.ts`、T11 的 `context.ts` 和 `tools.ts` 按这里实现，测�
 
 【人物与事物索引】
 - <编号> <种类名> · <显示名> · <档案，截 30 字> · <已出场 或 未出场>
-另有 <N> 个未出场的人物和事物，可用 list_catalog 查看。
+另有 <N> 个未出场的人物和地点，可用 list_catalog 查看。
 
 【未了结的约定】
 - <事实编号> <主体编号> → <客体编号>：<陈述>
@@ -3341,6 +3342,7 @@ T<深度>（最新）
 | 波次 | 集成分支提交 | `pnpm typecheck` | `pnpm lint` | `pnpm test` | 文档链接 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- |
 | W0 | | | | | | |
+| W1–W5 | worktree `m2-w1-t03`（未提交） | 0 | 0 | 0 | 通过 | T03–T16 已落地；`pnpm e2e` 7 条通过；T17 只覆盖 4 条，T18 待真实模型 |
 
 ### 6.2a W0 · T02 Figma 校准记录
 

@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import { drizzle, type NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
 import { migrate } from 'drizzle-orm/node-sqlite/migrator';
+import { backfillStory, type BackfillResult } from './backfill.ts';
 
 export class DataDirLockedError extends Error {
   constructor(message: string) {
@@ -12,6 +13,7 @@ export class DataDirLockedError extends Error {
 
 export interface OpenedDatabase {
   db: Database;
+  backfill: BackfillResult;
   close(): void;
 }
 
@@ -41,7 +43,8 @@ export function openDatabase(file: string): OpenedDatabase {
   try {
     const db = drizzle({ client });
     migrate(db, { migrationsFolder: fileURLToPath(new URL('./migrations/', import.meta.url)) });
-    return { db, close: () => client.close() };
+    const backfill = backfillStory(db);
+    return { db, backfill, close: () => client.close() };
   } catch (error) {
     client.close();
     throw error;

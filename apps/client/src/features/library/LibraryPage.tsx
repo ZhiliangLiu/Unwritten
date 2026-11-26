@@ -1,24 +1,35 @@
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useEffect, useRef } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { Plus, Settings } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { queryKeys } from '../../shared/api/query.ts';
 import { useApi } from '../../shared/api/context.tsx';
-import { ErrorNotice } from '../../shared/ui/Notice.tsx';
-import { formatRelative } from '../../shared/lib/format.ts';
 import { reportSample } from '../../shared/lib/log.ts';
-import styles from '../../app/app.module.css';
+import { Button } from '../../shared/ui/Button.tsx';
+import { EmptyState } from '../../shared/ui/EmptyState.tsx';
+import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
+import { IconButton } from '../../shared/ui/IconButton.tsx';
+import { Page } from '../../shared/ui/Page.tsx';
+import { Skeleton } from '../../shared/ui/Skeleton.tsx';
+import { DeleteWorkDialog } from './DeleteWorkDialog.tsx';
+import { WorkCard } from './WorkCard.tsx';
+import styles from './LibraryPage.module.css';
 
 export function LibraryPage() {
   const api = useApi();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const works = useQuery({ queryKey: queryKeys.works, queryFn: () => api.works.list() });
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<unknown>(null);
   const startedAt = useRef<number | null>(null);
   const reported = useRef(false);
+
   useEffect(() => {
     if (startedAt.current === null) startedAt.current = performance.now();
   }, []);
+
   useEffect(() => {
     if (reported.current || (!works.data && !works.error)) return;
     reported.current = true;
@@ -28,53 +39,74 @@ export function LibraryPage() {
       outcome: works.error ? 'error' : 'ok',
     });
   }, [api, works.data, works.error]);
+
   const create = useMutation({
     mutationFn: () => api.works.create({ workId: crypto.randomUUID() }),
     onSuccess: (work) => navigate({ to: '/works/$workId/edit', params: { workId: work.id } }),
   });
 
+  const target = works.data?.find((work) => work.id === deleteTarget) ?? null;
+  const createWork = () => create.mutate();
+
   return (
-    <section className={styles.page}>
-      <h1 className={styles.heading}>{t('library:page.heading')}</h1>
-      <div>
-        <button className={styles.button} onClick={() => create.mutate()} disabled={create.isPending}>
-          {t('library:action.create')}
-        </button>
-      </div>
-      <ErrorNotice error={works.error ?? create.error} />
-      {works.isLoading ? <p className={styles.muted}>{t('common:status.loading')}</p> : null}
+    <Page
+      title={t('library:page.heading')}
+      heading='content'
+      subtitle={works.data ? t('library:page.count', { count: works.data.length }) : undefined}
+      toolbar={{
+        start: { kind: 'brand' },
+        tools: <IconButton label={t('common:nav.settings')} icon={Settings} render={<Link to='/settings' />} />,
+      }}
+      headerActions={
+        works.data && works.data.length > 0 ? (
+          <Button variant='primary' icon={Plus} busy={create.isPending} onClick={createWork}>
+            {t('library:action.create')}
+          </Button>
+        ) : undefined
+      }
+      width='page'
+    >
+      <ErrorNotice error={deleteError ?? works.error ?? create.error} />
+      {works.isLoading ? <Skeleton variant='card' count={3} /> : null}
       {works.data?.length === 0 ? (
-        <div className={styles.card}>
-          <h2>{t('library:empty.heading')}</h2>
-          <p className={styles.muted}>{t('library:empty.description')}</p>
+        <EmptyState
+          title={t('library:empty.heading')}
+          description={t('library:empty.description')}
+          headingLevel={2}
+          action={
+            <Button variant='primary' icon={Plus} busy={create.isPending} onClick={createWork}>
+              {t('library:action.create')}
+            </Button>
+          }
+        />
+      ) : null}
+      {works.data && works.data.length > 0 ? (
+        <div className={styles.grid}>
+          {works.data.map((work) => (
+            <WorkCard
+              key={work.id}
+              work={work}
+              onDelete={() => {
+                setDeleteError(null);
+                setDeleteTarget(work.id);
+              }}
+            />
+          ))}
         </div>
       ) : null}
-      <div className={styles.cards}>
-        {works.data?.map((work) => (
-          <article className={styles.card} key={work.id}>
-            <h2>{(work.title ?? work.label) || t('library:empty.heading')}</h2>
-            {work.blurb ? <p className={styles.muted}>{work.blurb}</p> : null}
-            <p className={styles.muted}>
-              {t(work.status === 'playable' ? 'library:card.playable' : 'library:card.draft')} ·{' '}
-              {t('library:card.updated', { time: formatRelative(work.updatedAt) })}
-            </p>
-            <div className={styles.row}>
-              {work.status === 'playable' && work.routeId ? (
-                <Link className={styles.button} to='/play/$routeId' params={{ routeId: work.routeId }}>
-                  {t(work.hasProgress ? 'library:card.resume' : 'library:card.play')}
-                </Link>
-              ) : null}
-              <Link
-                className={`${styles.button} ${styles.secondary}`}
-                to='/works/$workId/edit'
-                params={{ workId: work.id }}
-              >
-                {t('library:card.edit')}
-              </Link>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
+      {target ? (
+        <DeleteWorkDialog
+          work={target}
+          open
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+          onError={(error) => {
+            setDeleteTarget(null);
+            setDeleteError(error);
+          }}
+        />
+      ) : null}
+    </Page>
   );
 }

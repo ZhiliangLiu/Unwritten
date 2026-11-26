@@ -38,6 +38,12 @@ export function createRouter(services: Services) {
       endpoints: {
         create: base.llm.endpoints.create.handler(({ input, context }) => context.services.llm.createEndpoint(input)),
         update: base.llm.endpoints.update.handler(({ input, context }) => context.services.llm.updateEndpoint(input)),
+        remove: base.llm.endpoints.remove.handler(({ input, context }) => context.services.llm.removeEndpoint(input)),
+      },
+      models: {
+        add: base.llm.models.add.handler(({ input, context }) => context.services.llm.addModel(input)),
+        update: base.llm.models.update.handler(({ input, context }) => context.services.llm.updateModel(input)),
+        remove: base.llm.models.remove.handler(({ input, context }) => context.services.llm.removeModel(input)),
       },
       purposes: {
         set: base.llm.purposes.set.handler(({ input, context }) => context.services.llm.setPurpose(input)),
@@ -57,11 +63,17 @@ export function createRouter(services: Services) {
       adoptPreview: base.works.adoptPreview.handler(({ input, context }) =>
         context.services.authoring.adoptPreview(input),
       ),
+      delete: base.works.delete.handler(({ input, context }) => context.services.library.delete(input)),
     },
     play: {
       getRoute: base.play.getRoute.handler(({ input, context }) => context.services.play.getRoute(input)),
       submitAction: base.play.submitAction.handler(({ input, context }) => context.services.play.submitAction(input)),
       retry: base.play.retry.handler(({ input, context }) => context.services.play.retry(input)),
+      getJournal: base.play.getJournal.handler(({ input, context }) => context.services.play.getJournal(input)),
+    },
+    settings: {
+      get: base.settings.get.handler(({ context }) => context.services.settings.get()),
+      update: base.settings.update.handler(({ input, context }) => context.services.settings.update(input)),
     },
     events: {
       subscribe: base.events.subscribe.handler(async function* ({ context, signal }) {

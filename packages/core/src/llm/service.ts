@@ -1,25 +1,35 @@
 import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
+import { PURPOSES } from '@unwritten/contracts';
 import type {
+  AddModelInput,
   CreateEndpointInput,
   CreateEndpointOutput,
   EndpointView,
+  GenerationParams,
   LlmConfigView,
   ModelRef,
+  PurposeView,
+  RemoveEndpointInput,
+  RemoveModelInput,
   SetPurposeInput,
   TestConnectionInput,
   TestConnectionResult,
+  ThinkingFormat,
   UpdateEndpointInput,
+  UpdateModelInput,
 } from '@unwritten/contracts';
 import { appError } from '../errors.ts';
 import type { CoreDeps, LlmService } from '../services.ts';
 import { keyStatus, resolveApiKey } from './keys.ts';
 import { DEFAULT_CONTEXT_WINDOW, defaultMaxTokens, estimateTokens } from './budget.ts';
 import { newEndpointId } from './endpoint-id.ts';
+import { paramsFromFile, paramsProblem, paramsToFile, sanitizeParams } from './params.ts';
 import { createProvidersStore, type ProvidersState } from './providers-file.ts';
-import { createRunner, type LlmTimeouts } from './run.ts';
+import { createRunner, createCompleter, type LlmTimeouts } from './run.ts';
 import { createConnectionTester } from './test-connection.ts';
 import { normalizeBaseUrl } from './url.ts';
+import type { Purpose } from './types.ts';
 import type { EndpointEntry, ProvidersFile } from './providers-schema.ts';
 
 const LLM_CALL_RETENTION_DAYS = 90;
@@ -36,6 +46,8 @@ function endpointView(endpoint: EndpointEntry, env: NodeJS.ProcessEnv): Endpoint
       contextWindow: model.contextWindow ?? null,
       maxTokens: model.maxTokens ?? null,
       tools: model.tools ?? null,
+      reasoning: model.reasoning ?? null,
+      thinkingFormat: model.thinkingFormat ?? 'auto',
     })),
   };
 }
@@ -51,15 +63,50 @@ function foundModel(
   return model ? { endpoint, model } : null;
 }
 
-function resolvedFor(state: ProvidersState, purpose: 'narrator' | 'author_chat' | 'background' | 'default') {
+function resolvedFor(
+  state: ProvidersState,
+  purpose: 'narrator' | 'author_chat' | 'background' | 'default',
+): { endpoint: EndpointEntry; model: EndpointEntry['models'][number]; params: GenerationParams } | null {
   if (state.status !== 'ok') return null;
-  const ref = state.file.purposes[purpose] ?? state.file.purposes.default;
+  const own = state.file.purposes[purpose];
+  const ref = own ?? (purpose === 'default' ? undefined : state.file.purposes.default);
   if (!ref) return null;
   const found = foundModel(state, { endpointId: ref.provider, modelId: ref.model });
   if (!found) return null;
   if (found.endpoint.api !== 'openai-completions') return null;
   if ((purpose === 'narrator' || purpose === 'author_chat') && found.model.tools === false) return null;
-  return found;
+  return { ...found, params: paramsFromFile(ref.params) };
+}
+
+function purposeViews(state: ProvidersState): PurposeView[] {
+  if (state.status !== 'ok') return [];
+  return PURPOSES.map((purpose) => {
+    const own = state.file.purposes[purpose];
+    const inherited = purpose !== 'default' && own === undefined;
+    const effectiveRef = own ?? (purpose === 'default' ? undefined : state.file.purposes.default);
+    const model = own ? { endpointId: own.provider, modelId: own.model } : null;
+    const effectiveModel = effectiveRef ? { endpointId: effectiveRef.provider, modelId: effectiveRef.model } : null;
+    let problem: PurposeView['problem'] = null;
+    if (!effectiveRef) {
+      problem = 'not_configured';
+    } else {
+      const found = foundModel(state, effectiveModel!);
+      if (!found || found.endpoint.api !== 'openai-completions') {
+        problem = 'model_missing';
+      } else if (purpose === 'narrator' && found.model.tools === false) {
+        problem = 'no_tools';
+      }
+    }
+    return {
+      purpose,
+      model,
+      params: paramsFromFile(own?.params),
+      inherited,
+      effectiveModel,
+      effectiveParams: paramsFromFile(effectiveRef?.params),
+      problem,
+    };
+  });
 }
 
 export function createLlmService(
@@ -88,25 +135,15 @@ export function createLlmService(
         revision: state.revision,
         problem: state.status === 'missing' ? null : state.problem,
         endpoints: [],
-        defaultModel: null,
-        defaultModelUsable: false,
+        purposes: [],
       };
     }
-    const defaultRef = state.file.purposes.default ?? null;
-    const defaultModel = defaultRef ? { endpointId: defaultRef.provider, modelId: defaultRef.model } : null;
-    const narrator = resolvedFor(state, 'narrator');
     return {
       status: 'ok',
       revision: state.revision,
       problem: null,
       endpoints: state.file.endpoints.map((endpoint) => endpointView(endpoint, env)),
-      defaultModel,
-      defaultModelUsable: Boolean(
-        narrator &&
-        defaultRef &&
-        narrator.endpoint.id === defaultRef.provider &&
-        narrator.model.id === defaultRef.model,
-      ),
+      purposes: purposeViews(state),
     };
   };
 
@@ -128,7 +165,7 @@ export function createLlmService(
     return state;
   };
 
-  const targetFor = (purpose: 'narrator' | 'author_chat' | 'background') => {
+  const targetFor = (purpose: Purpose | 'default') => {
     const found = resolvedFor(store.load(), purpose);
     if (!found) return null;
     const contextWindow = found.model.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
@@ -140,10 +177,19 @@ export function createLlmService(
       apiKey: resolveApiKey(found.endpoint.apiKey, env),
       contextWindow,
       maxOutputTokens: found.model.maxTokens ?? defaultMaxTokens(contextWindow),
+      thinkingFormat: found.model.thinkingFormat ?? 'auto',
+      params: found.params,
     };
   };
 
   const runner = createRunner({
+    db: deps.db,
+    logger: deps.logger,
+    shutdown: deps.shutdown,
+    timeouts: options?.timeouts,
+    targetFor,
+  });
+  const completer = createCompleter({
     db: deps.db,
     logger: deps.logger,
     shutdown: deps.shutdown,
@@ -155,6 +201,7 @@ export function createLlmService(
     logger: deps.logger,
     shutdown: deps.shutdown,
     env,
+    targetFor,
   });
 
   return {
@@ -202,29 +249,13 @@ export function createLlmService(
         const originalKey = endpoint.apiKey;
         const targetKey =
           input.key.action === 'keep' ? originalKey : input.key.action === 'set' ? input.key.value : undefined;
-        const same =
-          endpoint.name === input.name && endpoint.models[0]?.id === input.modelId && originalKey === targetKey;
+        const same = endpoint.name === input.name && originalKey === targetKey;
         if (same) return view(state);
         if (state.revision !== input.baseRevision) throw appError('config_conflict', 'providers.json changed');
         const file = structuredClone(state.file);
         const target = file.endpoints.find((candidate) => candidate.id === input.endpointId);
         if (!target) throw appError('endpoint_not_found', 'endpoint not found');
         target.name = input.name;
-        if (target.models[0]?.id !== input.modelId) {
-          const oldModelId = target.models[0]?.id;
-          target.models = [{ id: input.modelId }];
-          if (oldModelId) {
-            const refs = [
-              file.purposes.default,
-              file.purposes.narrator,
-              file.purposes.author_chat,
-              file.purposes.background,
-            ];
-            for (const ref of refs) {
-              if (ref && ref.provider === target.id && ref.model === oldModelId) ref.model = input.modelId;
-            }
-          }
-        }
         if (targetKey === undefined) delete target.apiKey;
         else target.apiKey = targetKey;
         const next = writeConfig(file);
@@ -235,20 +266,122 @@ export function createLlmService(
       return store.enqueue(() => {
         const state = store.load();
         ensureWritable(state);
+        if (input.model === null) {
+          if (!state.file.purposes[input.purpose]) return view(state);
+          if (state.revision !== input.baseRevision) throw appError('config_conflict', 'providers.json changed');
+          const file = structuredClone(state.file);
+          delete file.purposes[input.purpose];
+          return view(writeConfig(file));
+        }
         const found = foundModel(state, input.model);
         if (!found) throw appError('endpoint_not_found', 'endpoint or model not found');
-        if (
-          state.file.purposes.default?.provider === input.model.endpointId &&
-          state.file.purposes.default.model === input.model.modelId
-        ) {
-          return view(state);
+        const model = {
+          reasoning: found.model.reasoning ?? null,
+          thinkingFormat: found.model.thinkingFormat ?? 'auto',
+        };
+        if (paramsProblem(input.params, model) !== null) {
+          throw appError('thinking_unsupported', 'thinking settings are not supported by this model');
         }
+        const params = paramsToFile(input.params);
+        const existing = state.file.purposes[input.purpose];
+        const same =
+          existing &&
+          existing.provider === input.model.endpointId &&
+          existing.model === input.model.modelId &&
+          JSON.stringify(existing.params ?? null) === JSON.stringify(params ?? null);
+        if (same) return view(state);
         if (state.revision !== input.baseRevision) throw appError('config_conflict', 'providers.json changed');
         const file = structuredClone(state.file);
-        file.purposes.default = { provider: input.model.endpointId, model: input.model.modelId };
+        const next: NonNullable<ProvidersFile['purposes']['default']> = {
+          provider: input.model.endpointId,
+          model: input.model.modelId,
+        };
+        if (params) next.params = params;
+        file.purposes[input.purpose] = next;
         return view(writeConfig(file));
       });
     },
+    async removeEndpoint(input: RemoveEndpointInput): Promise<LlmConfigView> {
+      return store.enqueue(() => {
+        const state = store.load();
+        ensureWritable(state);
+        if (!state.file.endpoints.some((endpoint) => endpoint.id === input.endpointId)) return view(state);
+        if (state.revision !== input.baseRevision) throw appError('config_conflict', 'providers.json changed');
+        const file = structuredClone(state.file);
+        file.endpoints = file.endpoints.filter((endpoint) => endpoint.id !== input.endpointId);
+        for (const purpose of ['default', 'narrator', 'author_chat', 'background'] as const) {
+          const ref = file.purposes[purpose];
+          if (ref?.provider === input.endpointId) delete file.purposes[purpose];
+        }
+        return view(writeConfig(file));
+      });
+    },
+    async addModel(input: AddModelInput): Promise<LlmConfigView> {
+      return store.enqueue(() => {
+        const state = store.load();
+        ensureWritable(state);
+        const endpoint = state.file.endpoints.find((candidate) => candidate.id === input.endpointId);
+        if (!endpoint) throw appError('endpoint_not_found', 'endpoint not found');
+        if (endpoint.models.some((model) => model.id === input.modelId)) return view(state);
+        if (state.revision !== input.baseRevision) throw appError('config_conflict', 'providers.json changed');
+        const file = structuredClone(state.file);
+        file.endpoints.find((candidate) => candidate.id === input.endpointId)?.models.push({ id: input.modelId });
+        return view(writeConfig(file));
+      });
+    },
+    async updateModel(input: UpdateModelInput): Promise<LlmConfigView> {
+      return store.enqueue(() => {
+        const state = store.load();
+        ensureWritable(state);
+        const endpoint = state.file.endpoints.find((candidate) => candidate.id === input.endpointId);
+        const model = endpoint?.models.find((candidate) => candidate.id === input.modelId);
+        if (!model) throw appError('endpoint_not_found', 'endpoint or model not found');
+        const same =
+          (model.reasoning ?? null) === input.reasoning && (model.thinkingFormat ?? 'auto') === input.thinkingFormat;
+        if (same) return view(state);
+        if (state.revision !== input.baseRevision) throw appError('config_conflict', 'providers.json changed');
+        const file = structuredClone(state.file);
+        const targetEndpoint = file.endpoints.find((candidate) => candidate.id === input.endpointId);
+        const target = targetEndpoint?.models.find((candidate) => candidate.id === input.modelId);
+        if (!target) throw appError('endpoint_not_found', 'endpoint or model not found');
+        if (input.reasoning === null) delete target.reasoning;
+        else target.reasoning = input.reasoning;
+        if (input.thinkingFormat === 'auto') delete target.thinkingFormat;
+        else target.thinkingFormat = input.thinkingFormat;
+        const modelShape: { reasoning: boolean | null; thinkingFormat: ThinkingFormat } = {
+          reasoning: target.reasoning ?? null,
+          thinkingFormat: target.thinkingFormat ?? 'auto',
+        };
+        for (const purpose of ['default', 'narrator', 'author_chat', 'background'] as const) {
+          const ref = file.purposes[purpose];
+          if (!ref || ref.provider !== input.endpointId || ref.model !== input.modelId) continue;
+          const sanitized = sanitizeParams(paramsFromFile(ref.params), modelShape);
+          const params = paramsToFile(sanitized);
+          if (params) ref.params = params;
+          else delete ref.params;
+        }
+        return view(writeConfig(file));
+      });
+    },
+    async removeModel(input: RemoveModelInput): Promise<LlmConfigView> {
+      return store.enqueue(() => {
+        const state = store.load();
+        ensureWritable(state);
+        const endpoint = state.file.endpoints.find((candidate) => candidate.id === input.endpointId);
+        if (!endpoint || !endpoint.models.some((model) => model.id === input.modelId)) return view(state);
+        if (endpoint.models.length === 1) throw appError('last_model', 'an endpoint needs at least one model');
+        if (state.revision !== input.baseRevision) throw appError('config_conflict', 'providers.json changed');
+        const file = structuredClone(state.file);
+        const target = file.endpoints.find((candidate) => candidate.id === input.endpointId);
+        if (target) target.models = target.models.filter((model) => model.id !== input.modelId);
+        for (const purpose of ['default', 'narrator', 'author_chat', 'background'] as const) {
+          const ref = file.purposes[purpose];
+          if (ref?.provider === input.endpointId && ref.model === input.modelId) delete file.purposes[purpose];
+        }
+        return view(writeConfig(file));
+      });
+    },
+    complete: completer,
     testConnection(input: TestConnectionInput): Promise<TestConnectionResult> {
       return tester(input);
     },

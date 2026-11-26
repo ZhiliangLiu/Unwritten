@@ -1,13 +1,23 @@
 {
-  "page": { "heading": "作品库" },
+  "page": { "heading": "作品库", "count": "{{count}} 部作品，都保存在这台电脑上" },
   "empty": { "heading": "还没有作品", "description": "写一句背景，AI 会帮你写出开场。" },
   "action": { "create": "新建故事" },
   "card": {
     "draft": "草稿",
     "playable": "可玩",
+    "untitled": "未命名的草稿",
     "edit": "继续创作",
     "play": "开始故事",
     "resume": "继续游玩",
-    "updated": "更新于 {{time}}"
+    "updated": "更新于 {{time}}",
+    "viewDraft": "查看创作稿",
+    "more": "《{{title}}》的更多操作",
+    "delete": "删除作品"
+  },
+  "delete": {
+    "title": "删除《{{title}}》？",
+    "description": "作品、全部游玩进度和故事记录都会删除，无法恢复。",
+    "confirm": "删除作品",
+    "done": "作品已删除"
   }
 }

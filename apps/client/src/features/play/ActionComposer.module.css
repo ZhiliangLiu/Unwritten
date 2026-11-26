@@ -1,0 +1,9 @@
+.composer {
+  display: grid;
+  gap: var(--uw-space-2);
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+}

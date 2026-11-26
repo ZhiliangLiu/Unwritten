@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { createGuardedFetch, createFetchRecorder, unguardedFetch } from './fetch-guard.ts';
 import { classifyFailure } from './classify.ts';
 import { scrubSecrets } from '../log/scrub.ts';
-import { createAgentSession, type CompletionOutcome, type RuntimeTarget } from './pi.ts';
-import type { LlmRunInput, LlmRunResult } from './types.ts';
+import { completeOnce, createAgentSession, type CompletionOutcome, type RuntimeTarget } from './pi.ts';
+import type { LlmCompleteInput, LlmCompleteResult, LlmRunInput, LlmRunResult } from './types.ts';
 import { LlmRunError } from './types.ts';
 import type { Database } from '../store/db.ts';
 import { llmCalls } from '../store/schema.ts';
@@ -200,7 +200,7 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
       callId,
       requestId: input.ref.kind === 'turn_request' ? input.ref.id : undefined,
       jobId: input.ref.kind === 'job' ? input.ref.id : undefined,
-      data: { status, code: code ?? null, attempt: input.ref.attempt },
+      data: { status, code: code ?? null, attempt: input.ref.attempt, thinking: target.params.thinking },
     });
     if (firstOutputAt !== null) {
       deps.logger.sample({
@@ -240,6 +240,117 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
         !deps.shutdown.aborted;
       if (!retry) throw new LlmRunError(result.code ?? 'invalid_output', result.detail);
       if (result.code === 'rate_limited') await wait(RATE_LIMIT_RETRY_DELAY_MS, deps.shutdown);
+    }
+    throw new LlmRunError('invalid_output', null);
+  };
+}
+
+const EMPTY_COMPLETE_USAGE = { input: 0, output: 0, cacheRead: 0, cost: 0, costFromProvider: false };
+
+export function createCompleter(deps: RunnerDeps): (input: LlmCompleteInput) => Promise<LlmCompleteResult> {
+  const timeouts = { ...DEFAULT_TIMEOUTS, ...deps.timeouts };
+
+  return async (input) => {
+    const target = deps.targetFor(input.purpose);
+    if (!target) throw new LlmRunError('llm_not_configured', null);
+
+    for (let index = 0; index < 2; index += 1) {
+      const callId = randomUUID();
+      const startedAt = performance.now();
+      const recorder = createFetchRecorder();
+      const guardedFetch = createGuardedFetch(unguardedFetch(), recorder);
+      const controller = new AbortController();
+      const signals = [controller.signal, deps.shutdown];
+      if (input.signal) signals.push(input.signal);
+      const signal = AbortSignal.any(signals);
+      let timedOut = false;
+      const timer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, timeouts.firstOutputMs);
+
+      let outcome: CompletionOutcome | null = null;
+      let thrown: string | null = null;
+      try {
+        outcome = await completeOnce(
+          target,
+          {
+            fetch: guardedFetch,
+            headers: opencodeHeaders(target.baseUrl, input.sessionId),
+            sessionId: input.sessionId,
+            signal,
+          },
+          {
+            system: input.system,
+            user: input.prompt,
+            tools: [],
+            maxTokens: input.maxOutputTokens,
+          },
+        );
+      } catch (error) {
+        thrown = error instanceof Error ? error.message : String(error);
+      } finally {
+        clearTimeout(timer);
+      }
+
+      const errorMessage = thrown ?? outcome?.errorMessage ?? '';
+      let code: LlmRunError['code'] | undefined;
+      if (thrown || outcome?.stopReason === 'error' || outcome?.stopReason === 'aborted') {
+        code = classifyFailure({
+          httpStatus: recorder.lastStatus,
+          redirected: recorder.redirected,
+          timedOut,
+          aborted: Boolean(input.signal?.aborted || deps.shutdown.aborted),
+          errorMessage,
+        });
+      } else if (!outcome?.text.trim()) {
+        code = 'invalid_output';
+      }
+
+      const usage = outcome?.usage ?? EMPTY_COMPLETE_USAGE;
+      const status = code === undefined ? 'ok' : code === 'interrupted' ? 'aborted' : 'error';
+      deps.db
+        .insert(llmCalls)
+        .values({
+          id: callId,
+          purpose: input.purpose,
+          workId: input.ref.workId,
+          provider: target.endpointId,
+          model: target.modelId,
+          refKind: input.ref.kind,
+          refId: input.ref.id,
+          inputTokens: outcome ? usage.input : null,
+          outputTokens: outcome ? usage.output : null,
+          cacheReadTokens: outcome ? usage.cacheRead : null,
+          cost: outcome ? usage.cost : null,
+          costFromProvider: outcome ? (usage.costFromProvider ? 1 : 0) : null,
+          durationMs: Math.round(performance.now() - startedAt),
+          status,
+          error: code ?? null,
+          createdAt: Date.now(),
+        })
+        .run();
+
+      deps.logger.record({
+        level: code ? 'warn' : 'info',
+        module: 'llm',
+        event: 'llm.call',
+        callId,
+        requestId: input.ref.kind === 'turn_request' ? input.ref.id : undefined,
+        jobId: input.ref.kind === 'job' ? input.ref.id : undefined,
+        data: { status, code: code ?? null, attempt: input.ref.attempt, thinking: target.params.thinking },
+      });
+
+      if (code === undefined) return { text: (outcome?.text ?? '').trim() };
+
+      const gotOutput = Boolean(outcome?.text.trim());
+      const retry =
+        index === 0 && RETRYABLE.has(code) && !gotOutput && !input.signal?.aborted && !deps.shutdown.aborted;
+      if (!retry) {
+        const detail = errorMessage ? scrubSecrets(errorMessage, [target.apiKey]).slice(0, 500) : null;
+        throw new LlmRunError(code, detail);
+      }
+      if (code === 'rate_limited') await wait(RATE_LIMIT_RETRY_DELAY_MS, deps.shutdown);
     }
     throw new LlmRunError('invalid_output', null);
   };

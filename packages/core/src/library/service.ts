@@ -156,5 +156,14 @@ export function createLibraryService(deps: CoreDeps): LibraryService {
       if (result.changed) deps.bus.publish({ type: 'works.changed', workId: input.workId });
       return { contentRev: result.contentRev };
     },
+    delete(input: WorkIdInput): Record<string, never> {
+      const changes = deps.db.transaction((tx) => tx.delete(works).where(eq(works.id, input.workId)).run().changes, {
+        behavior: 'immediate',
+      });
+      if (changes === 0) return {};
+      deps.bus.publish({ type: 'works.changed', workId: input.workId });
+      deps.logger.record({ level: 'info', module: 'library', event: 'work.deleted', workId: input.workId });
+      return {};
+    },
   };
 }

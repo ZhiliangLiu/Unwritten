@@ -13,6 +13,12 @@ export function normalizeProse(text: string): string {
     .trim();
 }
 
+export function splitParagraphs(prose: string): string[] {
+  return normalizeProse(prose)
+    .split(/\n{2,}/)
+    .filter((paragraph) => paragraph.length > 0);
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

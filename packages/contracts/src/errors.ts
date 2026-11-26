@@ -35,6 +35,8 @@ export const ERROR_CODES = [
   'invalid_output',
   'interrupted',
   'save',
+  'thinking_unsupported',
+  'last_model',
 ] as const;
 
 export const ErrorCodeSchema = z.enum(ERROR_CODES);

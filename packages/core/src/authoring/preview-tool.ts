@@ -1,7 +1,11 @@
 import type { Preview } from '@unwritten/contracts';
 import { LanguageTagSchema } from '@unwritten/contracts';
 import type { ParseResult } from '../text/turn-text.ts';
-import { normalizeProse, parseOptionLines } from '../text/turn-text.ts';
+import { normalizeProse, parseOptionLines, splitParagraphs } from '../text/turn-text.ts';
+import { parseChanges } from '../story/changes.ts';
+import { findLeaks } from '../story/leak.ts';
+import type { ValidatedChanges } from '../story/types.ts';
+import { STORY_LIMITS } from '../story/types.ts';
 
 export const PREVIEW_TOOL_NAME = 'propose_preview';
 
@@ -29,8 +33,27 @@ export const PREVIEW_TOOL_PARAMETERS = {
     place: { type: 'string', description: '开场结束时主角所在的地点' },
     time: { type: 'string', description: '开场结束时的故事时间' },
     language: { type: 'string', description: '作品语言的语言标签，例如 zh-CN' },
+    present: {
+      type: 'string',
+      description: '开场结束时在场的人物，写 changes 里新增人物的名字，用逗号分隔。只有主角时留空。',
+    },
+    changes: {
+      type: 'string',
+      description:
+        '每行一个 JSON。引用人物或事物写名字；引用事实写本次第几行（如 L2）。para 是出处在正文里的段号，从 1 起。必须恰好有一行主角：\n' +
+        '{"type":"new_entity","kind":"character","name":"主角的名字","known_as":"","profile":"一句话档案","para":"1","protagonist":"true"}\n' +
+        '其余可用的类型：\n' +
+        '{"type":"new_entity","kind":"character|place|item|group|other","name":"真名","known_as":"主角此刻的称呼，不知道时留空","profile":"一句话档案","para":"1"}\n' +
+        '{"type":"name","entity":"名字","name":"称呼","holder":"名字","para":"2"}\n' +
+        '{"type":"event","subject":"名字","object":"名字","statement":"一句话","witnesses":"名字,名字","para":"2"}\n' +
+        '{"type":"trait","subject":"名字","key":"特征名","statement":"一句话","para":"2"}\n' +
+        '{"type":"relation","subject":"名字","object":"名字","key":"acquaintance","stage":"heard_of|met|familiar","statement":"一句话","para":"2"}\n' +
+        '{"type":"promise","subject":"名字","object":"名字","key":"约定名","status":"agreed|kept|broken","statement":"一句话","para":"3"}\n' +
+        '{"type":"knowledge","fact":"L2","holder":"名字","level":"heard|suspects|confirmed|misled","perceived_statement":"他听到或相信的说法","via":"名字","para":"3"}\n' +
+        '开场里的 event 必须写明 witnesses。',
+    },
   },
-  required: ['title', 'blurb', 'public_setting', 'prose', 'options', 'place', 'time', 'language'],
+  required: ['title', 'blurb', 'public_setting', 'prose', 'options', 'place', 'time', 'language', 'present', 'changes'],
   additionalProperties: false,
 } as const;
 
@@ -43,7 +66,12 @@ function stringArg(args: Record<string, unknown>, key: string, errors: string[])
   return value;
 }
 
-export function parsePreviewArgs(args: Record<string, unknown>): ParseResult<Preview> {
+export interface PreviewParseResult {
+  preview: Preview;
+  changes: ValidatedChanges;
+}
+
+export function parsePreviewArgs(args: Record<string, unknown>): ParseResult<PreviewParseResult> {
   const errors: string[] = [];
   const title = stringArg(args, 'title', errors)?.trim() ?? null;
   const blurb = stringArg(args, 'blurb', errors)?.trim() ?? null;
@@ -90,21 +118,84 @@ export function parsePreviewArgs(args: Record<string, unknown>): ParseResult<Pre
     else options = parsed.value;
   }
 
+  const changesRaw = stringArg(args, 'changes', errors);
+  const presentRaw = stringArg(args, 'present', errors);
+
   if (language !== null && !LanguageTagSchema.safeParse(language).success) {
     errors.push('参数 language 必须是合法的语言标签');
   }
 
   if (errors.length) return { ok: false, errors };
+  const paragraphs = splitParagraphs(prose);
+  let changes: ValidatedChanges | null = null;
+  if (changesRaw !== null && !changesRaw.trim()) {
+    errors.push('参数 changes 不能为空');
+  } else if (changesRaw !== null) {
+    const parsedChanges = parseChanges(changesRaw, {
+      mode: 'opening',
+      projection: null,
+      codebook: null,
+      paragraphCount: paragraphs.length,
+      parentPresentIds: [],
+    });
+    if (!parsedChanges.ok) errors.push(...parsedChanges.errors);
+    else changes = parsedChanges.value;
+  }
+  if (changes) {
+    const present = (presentRaw ?? '')
+      .split(/[,，、]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (present.length > STORY_LIMITS.presentMax) {
+      errors.push(`参数 present：最多 ${STORY_LIMITS.presentMax} 个。`);
+    }
+    const refs: Array<{ created: number }> = [];
+    for (const token of present) {
+      const matches = changes.entities.filter(
+        (entity) => entity.kind === 'character' && (entity.name === token || entity.knownAs === token),
+      );
+      const match = matches[0];
+      if (matches.length !== 1 || !match) {
+        errors.push(`参数 present：找不到「${token}」，在场的人物必须是 changes 里新增的人物。`);
+        continue;
+      }
+      refs.push({ created: match.line });
+    }
+    changes.scene = { place: place ?? '', time: time ?? '', present: refs };
+    errors.push(
+      ...findLeaks({
+        projection: null,
+        changes,
+        paragraphs,
+        options: options.map((option) => option.text),
+      }),
+    );
+  }
+
+  if (errors.length || !changes) return { ok: false, errors };
+  const cast = [...changes.entities]
+    .sort((left, right) => Number(right.protagonist) - Number(left.protagonist) || left.line - right.line)
+    .map((entity) => ({
+      kind: entity.kind,
+      name: entity.name,
+      knownAs: entity.knownAs,
+      profile: entity.profile,
+      protagonist: entity.protagonist,
+    }));
   return {
     ok: true,
     value: {
-      title: title ?? '',
-      blurb: blurb ?? '',
-      publicSetting: publicSetting ?? '',
-      prose,
-      options,
-      scene: { place: place ?? '', time: time ?? '' },
-      language: language ?? '',
+      preview: {
+        title: title ?? '',
+        blurb: blurb ?? '',
+        publicSetting: publicSetting ?? '',
+        prose,
+        options,
+        scene: { place: place ?? '', time: time ?? '' },
+        language: language ?? '',
+        cast,
+      },
+      changes,
     },
   };
 }

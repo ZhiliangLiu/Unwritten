@@ -1,0 +1,36 @@
+.notice {
+  display: grid;
+  gap: var(--uw-space-2);
+  padding: var(--uw-space-3);
+  color: var(--uw-color-danger);
+  background-color: var(--uw-color-danger-soft);
+  border: var(--uw-border-width) solid var(--uw-color-danger);
+  border-radius: var(--uw-radius-md);
+}
+
+.heading {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--uw-space-2);
+}
+
+.icon {
+  display: flex;
+  flex: none;
+}
+
+.message {
+  margin: 0;
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  line-height: var(--uw-typography-body-line-height);
+}
+
+.detail {
+  margin: 0;
+  padding-inline-start: var(--uw-space-6);
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  overflow-wrap: anywhere;
+}

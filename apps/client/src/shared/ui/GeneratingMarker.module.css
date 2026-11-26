@@ -1,0 +1,20 @@
+.marker {
+  display: flex;
+  align-items: center;
+  gap: var(--uw-space-2);
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.dot {
+  inline-size: var(--uw-space-2);
+  block-size: var(--uw-space-2);
+  background-color: var(--uw-color-text-muted);
+  border-radius: var(--uw-radius-full);
+  animation: var(--uw-animation-pulse);
+}

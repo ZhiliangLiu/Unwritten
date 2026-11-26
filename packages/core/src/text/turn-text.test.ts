@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeProse, parseJsonLines, parseOptionLines } from './turn-text.ts';
+import { normalizeProse, parseJsonLines, parseOptionLines, splitParagraphs } from './turn-text.ts';
 
 describe('normalizeProse', () => {
   it('统一换行并压掉多余空行', () => {
     expect(normalizeProse('\r\n  第一段 \r\n\r\n\r\n第二段  \n')).toBe('第一段\n\n第二段');
+  });
+});
+
+describe('splitParagraphs', () => {
+  it('段落按空行切分，段号与数组下标加一对应', () => {
+    expect(splitParagraphs('甲\n\n\n乙\n丙\n\n丁')).toEqual(['甲', '乙\n丙', '丁']);
   });
 });
 

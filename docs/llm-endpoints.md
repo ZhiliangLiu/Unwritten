@@ -261,7 +261,7 @@ llm_calls (
 
 | 过程 | 作用 |
 | --- | --- |
-| `llm.providers.list` | 内置服务商和自定义端点的列表：`hasKey`、`keySource`、模型及其能力 |
+| `llm.providers.list` | 内置服务商和自定义端点的列表：`hasKey`、`keySource`、模型及其能力；同时返回用途分配和生成参数 |
 | `llm.providers.setKey` | 设置或移除内置服务商的 key |
 | `llm.endpoints.probe` | 探测一个地址，返回模型列表或失败类别 |
 | `llm.endpoints.create` | 新增自定义端点，重发复用创建请求分配的端点 id |
@@ -271,7 +271,7 @@ llm_calls (
 | `llm.models.update` | 修改模型的能力字段：`reasoning`、`thinkingFormat` |
 | `llm.models.remove` | 删除模型；端点下最后一个模型不能删（`last_model`）。引用它的用途分配一并清除 |
 | `llm.test` | 测试连接；可指定一个模型，也可指定一个用途，按该用途的模型和生成参数测试 |
-| `llm.purposes.get`、`llm.purposes.set` | 读取和修改用途分配，包括每个用途的生成参数 |
+| `llm.purposes.set` | 修改用途分配，包括每个用途的生成参数。读取随 `llm.providers.list` 一起返回 |
 | `llm.usage.summary` | 用量汇总 |
 
 ## 11. 不做的事

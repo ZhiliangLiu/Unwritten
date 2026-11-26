@@ -1,14 +1,73 @@
 {
-  "page": { "heading": "模型设置" },
-  "current": { "heading": "默认模型", "empty": "尚未配置默认模型" },
+  "page": { "heading": "设置" },
   "problem": {
     "syntax": "配置文件第 {{line}} 行第 {{column}} 列无法解析。",
     "schema": "配置项 {{path}} 不符合要求。",
     "tooNew": "这份配置来自更新的版本，请升级应用。"
   },
+  "purpose": {
+    "heading": "模型用途",
+    "description": "每个用途可以用不同的模型和参数。没有单独设置的用途使用默认模型。",
+    "name": {
+      "default": "默认",
+      "narrator": "游玩",
+      "background": "后台摘要"
+    },
+    "help": {
+      "default": "生成开场预览，以及没有单独设置的用途都用它。",
+      "narrator": "写开场之后的每一回合。",
+      "background": "给每个回合写一两句摘要。便宜、快的模型就够。"
+    },
+    "model": "模型",
+    "useDefault": "使用默认模型",
+    "inheritedParams": "使用默认模型的参数。",
+    "save": "保存",
+    "test": "测试这个用途",
+    "dirty": "有未保存的修改",
+    "saved": "已保存",
+    "problem": {
+      "not_configured": "还没有选模型",
+      "model_missing": "选的模型已经不存在",
+      "no_tools": "这个模型不支持工具调用，不能用于游玩"
+    }
+  },
+  "params": {
+    "thinking": "思考",
+    "thinkingLevel": {
+      "unset": "不设置",
+      "off": "关闭",
+      "minimal": "最少",
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "xhigh": "很高",
+      "max": "最高"
+    },
+    "thinkingBudget": "思考预算（token）",
+    "temperature": "temperature",
+    "topP": "top_p",
+    "topK": "top_k",
+    "minP": "min_p",
+    "unsetHint": "留空表示不设置，由服务端决定。",
+    "reason": {
+      "noModel": "先选一个模型。",
+      "noReasoning": "这个模型标为不支持思考。",
+      "budgetFormat": "只有思考写法为 Qwen 的模型能设思考预算。",
+      "budgetNeedsThinking": "先选一个思考档位。"
+    },
+    "samplingWarning": "开启思考后，部分服务会忽略或拒绝采样参数。请用测试连接确认。"
+  },
+  "endpoints": { "heading": "端点" },
   "endpoint": {
     "add": "添加端点",
-    "edit": "修改端点",
+    "edit": "修改名称和 key",
+    "more": "端点“{{name}}”的更多操作",
+    "delete": "删除端点",
+    "deleteTitle": "删除端点“{{name}}”？",
+    "deleteDescription": "端点下的模型会一起删除。",
+    "deleteAffects": "这些用途的设置会被清除：{{purposes}}",
+    "deleted": "端点已删除",
+    "httpWarning": "这个地址不加密，key 会以明文发送。",
     "name": "端点名称",
     "address": "接口地址",
     "modelId": "模型 ID",
@@ -25,5 +84,73 @@
     "testOk": "连接成功，工具调用可用",
     "default": "设为默认模型",
     "save": "保存端点"
-  }
+  },
+  "model": {
+    "heading": "模型",
+    "add": "添加模型",
+    "newId": "新模型 ID",
+    "tools": "工具调用",
+    "reasoning": "支持思考",
+    "thinkingFormat": "思考写法",
+    "capability": {
+      "yes": "是",
+      "no": "否",
+      "unknown": "未知"
+    },
+    "delete": "删除模型",
+    "deleteTitle": "删除模型“{{id}}”？",
+    "deleteDescription": "删除后，这个模型不能再用于任何用途。",
+    "lastModel": "端点至少要保留一个模型。"
+  },
+  "thinkingFormat": {
+    "auto": "自动识别",
+    "openai": "OpenAI（reasoning_effort）",
+    "qwen": "Qwen / DashScope（enable_thinking）",
+    "qwen-chat-template": "vLLM、SGLang 上的 Qwen（chat_template_kwargs）",
+    "deepseek": "DeepSeek",
+    "openrouter": "OpenRouter",
+    "zai": "智谱"
+  },
+  "nav": {
+    "label": "设置分区",
+    "appearance": "外观",
+    "reading": "阅读",
+    "models": "模型"
+  },
+  "appearance": {
+    "heading": "外观",
+    "theme": "主题",
+    "themeHelp": "默认跟随系统的浅色或深色",
+    "themeOption": {
+      "system": "跟随系统",
+      "light": "浅色",
+      "dark": "深色"
+    },
+    "proseSize": "正文字号",
+    "sizeOption": {
+      "1": "很小",
+      "2": "小",
+      "3": "标准",
+      "4": "大",
+      "5": "很大"
+    },
+    "proseFont": "正文字体",
+    "fontOption": {
+      "serif": "衬线",
+      "sans": "无衬线"
+    },
+    "proseLeading": "行距",
+    "leadingOption": {
+      "comfortable": "舒适",
+      "compact": "紧凑"
+    },
+    "preview": "示例",
+    "sample": "雨停的时候，渡口的灯还亮着。守夜人把最后一张船票压在茶杯下面，抬头看见有人沿着栈桥走来。",
+    "saveFailed": "外观设置没有保存，已恢复原来的设置。"
+  },
+  "reading": {
+    "heading": "阅读",
+    "description": "只影响正文，界面文字不变。切换主题时这些设置保持不变。"
+  },
+  "models": { "heading": "模型" }
 }

@@ -9,7 +9,16 @@ function endpoint(id: string): EndpointView {
     api: 'openai-completions',
     baseUrl: 'http://127.0.0.1:11434/v1',
     key: { hasKey: true, source: 'file', envVar: null },
-    models: [{ id: `model-${id}`, contextWindow: null, maxTokens: null, tools: null }],
+    models: [
+      {
+        id: `model-${id}`,
+        contextWindow: null,
+        maxTokens: null,
+        tools: null,
+        reasoning: null,
+        thinkingFormat: 'auto',
+      },
+    ],
   };
 }
 

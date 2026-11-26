@@ -10,6 +10,9 @@ const valid = {
   place: '钟铺',
   time: '深夜',
   language: 'zh-CN',
+  present: '',
+  changes:
+    '{"type":"new_entity","kind":"character","name":"守夜人","known_as":"","profile":"","para":"1","protagonist":"true"}',
 };
 
 describe('parsePreviewArgs', () => {
@@ -17,9 +20,12 @@ describe('parsePreviewArgs', () => {
     const result = parsePreviewArgs(valid);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.publicSetting).toBe(valid.public_setting);
-      expect(result.value.options).toHaveLength(2);
-      expect(result.value.scene).toEqual({ place: '钟铺', time: '深夜' });
+      expect(result.value.preview.publicSetting).toBe(valid.public_setting);
+      expect(result.value.preview.options).toHaveLength(2);
+      expect(result.value.preview.scene).toEqual({ place: '钟铺', time: '深夜' });
+      expect(result.value.preview.cast).toEqual([
+        { kind: 'character', name: '守夜人', knownAs: null, profile: '', protagonist: true },
+      ]);
     }
   });
 
@@ -30,5 +36,37 @@ describe('parsePreviewArgs', () => {
     expect(parsePreviewArgs({ ...valid, options: '{"text":"一","hint":"x"}' }).ok).toBe(false);
     expect(parsePreviewArgs({ ...valid, language: '不合法' }).ok).toBe(false);
     expect(parsePreviewArgs({ ...valid, title: 1 }).ok).toBe(false);
+  });
+
+  it('预览列出开场里出场的人物', () => {
+    const result = parsePreviewArgs({
+      ...valid,
+      present: '撑伞的女人',
+      changes:
+        '{"type":"new_entity","kind":"character","name":"守夜人","known_as":"","profile":"","para":"1","protagonist":"true"}\n{"type":"new_entity","kind":"character","name":"沈岚","known_as":"撑伞的女人","profile":"带着黑伞","para":"1"}',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.preview.cast[0]?.protagonist).toBe(true);
+      expect(result.value.preview.cast[1]).toMatchObject({ name: '沈岚', knownAs: '撑伞的女人' });
+      expect(result.value.preview.scene).toEqual({ place: '钟铺', time: '深夜' });
+    }
+  });
+
+  it('开场正文提前出现真名被拒绝', () => {
+    const result = parsePreviewArgs({
+      ...valid,
+      prose: '沈岚推门进来。',
+      changes:
+        '{"type":"new_entity","kind":"character","name":"守夜人","known_as":"","profile":"","para":"1","protagonist":"true"}\n{"type":"new_entity","kind":"character","name":"沈岚","known_as":"撑伞的女人","profile":"带着黑伞","para":"1"}',
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.some((error) => error.includes('第 1 段'))).toBe(true);
+  });
+
+  it('在场人物必须是本次新增的人物', () => {
+    const result = parsePreviewArgs({ ...valid, present: '陌生人' });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.some((error) => error.includes('找不到「陌生人」'))).toBe(true);
   });
 });

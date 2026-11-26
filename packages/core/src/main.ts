@@ -3,6 +3,8 @@ import { parseCliArgs } from './cli.ts';
 import { startCore } from './app.ts';
 import { createLlmService } from './llm/service.ts';
 import { createLibraryService } from './library/service.ts';
+import { createSettingsService } from './settings/service.ts';
+import { createSummaryService } from './summary/queue.ts';
 import { createAuthoringService } from './authoring/service.ts';
 import { createPlayService } from './play/service.ts';
 
@@ -11,6 +13,8 @@ async function run(): Promise<void> {
   const core = await startCore(options, {
     llm: (deps) => createLlmService(deps),
     library: (deps) => createLibraryService(deps),
+    settings: (deps) => createSettingsService(deps),
+    summary: (deps) => createSummaryService(deps),
     authoring: (deps) => createAuthoringService(deps),
     play: (deps) => createPlayService(deps),
   });

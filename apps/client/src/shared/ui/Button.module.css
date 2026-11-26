@@ -1,0 +1,109 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--uw-space-2);
+  min-block-size: var(--uw-size-control-md);
+  padding-inline: var(--uw-space-4);
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  font-weight: var(--uw-typography-body-font-weight);
+  line-height: var(--uw-typography-body-line-height);
+  letter-spacing: var(--uw-typography-body-letter-spacing);
+  white-space: nowrap;
+  border: var(--uw-border-width) solid transparent;
+  border-radius: var(--uw-radius-md);
+  transition-property: color, background-color, border-color, transform;
+  transition-duration: var(--uw-motion-duration-fast);
+  transition-timing-function: var(--uw-motion-ease-standard);
+  cursor: pointer;
+}
+
+.button:active:not([data-disabled]) {
+  transform: scale(var(--uw-motion-scale-press));
+}
+
+.button[data-disabled] {
+  opacity: var(--uw-opacity-disabled);
+  cursor: default;
+}
+
+.sm {
+  min-block-size: var(--uw-size-control-sm);
+  padding-inline: var(--uw-space-3);
+  font-size: var(--uw-typography-caption-font-size);
+}
+
+.md {
+  min-block-size: var(--uw-size-control-md);
+}
+
+.primary {
+  color: var(--uw-color-text-on-accent);
+  background-color: var(--uw-color-accent);
+}
+
+.primary:hover:not([data-disabled]) {
+  background-color: var(--uw-color-accent-hover);
+}
+
+.primary:active:not([data-disabled]) {
+  background-color: var(--uw-color-accent-pressed);
+}
+
+.secondary {
+  color: var(--uw-color-text);
+  background-color: var(--uw-color-surface);
+  border-color: var(--uw-color-border);
+  box-shadow: var(--uw-elevation-surface);
+}
+
+.secondary:hover:not([data-disabled]) {
+  background-color: var(--uw-color-surface-hover);
+}
+
+.secondary:active:not([data-disabled]) {
+  background-color: var(--uw-color-surface-pressed);
+}
+
+.text {
+  color: var(--uw-color-text);
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.text:hover:not([data-disabled]) {
+  background-color: var(--uw-color-surface-hover);
+}
+
+.text:active:not([data-disabled]) {
+  background-color: var(--uw-color-surface-pressed);
+}
+
+.danger {
+  color: var(--uw-color-danger);
+  background-color: var(--uw-color-surface);
+  border-color: var(--uw-color-border);
+  box-shadow: var(--uw-elevation-surface);
+}
+
+.danger:hover:not([data-disabled]) {
+  background-color: var(--uw-color-surface-hover);
+}
+
+.danger:active:not([data-disabled]) {
+  background-color: var(--uw-color-surface-pressed);
+}
+
+.dangerSolid {
+  color: var(--uw-color-text-on-accent);
+  background-color: var(--uw-color-danger);
+}
+
+.dangerSolid:hover:not([data-disabled]) {
+  background-color: var(--uw-color-danger);
+}
+
+.dangerSolid:active:not([data-disabled]) {
+  background-color: var(--uw-color-danger);
+}

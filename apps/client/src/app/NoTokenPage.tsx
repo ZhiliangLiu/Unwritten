@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import styles from './app.module.css';
+import styles from './NoTokenPage.module.css';
 
 export function NoTokenPage() {
   const { t } = useTranslation();

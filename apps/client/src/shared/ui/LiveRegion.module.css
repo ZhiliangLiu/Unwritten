@@ -1,0 +1,12 @@
+.wrapper {
+  position: relative;
+}
+
+.region {
+  position: absolute;
+  inline-size: var(--uw-border-width);
+  block-size: var(--uw-border-width);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
