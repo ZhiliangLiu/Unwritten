@@ -64,6 +64,12 @@ describe('llm schemas', () => {
     expect(LlmLogContentSchema.safeParse({ type: 'text' }).success).toBe(false);
     expect(LlmLogListInputSchema.parse({}).limit).toBe(50);
     expect(LlmLogListInputSchema.safeParse({ limit: 201 }).success).toBe(false);
+    expect(
+      LlmLogListInputSchema.safeParse({
+        before: { createdAt: 1, callId: '00000000-0000-4000-8000-000000000001' },
+      }).success,
+    ).toBe(true);
+    expect(LlmLogListInputSchema.safeParse({ before: 1 }).success).toBe(false);
   });
 
   it('思考档位与写法的取值', () => {

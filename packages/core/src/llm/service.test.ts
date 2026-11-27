@@ -349,9 +349,45 @@ describe('createLlmService', () => {
       expect(service.listLogs({ limit: 1 }).items.map((item) => item.callId)).toEqual([
         '00000000-0000-4000-8000-000000000011',
       ]);
-      expect(service.listLogs({ limit: 10, before: now }).items.map((item) => item.callId)).toEqual([
-        '00000000-0000-4000-8000-000000000012',
-      ]);
+      expect(
+        service
+          .listLogs({
+            limit: 10,
+            before: { createdAt: now, callId: '00000000-0000-4000-8000-000000000011' },
+          })
+          .items.map((item) => item.callId),
+      ).toEqual(['00000000-0000-4000-8000-000000000012']);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('同一毫秒完成的调试日志也能翻页', () => {
+    const { temp, opened, service } = setup({ dev: true });
+    try {
+      const now = Date.now();
+      const newer = '00000000-0000-4000-8000-000000000022';
+      const older = '00000000-0000-4000-8000-000000000021';
+      opened.db.run(
+        sql`insert into llm_calls (id, purpose, provider, model, status, created_at)
+            values (${newer}, 'narrator', 'p', 'm', 'ok', ${now}),
+                   (${older}, 'narrator', 'p', 'm', 'ok', ${now})`,
+      );
+      opened.db.run(
+        sql`insert into llm_call_logs (call_id, system, prompt, response, http, created_at)
+            values (${newer}, 'system', 'prompt', null, '[]', ${now}),
+                   (${older}, 'system', 'prompt', null, '[]', ${now})`,
+      );
+
+      const first = service.listLogs({ limit: 1 }).items[0]!;
+      const second = service.listLogs({
+        limit: 1,
+        before: { createdAt: first.createdAt, callId: first.callId },
+      }).items[0]!;
+
+      expect(first.callId).toBe(newer);
+      expect(second.callId).toBe(older);
     } finally {
       opened.close();
       temp.cleanup();
