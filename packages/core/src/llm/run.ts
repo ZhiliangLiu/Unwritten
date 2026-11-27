@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { sql } from 'drizzle-orm';
 import {
   LlmHttpExchangeSchema,
   LlmLogContentSchema,
@@ -24,6 +25,8 @@ export const DEFAULT_TIMEOUTS: LlmTimeouts = { firstOutputMs: 120_000, stallMs: 
 export const MAX_TOOL_ROUNDS = 8;
 export const MAX_NUDGES = 2;
 export const RATE_LIMIT_RETRY_DELAY_MS = 2_000;
+export const LLM_LOG_RETENTION_DAYS = 7;
+const DAY_MS = 86_400_000;
 const RETRYABLE: ReadonlySet<string> = new Set(['network', 'timeout', 'server', 'rate_limited']);
 
 export interface RunnerDeps {
@@ -115,6 +118,18 @@ function startWatchdog(timeouts: LlmTimeouts, controller: AbortController): Watc
 }
 
 const EMPTY_USAGE = { input: 0, output: 0, cacheRead: 0, cost: 0, costFromProvider: false };
+let lastLogCleanupDay = '';
+
+function pruneExpiredLogs(db: Database, now: number): void {
+  const day = new Date(now).toISOString().slice(0, 10);
+  if (day === lastLogCleanupDay) return;
+  try {
+    db.run(sql`delete from llm_call_logs where created_at < ${now - LLM_LOG_RETENTION_DAYS * DAY_MS}`);
+    lastLogCleanupDay = day;
+  } catch {
+    lastLogCleanupDay = '';
+  }
+}
 
 function scrubArguments(argumentsValue: Record<string, unknown>, secret: string | undefined): Record<string, unknown> {
   if (!secret) return argumentsValue;
@@ -189,6 +204,7 @@ function recordCall(
 
   if (call.log) {
     const secret = target.apiKey;
+    pruneExpiredLogs(deps.db, createdAt);
     try {
       deps.db
         .insert(llmCallLogs)

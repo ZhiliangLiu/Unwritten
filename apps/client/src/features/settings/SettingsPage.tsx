@@ -19,7 +19,6 @@ export function SettingsPage() {
   const { t } = useTranslation();
   const api = useApi();
   const config = useQuery({ queryKey: queryKeys.llm, queryFn: () => api.llm.providers.list() });
-  const llmLogs = useQuery({ queryKey: queryKeys.llmLogStatus, queryFn: () => api.llm.logs.status() });
   const writesDisabled =
     config.data?.status === 'invalid' || config.data?.status === 'too_new' || Boolean(config.data?.problem);
 
@@ -59,17 +58,15 @@ export function SettingsPage() {
               <Skeleton variant='lines' count={6} />
             ) : null}
           </section>
-          {llmLogs.data?.enabled ? (
-            <section className={styles.models}>
-              <h2 className={styles.heading}>{t('settings:debug.heading')}</h2>
-              <p className={styles.description}>{t('settings:debug.description')}</p>
-              <div>
-                <Link to='/debug/llm' className={`${buttonClassName('secondary')} ${styles.debugLink}`}>
-                  {t('settings:debug.open')}
-                </Link>
-              </div>
-            </section>
-          ) : null}
+          <section className={styles.models}>
+            <h2 className={styles.heading}>{t('settings:debug.heading')}</h2>
+            <p className={styles.description}>{t('settings:debug.description')}</p>
+            <div>
+              <Link to='/debug/llm' className={`${buttonClassName('secondary')} ${styles.debugLink}`}>
+                {t('settings:debug.open')}
+              </Link>
+            </div>
+          </section>
         </div>
       </div>
     </Page>

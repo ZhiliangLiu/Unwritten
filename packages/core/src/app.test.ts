@@ -69,7 +69,6 @@ function fakeServices(): Services {
         throw new Error('not used');
       },
       testConnection: async () => ({ ok: false, code: null, detail: null, savedToolsCapability: false }),
-      logsStatus: () => ({ enabled: false }),
       listLogs: () => ({ items: [] }),
       getLog: () => {
         throw new Error('not used');

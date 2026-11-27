@@ -238,7 +238,6 @@ export const LlmLogListInputSchema = z.object({
 });
 
 export const LlmLogListSchema = z.object({ items: z.array(LlmLogSummarySchema) });
-export const LlmLogStatusSchema = z.object({ enabled: z.boolean() });
 export const LlmLogIdInputSchema = z.object({ callId: UuidSchema });
 
 export type ModelCapabilities = z.infer<typeof ModelCapabilitiesSchema>;
@@ -275,5 +274,4 @@ export type LlmLogDetail = z.infer<typeof LlmLogDetailSchema>;
 export type LlmLogCursor = z.infer<typeof LlmLogCursorSchema>;
 export type LlmLogListInput = z.infer<typeof LlmLogListInputSchema>;
 export type LlmLogList = z.infer<typeof LlmLogListSchema>;
-export type LlmLogStatus = z.infer<typeof LlmLogStatusSchema>;
 export type LlmLogIdInput = z.infer<typeof LlmLogIdInputSchema>;

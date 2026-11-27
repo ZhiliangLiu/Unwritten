@@ -12,7 +12,6 @@ import type {
   LlmLogIdInput,
   LlmLogList,
   LlmLogListInput,
-  LlmLogStatus,
   LlmLogSummary,
   ModelRef,
   PurposeView,
@@ -33,14 +32,13 @@ import { DEFAULT_CONTEXT_WINDOW, defaultMaxTokens, estimateTokens } from './budg
 import { newEndpointId } from './endpoint-id.ts';
 import { paramsFromFile, paramsProblem, paramsToFile, sanitizeParams } from './params.ts';
 import { createProvidersStore, type ProvidersState } from './providers-file.ts';
-import { createRunner, createCompleter, type LlmTimeouts } from './run.ts';
+import { createRunner, createCompleter, LLM_LOG_RETENTION_DAYS, type LlmTimeouts } from './run.ts';
 import { createConnectionTester } from './test-connection.ts';
 import { normalizeBaseUrl } from './url.ts';
 import type { Purpose } from './types.ts';
 import type { EndpointEntry, ProvidersFile } from './providers-schema.ts';
 
 const LLM_CALL_RETENTION_DAYS = 90;
-const LLM_LOG_RETENTION_DAYS = 7;
 
 const logSummaryColumns = {
   callId: llmCalls.id,
@@ -228,13 +226,12 @@ export function createLlmService(
     };
   };
 
-  const logBodies = deps.dev ?? false;
   const runner = createRunner({
     db: deps.db,
     logger: deps.logger,
     shutdown: deps.shutdown,
     timeouts: options?.timeouts,
-    logBodies,
+    logBodies: true,
     targetFor,
   });
   const completer = createCompleter({
@@ -242,7 +239,7 @@ export function createLlmService(
     logger: deps.logger,
     shutdown: deps.shutdown,
     timeouts: options?.timeouts,
-    logBodies,
+    logBodies: true,
     targetFor,
   });
   const tester = createConnectionTester({
@@ -434,11 +431,7 @@ export function createLlmService(
     testConnection(input: TestConnectionInput): Promise<TestConnectionResult> {
       return tester(input);
     },
-    logsStatus(): LlmLogStatus {
-      return { enabled: logBodies };
-    },
     listLogs(input: LlmLogListInput): LlmLogList {
-      if (!logBodies) return { items: [] };
       const rows = deps.db
         .select(logSummaryColumns)
         .from(llmCallLogs)
@@ -457,7 +450,6 @@ export function createLlmService(
       return { items: rows.map(logSummaryOf) };
     },
     getLog(input: LlmLogIdInput): LlmLogDetail {
-      if (!logBodies) throw appError('not_found', 'llm log is not enabled');
       const row = deps.db
         .select({
           ...logSummaryColumns,

@@ -22,7 +22,7 @@ export interface RunningCore {
   close(): Promise<void>;
 }
 
-export type CoreStartOptions = CliOptions & { token?: string; dev?: boolean };
+export type CoreStartOptions = CliOptions & { token?: string };
 
 type StartupFailure = StartFailureReason;
 
@@ -89,7 +89,6 @@ export async function startCore(options: CoreStartOptions, factories: ServiceFac
       db: opened.db,
       bus,
       logger,
-      dev: options.dev ?? options.clientOrigin !== null,
     };
     const llm = factories.llm(deps);
     const library = factories.library(deps);

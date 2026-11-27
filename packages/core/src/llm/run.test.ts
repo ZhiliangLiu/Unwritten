@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { EMPTY_GENERATION_PARAMS } from '@unwritten/contracts';
 import type { Logger } from '../log/logger.ts';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
@@ -97,7 +97,7 @@ describe('createRunner', () => {
     }
   });
 
-  it('开发构建记录 prompt、回复和 HTTP 交换', async () => {
+  it('记录 prompt、回复和 HTTP 交换', async () => {
     const server = await startFakeOpenAiServer();
     const { temp, opened, runner } = setup(server.baseUrl, undefined, {}, true);
     try {
@@ -117,7 +117,7 @@ describe('createRunner', () => {
     }
   });
 
-  it('开发构建的调试日志抹掉响应里的 key', async () => {
+  it('调试日志抹掉响应里的 key', async () => {
     const server = await startFakeOpenAiServer();
     const { temp, opened, runner } = setup(server.baseUrl, undefined, { apiKey: 'secret-key' }, true);
     try {
@@ -128,6 +128,32 @@ describe('createRunner', () => {
       expect(log?.http[0]?.responseBody).toContain('[redacted]');
       expect(JSON.stringify(log)).not.toContain('secret-key');
     } finally {
+      await server.close();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('日期改变后的首次调用清理 7 天前的调试日志', async () => {
+    const server = await startFakeOpenAiServer();
+    const { temp, opened, runner } = setup(server.baseUrl, undefined, {}, true);
+    const now = Date.now();
+    const old = now - 8 * 86_400_000;
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(now + 86_400_000);
+    try {
+      opened.db.run(
+        sql`insert into llm_calls (id, purpose, provider, model, status, created_at)
+            values ('old-log', 'narrator', 'p', 'm', 'ok', ${old})`,
+      );
+      opened.db.run(
+        sql`insert into llm_call_logs (call_id, system, prompt, response, http, created_at)
+            values ('old-log', 'system', 'prompt', null, '[]', ${old})`,
+      );
+      server.enqueue(rawToolStep('propose_turn', { prose: '雨声' }));
+      await runner(input());
+      expect(opened.db.all(sql`select call_id from llm_call_logs where call_id = 'old-log'`)).toEqual([]);
+    } finally {
+      clock.mockRestore();
       await server.close();
       opened.close();
       temp.cleanup();

@@ -33,7 +33,6 @@ export function createRouter(services: Services) {
         set: base.llm.purposes.set.handler(({ input, context }) => context.services.llm.setPurpose(input)),
       },
       logs: {
-        status: base.llm.logs.status.handler(({ context }) => context.services.llm.logsStatus()),
         list: base.llm.logs.list.handler(({ input, context }) => context.services.llm.listLogs(input)),
         get: base.llm.logs.get.handler(({ input, context }) => context.services.llm.getLog(input)),
       },

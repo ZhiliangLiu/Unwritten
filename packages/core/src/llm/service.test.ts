@@ -20,7 +20,7 @@ const logger: Logger = {
   async close() {},
 };
 
-function setup(options: { dev?: boolean } = {}) {
+function setup() {
   const temp = makeTempDataDir();
   const opened = openDatabase(join(temp.dir, 'library.db'));
   const service = createLlmService(
@@ -30,7 +30,6 @@ function setup(options: { dev?: boolean } = {}) {
       bus: createEventBus(),
       logger,
       shutdown: new AbortController().signal,
-      dev: options.dev,
     },
     { env: {} },
   );
@@ -200,8 +199,8 @@ describe('createLlmService', () => {
     }
   });
 
-  it('开发构建列出并读取模型调用日志', () => {
-    const { temp, opened, service } = setup({ dev: true });
+  it('列出并读取模型调用日志', () => {
+    const { temp, opened, service } = setup();
     try {
       const createdAt = Date.now();
       const callId = '00000000-0000-4000-8000-000000000001';
@@ -226,7 +225,6 @@ describe('createLlmService', () => {
             values (${callId}, 'system', 'prompt', ${response}, ${http}, ${createdAt})`,
       );
 
-      expect(service.logsStatus()).toEqual({ enabled: true });
       expect(service.listLogs({ limit: 10 })).toEqual({
         items: [
           {
@@ -259,9 +257,9 @@ describe('createLlmService', () => {
     }
   });
 
-  it('开发构建记录真实调用的正文', async () => {
+  it('记录真实调用的正文', async () => {
     const server = await startFakeOpenAiServer();
-    const { temp, opened, service } = setup({ dev: true });
+    const { temp, opened, service } = setup();
     try {
       await service.createEndpoint({
         requestId: requestId as never,
@@ -305,7 +303,7 @@ describe('createLlmService', () => {
   });
 
   it('清理 7 天以前的调试日志', () => {
-    const { temp, opened, service } = setup({ dev: true });
+    const { temp, opened, service } = setup();
     try {
       const old = Date.now() - 8 * 86_400_000;
       const now = Date.now();
@@ -331,7 +329,7 @@ describe('createLlmService', () => {
   });
 
   it('调试日志按时间往前翻页', () => {
-    const { temp, opened, service } = setup({ dev: true });
+    const { temp, opened, service } = setup();
     try {
       const now = Date.now();
       const older = now - 1;
@@ -364,7 +362,7 @@ describe('createLlmService', () => {
   });
 
   it('同一毫秒完成的调试日志也能翻页', () => {
-    const { temp, opened, service } = setup({ dev: true });
+    const { temp, opened, service } = setup();
     try {
       const now = Date.now();
       const newer = '00000000-0000-4000-8000-000000000022';
@@ -395,7 +393,7 @@ describe('createLlmService', () => {
   });
 
   it('删除作品时调试日志一并删除', () => {
-    const { temp, opened } = setup({ dev: true });
+    const { temp, opened } = setup();
     try {
       const now = Date.now();
       const workId = '00000000-0000-4000-8000-000000000002';
@@ -418,18 +416,6 @@ describe('createLlmService', () => {
       expect(opened.db.all<{ work_id: string | null }>(sql`select work_id from llm_calls`)).toEqual([
         { work_id: null },
       ]);
-    } finally {
-      opened.close();
-      temp.cleanup();
-    }
-  });
-
-  it('发布构建不返回调试日志', () => {
-    const { temp, opened, service } = setup();
-    try {
-      expect(service.logsStatus()).toEqual({ enabled: false });
-      expect(service.listLogs({ limit: 10 })).toEqual({ items: [] });
-      expect(() => service.getLog({ callId: requestId as never })).toThrow();
     } finally {
       opened.close();
       temp.cleanup();
