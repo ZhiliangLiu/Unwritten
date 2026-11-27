@@ -16,6 +16,9 @@
 | [turn-loop.md](./turn-loop.md) | 游玩时每回合的上下文、工具、校验、提交、恢复，以及回合请求表 | 故事事实的表结构（在 data-model.md） |
 | [author-workstation.md](./author-workstation.md) | 创作工作站：对话、提案卡、草稿写入、生成任务 | 游玩时的回合循环 |
 | [llm-endpoints.md](./llm-endpoints.md) | 模型服务的配置、key、用途分配、会话标识、调用与错误 | 各处调用模型时的业务流程（在 turn-loop.md、author-workstation.md） |
+| [image.md](./image.md) | 出图服务的设置和协议、镜头描述、立绘与插图任务、图片存储 | 故事信息的可见范围和具体插件部署 |
+| [plugins.md](./plugins.md) | 独立插件的边界、协议共同规则和一致性测试 | 单种协议的字段和具体插件的运行方式 |
+| [comfyui-plugin.md](./comfyui-plugin.md) | ComfyUI 插件的工作流、环境、部署和实机验证 | core 如何使用出图服务 |
 | [diagnostics.md](./diagnostics.md) | 运行事件、性能计时、诊断库与查询契约 | 作品内容、模型用量和回合工具足迹 |
 | [design-guidelines.md](./design-guidelines.md) | 视觉方向与判断方法；可以引用少数体现方向的目标值，例如正文对比度、行长 | token 的命名和用法（见 theme.md、motion.md），以及 JSON 里的取值 |
 | [theme.md](./theme.md) | 全部非动效的 token、主题、外观切换、样式的强制检查 | 动效 token |

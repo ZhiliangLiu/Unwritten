@@ -280,7 +280,7 @@ unwritten/
 | Biome | 格式化和 lint 都不错，但插件生态不够，装不上 i18next 规则；类型感知规则也不如 oxlint-tsgolint 完整 |
 | Vercel AI SDK、LiteLLM | 见 [LLM 端点](./llm-endpoints.md)；LiteLLM 是 Python 库 |
 | 载入 core 的代码插件 | core 持有全部 key 和故事数据，插件改为实现协议的独立服务（[插件 §1](./plugins.md#1-什么是插件)） |
-| sharp 等原生图像库 | 出图服务直接返回 WebP，core 原样保存、不转码，用不到；引入原生模块还要按平台处理 Electron 打包（[插图与出图服务 §5.3](./image.md#53-校验返回的数据)） |
+| sharp 等原生图像库 | client 用 Canvas 整理导入图，core 校验后保存。使用原生模块会增加 Electron 的跨平台打包工作（[插图与出图服务 §6.2](./image.md#62-人物参考组)） |
 | pip + requirements.txt 管理插件的开发环境、Poetry | pip 没有锁定文件和 Python 版本管理；Poetry 的功能被 uv 覆盖，速度慢得多。Colab 上安装用的 `requirements.txt` 由 uv 从锁定文件导出 |
 
 ## 13. 验收
