@@ -100,7 +100,7 @@ core 只监听回环地址。不过本机的其他程序，以及浏览器里打
   - 样式只来自构建出的 CSS 文件，所以 `style-src` 不需要 `'unsafe-inline'`。组件的 `style` 属性只用来设置 CSS 自定义属性，React 通过 CSSOM（`element.style.setProperty`）写入，不受 `style-src` 限制；HTML 里的 `style` 属性和 `setAttribute('style', …)` 才会被拦。
   - 这套策略由 core 下发，只在生产构建里生效。开发时页面由 Vite 提供，不带这套策略，所以内容安全策略相关的验收用生产构建做。
 - **AI 输出与用户内容一律按纯文本渲染。** 正文、选项、作者设定、玩家输入、模型返回的错误信息都靠 React 默认的转义来显示，不经过 `dangerouslySetInnerHTML` 或 `innerHTML`。AI 的输出可能受提示注入影响，一旦被当成 HTML 执行，攻击代码就能拿到内存里的令牌，并调用 core 的全部接口。
-- **API key 只在 core 里。** client 只能知道某个端点或出图服务有没有配置 key，见 [LLM 端点 §3](./llm-endpoints.md#3-key-的来源与保护)。出图服务的地址同样只在 core 里。
+- **保存的 API key 只在 core 里。** 设置页可以查看已配置的出图服务地址、是否有 key 和 key 的来源。新生成的插件令牌只在设置时显示一次，供用户复制到服务一侧。服务请求全部由 core 发出。见 [LLM 端点 §3](./llm-endpoints.md#3-key-的来源与保护)和[插图与出图服务 §2](./image.md#2-出图服务的配置)。
 
 ### 2.2 core 独立运行
 
@@ -171,7 +171,7 @@ core 使用 desktop 传进来的数据目录，桌面版的数据目录是 Elect
   library.db        作品库：全部作品、版本、路线、对话
   providers.json    LLM 端点与 key；macOS、Linux 上文件权限为 0600，Windows 上依赖用户目录的访问控制
   diagnostics.db    core、client 与 desktop 的运行事件和性能样本
-  images/           插图和立绘的图片文件，按开局和作品分目录（插图与出图服务 §9）
+  images/           插图与人物参考文件，按内容保存，归属记在 library.db（插图与出图服务 §9）
 ```
 
 作品库与诊断库的迁移分别在 `packages/core/src/store/migrations/` 和 `packages/core/src/log/migrations/`。core 打开各库时按编号执行对应的迁移。

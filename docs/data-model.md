@@ -91,7 +91,7 @@ playthroughs (
   kind          TEXT NOT NULL,     -- play | trial
   protagonist   JSON,              -- 玩家这次填写的主角项目
   cast          JSON,              -- 每局生成模式下本局确定的人物；只在开场提交前暂存，供失败后重试。开场提交时写入实体表，并清空这一列
-  illustration  JSON NOT NULL,     -- 本局的插图设置：画风 style、主角是否入画 protagonistInFrame、主角形象 protagonistAppearance。开局时写入，之后不再改；主角形象由 AI 补写时只写这一次。迁移时，已有的开局补上作品的默认画风、主角不入画、没有主角形象
+  illustration  JSON NOT NULL,     -- enabled、style、aspectPreference、resolutionTier、protagonistInFrame、protagonistAppearance、authorPortraitSetIds、protagonistPortraitSetId。开局时写入。主角形象可以补写一次
   root_turn_id  TEXT,              -- 开场回合；开场生成失败时为空，重试时沿用这一行
   created_at
 )
@@ -106,7 +106,7 @@ turns (
   options       JSON NOT NULL,          -- 下一步的推荐行动
   scene         JSON NOT NULL,          -- 这一回合结束时的地点、在场者、故事时间
   ending        INTEGER NOT NULL DEFAULT 0,
-  illustrate_para INTEGER,              -- narrator 标记的高潮段号；开场固定为 0，表示第一段之前；不画为空
+  illustrate_para INTEGER,              -- 插图放在该段之后；0 表示第一段之前；无标记时为空
   status        TEXT NOT NULL,          -- committed | candidate
   created_at
 )
@@ -130,6 +130,8 @@ saves (
 ```
 
 父回合、路线 head 和存档指向的回合必须属于同一开局。core 在事务内验证跨表归属；事实、称呼、知情与状态引用必须属于该版本，游玩产生的引用对象必须位于当前祖先链或同一批合法写入中。
+
+开局行的 `authorPortraitSetIds` 按人物保存当时已采用的组 id，`protagonistPortraitSetId` 指向采用的主角参考快照。主角参考可空，人物参考的归属和清理见[插图与出图服务 §9](./image.md#9-存储)。`resolutionTier` 是 `720`、`1k`、`2k` 或仅使用服务默认尺寸时的 `default`。从没有插图设置的库迁移时，已有开局设为纯文字，预填作品默认画风、自动比例和 1K，主角不入画，参考为空。
 
 一个“回合”包含玩家的一次行动和 AI 对它的完整回应；开场是根回合，没有玩家行动。游玩流程里的各种操作，在这棵树上都只需要一两步：
 
@@ -283,7 +285,7 @@ state_values (
 | 秘密 | `secret` 事实，`data.title` 是无剧透的标题，`data.reveal` 是揭晓条件原文。秘密可以来自作者设定，也可以由 narrator 在游玩中创造（[回合循环 §5](./turn-loop.md#5-提交一回合propose_turn-与-ask_clarification)）。一开始就知情的角色，用同一来源的 `knowledge` 行表示；主角得知秘密时，追加一条带出处的 `knowledge` |
 | 称呼 | 真名在 `entities.name`；主角知道的称呼是 `entity_names` 中 `holder_id` 为主角的行，例如“撑伞的女人”，得知真名后再追加一条 |
 | 关键场面已触发 | 写一条 `scene_hit` 事实，`key` 是场面编号，出处是发生的那一段 |
-| 人物的样子变了 | 写一条 `trait` 事实，`key` 是 `appearance`，`statement` 是此刻看得见的新样子，出处是发生变化的那一段。当前形象取路线上最新的这一条，没有时用档案里的形象（[插图与出图服务 §6.1](./image.md#61-形象)） |
+| 人物的样子变了 | 写一条 `trait` 事实，`key` 是 `appearance`，`statement` 是此刻看得见的新样子，出处是发生变化的那一段。当前形象取路线上可见的最新一条。主角在变化前后都能认出此人时，可以在 `data.same_visible_identity` 标为 `true`（[插图与出图服务 §6.2](./image.md#62-人物参考组)） |
 | 新增状态栏目 | 写一条 `state_defs`，`origin_turn_id` 指向新增它的回合；作者标为幕后的信息，在新栏目里同样设为 `hidden` |
 
 **同名不等于同一个人。** 查人物时，同时结合称呼、当前场景和已有的关系来判断。同名的多个实体会全部作为候选返回，由调用方区分（见[回合循环 §4](./turn-loop.md#4-只读工具)）。
@@ -321,6 +323,10 @@ WITH RECURSIVE path(id, parent_id, depth) AS (
 | 叙述者 | 回合循环的只读工具 | 路线上所有可见的行，并标注每件事谁知道 |
 | 主角 | client 的状态栏、手记、人物称呼；回合校验中的泄露检查 | 只有主角知情的事实、主角知道的称呼，以及未标幕后、当前设为显示的状态值。未确认的知情只投影 `perceived_statement`、知情程度和可公开的出处，不投影事实原句或其他幕后字段 |
 | 作者 | 创作工作站 | 草稿里的作者设定；幕后设定折叠时，秘密只显示无剧透标题 |
+
+**插图按段落投影。** 输入是目标回合和图片所在段号。取这个回合的祖先链，回合内只使用截至该段的正文、已有明确出处的事实、称呼和知情记录。同回合里出处缺失或在后面的记录不进入镜头，也不用回合结束时的 `scene` 推断段内在场者。人物只有在截至该段的正文或已知事实中可确认亲眼见到、且处于画面当时的场景中，才提供该段可确认的形象和参考图。看不出谁在场或是什么样子时，只用可确认的文字线索。
+
+段号 0 只使用所选作品版本中主角开局前已知的设定。地点同样要在这些材料中可确认。缺少可入画的线索时跳过开场图。重试、重画与分线回看都用原回合和原段号，已发生的揭晓不会倒流到旧图里。
 
 **手记不单独建表。** 它直接从主角视角的知情记录和出处生成，按人物、地点、事件分组；有出处时可跳回本路线原文。初始已知且没有出处的条目不显示跳转。只有确认知情的记录可以使用事实陈述；听说、猜测和误信只显示主角实际听见或相信的说法。没有保存该说法时，不生成手记条目。采用另一版回应后，head 变了，手记跟着变，不需要同步任何东西。
 
@@ -363,14 +369,14 @@ BEGIN DELETE FROM prose_fts WHERE turn_id = old.id; END;
 | `chat_threads`、`chat_messages`、`card_claims`、`jobs` | [创作工作站 §13](./author-workstation.md#13-数据表) |
 | `llm_calls`：模型调用记录 | [LLM 端点 §9](./llm-endpoints.md#9-调用记录) |
 | `app_settings`：外观与阅读偏好 | [主题与 token §9](./theme.md#9-外观偏好与切换) |
-| `illustrations`、`portraits`：插图与立绘 | [插图与出图服务 §9.2](./image.md#92-表) |
+| `illustrations`、`portrait_sets`：插图与人物参考组 | [插图与出图服务 §9.2](./image.md#92-表) |
 | `image_calls`：出图调用记录 | [插图与出图服务 §11](./image.md#11-调用记录与诊断) |
 
 ## 8. 删除
 
 SQLite 默认不执行外键约束。core 打开每个数据库连接时都执行 `PRAGMA foreign_keys = ON`，下面的级联删除才会生效。
 
-- **删除作品：** 外键级联删除它的所有版本；版本下的开局、回合、路线、存档，以及作者设定和游玩产生的故事事实，都随版本删除；对话和生成任务随作品删除。正文的索引行由回合删除触发器清掉。插图和立绘的记录随外键删除，`images/` 下这部作品和它各局的图片目录由删除后的清理整个删掉（[插图与出图服务 §9.4](./image.md#94-清理)）。
+- **删除作品：** 外键级联删除版本、开局、回合、路线、存档、故事事实、对话和生成任务。回合删除触发器清理正文索引。插图和人物参考的记录随外键删除。遗留图片按[插图与出图服务 §9.4](./image.md#94-清理)判断是否还有引用。
 - **删除候选：** 挂在它上面的事实、称呼、知情、状态值、摘要随外键删除，索引行由触发器删除。候选不画插图，所以没有图片要清理。
 - **试玩：** 试玩快照和它的试玩进度一起保留，随作品一起删除，不单独提供删除。
 - **被替换下来的原版回合不删除**，因为旧存档可能还指向它。
