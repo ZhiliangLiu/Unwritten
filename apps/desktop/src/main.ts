@@ -109,7 +109,6 @@ async function boot(): Promise<void> {
         clientDir: paths.clientDir,
         clientOrigin: paths.clientOrigin,
         logLevel: paths.mode === 'dev' ? 'debug' : 'info',
-        dev: !app.isPackaged,
       },
     });
 

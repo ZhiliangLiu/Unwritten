@@ -43,14 +43,12 @@ const detail: LlmLogDetail = {
 };
 
 describe('LlmLogsPage', () => {
-  it('日志未开启时说明原因，不请求列表', async () => {
-    const fake = createFakeApi({ 'llm.logs.status': () => ({ enabled: false }) });
+  it('没有记录时显示空状态', async () => {
+    const fake = createFakeApi({ 'llm.logs.list': () => ({ items: [] }) });
     const screen = await renderRoute('/debug/llm', { api: fake.api });
 
     await expect.element(screen.getByRole('heading', { name: '模型调用日志', level: 1 })).toBeVisible();
-    await expect.element(screen.getByText('调试日志未开启')).toBeVisible();
-    expect(fake.calls.some((call) => call.path === 'llm.logs.status')).toBe(true);
-    expect(fake.calls.some((call) => call.path === 'llm.logs.list')).toBe(false);
+    await expect.element(screen.getByText('还没有调用记录')).toBeVisible();
     expectHeadingOutline(screen.container);
     await expectNoAxeViolations(screen.container);
     await screen.unmount();
@@ -58,7 +56,6 @@ describe('LlmLogsPage', () => {
 
   it('点开一条日志后显示输入、回复和 HTTP', async () => {
     const fake = createFakeApi({
-      'llm.logs.status': () => ({ enabled: true }),
       'llm.logs.list': () => ({ items: [summary] }),
       'llm.logs.get': () => detail,
     });

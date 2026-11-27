@@ -177,7 +177,6 @@ async function renderSettings(
     'llm.endpoints.remove': () => config,
     'llm.endpoints.create': () => ({ endpointId: 'ep-2', config }),
     'llm.test': () => ({ ok: true, code: null, detail: null, savedToolsCapability: true }),
-    'llm.logs.status': () => ({ enabled: false }),
     ...options.handlers,
   });
   const result = await renderRoute('/settings', { api: fake.api });
@@ -199,14 +198,12 @@ describe('SettingsPage', () => {
   it('标题大纲正确', async () => {
     const { container, unmount } = await renderSettings();
     expectHeadingOutline(container);
-    expect(container.textContent).not.toContain('打开模型调用日志');
+    expect(container.textContent).toContain('打开模型调用日志');
     await unmount();
   });
 
-  it('开发构建显示调试日志入口', async () => {
-    const { getByRole, unmount } = await renderSettings({
-      handlers: { 'llm.logs.status': () => ({ enabled: true }) },
-    });
+  it('显示调试日志入口', async () => {
+    const { getByRole, unmount } = await renderSettings();
     await expect.element(getByRole('link', { name: '打开模型调用日志' })).toBeVisible();
     await unmount();
   });

@@ -1,11 +1,7 @@
 {
   "page": {
     "heading": "模型调用日志",
-    "description": "开发构建的模型调用，保留 7 天。"
-  },
-  "disabled": {
-    "title": "调试日志未开启",
-    "description": "用 pnpm dev 启动后才会记录模型调用。"
+    "description": "模型调用记录只在本机保留 7 天。"
   },
   "empty": {
     "title": "还没有调用记录",

@@ -45,7 +45,6 @@ async function runInDesktop(port: ParentPortLike): Promise<void> {
         clientOrigin: start.clientOrigin,
         logLevel: start.logLevel,
         token: start.token,
-        dev: start.dev,
       },
       factories,
     );

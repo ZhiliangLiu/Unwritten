@@ -9,7 +9,6 @@ export const queryKeys = {
   work: (workId: string) => ['work', workId] as const,
   route: (routeId: string) => ['route', routeId] as const,
   llm: ['llm'] as const,
-  llmLogStatus: ['llmLogStatus'] as const,
   llmLogs: ['llmLogs'] as const,
   llmLog: (callId: string) => ['llmLog', callId] as const,
   settings: ['settings'] as const,

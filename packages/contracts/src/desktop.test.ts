@@ -17,7 +17,6 @@ const validStart = {
   clientDir: '/tmp/client',
   clientOrigin: null,
   logLevel: 'info',
-  dev: false,
 };
 
 describe('desktop contracts', () => {

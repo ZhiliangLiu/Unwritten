@@ -109,14 +109,7 @@ function createLaunch(): CoreLaunch {
   return {
     entry: '/core/main.js',
     env: { PATH: '/usr/bin' },
-    start: {
-      dataDir: '/data',
-      port: 0,
-      clientDir: '/client',
-      clientOrigin: null,
-      logLevel: 'info',
-      dev: false,
-    },
+    start: { dataDir: '/data', port: 0, clientDir: '/client', clientOrigin: null, logLevel: 'info' },
   };
 }
 
@@ -139,7 +132,6 @@ describe('createCoreProcess', () => {
         clientDir: '/client',
         clientOrigin: null,
         logLevel: 'info',
-        dev: false,
       },
     ]);
   });

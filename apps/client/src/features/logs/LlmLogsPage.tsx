@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import type { LlmLogCursor } from '@unwritten/contracts';
-import { Bug, FileClock, RefreshCw } from 'lucide-react';
+import { FileClock, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../../shared/api/context.tsx';
 import { queryKeys } from '../../shared/api/query.ts';
@@ -24,7 +24,6 @@ export function LlmLogsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<string | null>(null);
-  const status = useQuery({ queryKey: queryKeys.llmLogStatus, queryFn: () => api.llm.logs.status() });
   const list = useInfiniteQuery({
     queryKey: queryKeys.llmLogs,
     queryFn: ({ pageParam }) => api.llm.logs.list({ limit: PAGE_SIZE, before: pageParam }),
@@ -35,11 +34,9 @@ export function LlmLogsPage() {
         ? undefined
         : { createdAt: last.createdAt, callId: last.callId };
     },
-    enabled: status.data?.enabled === true,
   });
 
   const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.llmLogStatus });
     void queryClient.invalidateQueries({ queryKey: queryKeys.llmLogs });
   };
 
@@ -56,60 +53,46 @@ export function LlmLogsPage() {
       }}
       width='page'
     >
-      {status.isPending ? <Skeleton variant='lines' count={6} /> : null}
-      {status.error ? <ErrorNotice error={status.error} /> : null}
-      {status.data && !status.data.enabled ? (
+      {list.isPending ? <Skeleton variant='lines' count={8} /> : null}
+      {list.error ? <ErrorNotice error={list.error} /> : null}
+      {list.data && items.length === 0 ? (
         <EmptyState
           headingLevel={2}
-          icon={Bug}
-          title={t('logs:disabled.title')}
-          description={t('logs:disabled.description')}
+          icon={FileClock}
+          title={t('logs:empty.title')}
+          description={t('logs:empty.description')}
         />
       ) : null}
-      {status.data?.enabled ? (
-        <>
-          {list.isPending ? <Skeleton variant='lines' count={8} /> : null}
-          {list.error ? <ErrorNotice error={list.error} /> : null}
-          {list.data && items.length === 0 ? (
-            <EmptyState
-              headingLevel={2}
-              icon={FileClock}
-              title={t('logs:empty.title')}
-              description={t('logs:empty.description')}
-            />
-          ) : null}
-          {items.length > 0 ? (
-            <ul className={styles.list}>
-              {items.map((item) => (
-                <li key={item.callId}>
-                  <button
-                    type='button'
-                    className={styles.row}
-                    aria-haspopup='dialog'
-                    onClick={() => setSelected(item.callId)}
-                  >
-                    <time className={styles.time} dateTime={new Date(item.createdAt).toISOString()}>
-                      {dateTimeFormat.format(item.createdAt)}
-                    </time>
-                    <span>{item.purpose}</span>
-                    <span className={styles.model}>
-                      {item.provider} / {item.model}
-                    </span>
-                    <Badge tone={STATUS_TONE[item.status]}>{item.status}</Badge>
-                    <span className={styles.duration}>
-                      {item.durationMs === null ? t('logs:field.none') : durationFormat.format(item.durationMs)}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {list.hasNextPage ? (
-            <Button variant='secondary' busy={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
-              {t('logs:list.more')}
-            </Button>
-          ) : null}
-        </>
+      {items.length > 0 ? (
+        <ul className={styles.list}>
+          {items.map((item) => (
+            <li key={item.callId}>
+              <button
+                type='button'
+                className={styles.row}
+                aria-haspopup='dialog'
+                onClick={() => setSelected(item.callId)}
+              >
+                <time className={styles.time} dateTime={new Date(item.createdAt).toISOString()}>
+                  {dateTimeFormat.format(item.createdAt)}
+                </time>
+                <span>{item.purpose}</span>
+                <span className={styles.model}>
+                  {item.provider} / {item.model}
+                </span>
+                <Badge tone={STATUS_TONE[item.status]}>{item.status}</Badge>
+                <span className={styles.duration}>
+                  {item.durationMs === null ? t('logs:field.none') : durationFormat.format(item.durationMs)}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {list.hasNextPage ? (
+        <Button variant='secondary' busy={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>
+          {t('logs:list.more')}
+        </Button>
       ) : null}
       <LlmLogDetailSheet
         callId={selected}
