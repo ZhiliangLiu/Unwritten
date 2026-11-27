@@ -95,8 +95,8 @@
 
 - **设计以 `docs/` 为准。** 代码是设计的兑现，动代码前先读对应的设计文档。文档索引见 [docs/architecture.md](docs/architecture.md)。
 - **分层命名：** client、core、contracts、desktop，见 [架构总览 §1](docs/architecture.md#1-四个组成部分)。不说“前端/后端”，也不说“sidecar”。
-- **包管理用 pnpm**，不用 npm 或 yarn。`plugins/` 下的 Python 插件例外，用 uv 管理，见[插件 §6](docs/plugins.md#6-仓库里的插件)。
-- **插件是实现 Unwritten 协议的独立服务。** `apps/` 和 `packages/` 不导入插件，也不出现插件专属的名字；core 的行为只看插件报告的能力，不按插件的名字分支（[插件 §2](docs/plugins.md#2-边界)）。
+- **包管理用 pnpm**，不用 npm 或 yarn。`plugins/` 和 `selfhost/` 下的 Python 代码例外，用 uv 管理，见[插件 §6](docs/plugins.md#6-仓库里的插件)和 [Colab 宿主 §11](docs/colab-host.md#11-开发与测试)。
+- **插件是实现 Unwritten 协议的独立服务。** `apps/` 和 `packages/` 不导入插件和 `selfhost/` 下的代码，也不出现它们专属的名字；core 的行为只看插件报告的能力，不按插件的名字分支（[插件 §2](docs/plugins.md#2-边界)）。`selfhost/` 放 Colab 宿主和自建模型服务，它们不是插件（[Colab 宿主 §1](docs/colab-host.md#1-定位)）。
 - **技术与库以 [docs/tech-stack.md](docs/tech-stack.md) 为准。** 引入新依赖前先看那里有没有覆盖；新增依赖时同步更新那份文档，版本写进 `pnpm-workspace.yaml` 的 catalog。
 
 | 目的 | 命令 |
@@ -117,7 +117,7 @@
 
 ## 8. 不写注释
 
-**任何代码文件都不写注释。** 这包括 TypeScript、JavaScript、CSS、SQL、shell 脚本、Python，也包括 `tsconfig.json`、`pyproject.toml` 这类允许写注释的配置文件。Jupyter 笔记本只放代码单元，不放 markdown 说明单元，操作说明写进插件的 README。
+**任何代码文件都不写注释。** 这包括 TypeScript、JavaScript、CSS、SQL、shell 脚本、Python，也包括 `tsconfig.json`、`pyproject.toml` 这类允许写注释的配置文件。Jupyter 笔记本只放代码单元，不放 markdown 说明单元，操作说明写进笔记本所在目录的 README。
 
 代码本身表达不了的信息，放到下面这些地方：
 

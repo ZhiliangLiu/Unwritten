@@ -10,7 +10,7 @@
 - `llm/pi.ts` 是唯一导入 pi-ai 和 pi-agent-core 的文件。
 - `image/` 不导入 `story/`、`play/`、`authoring/`、`illustration/`：出图模块不认识作品、人物和回合，只认协议和能力（[插图与出图服务 §1](../../docs/image.md#1-组成)）。
 - 外发的 HTTP 请求只经 `net/` 的 `fetch` 封装（[LLM 端点 §3](../../docs/llm-endpoints.md#3-key-的来源与保护)）。
-- 源码里不出现插件专属的名字，也不按出图服务报告的实现名分支（[插件 §2](../../docs/plugins.md#2-边界)）。
+- 源码里不出现插件和 `selfhost/` 下专属的名字，也不按出图服务报告的实现名分支（[插件 §2](../../docs/plugins.md#2-边界)）。自建模型服务按普通的自定义端点处理，不加预设，也不按地址或模型 id 识别。
 - 判据：`grep -rnE "from '\.\./(llm|api|play|authoring)/" packages/core/src/story` 零命中；`grep -rln "@earendil-works" packages/core/src` 只列出 `llm/pi.ts` 和测试支持代码；`grep -rnE "from '\.\./(story|play|authoring|illustration)/" packages/core/src/image` 零命中；扫描插件名的测试通过。
 
 ## 2. 契约与错误

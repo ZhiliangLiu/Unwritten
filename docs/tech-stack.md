@@ -10,7 +10,7 @@
   - client 不导入 core，两者只通过 contracts 通信；
   - 样式只用 token；
   - 编译器用 TypeScript 7。
-- **版本只有一处来源。** 本文只写主版本号，确切版本统一写在 `pnpm-workspace.yaml` 的 catalog 里，各个包用 `catalog:` 引用。`plugins/` 下的插件用自己的工具链，版本锁定在插件目录里（[插件 §6](./plugins.md#6-仓库里的插件)）。
+- **版本只有一处来源。** 本文只写主版本号，确切版本统一写在 `pnpm-workspace.yaml` 的 catalog 里，各个包用 `catalog:` 引用。`plugins/` 和 `selfhost/` 下的 Python 代码用自己的工具链，版本锁定在各自的目录里（[插件 §6](./plugins.md#6-仓库里的插件)）。
 - **不为一两行代码引入依赖。** Node 和浏览器已经提供的能力，直接用平台自带的。例如 id 用 `crypto.randomUUID()`，日期格式化用 `Intl`。
 
 ## 2. 总览
@@ -26,7 +26,7 @@
 | core | Hono 4 + @hono/node-server、oRPC server 1、Drizzle ORM 1 + drizzle-kit 1、`node:sqlite`、pi-ai + pi-agent-core 1、p-queue |
 | 测试 | Vitest 5（Node 环境 + 浏览器模式）、Playwright、Testing Library、axe-core、fast-check、MSW、pi-ai 的测试用伪服务商 |
 | 代码质量 | oxlint + oxlint-tsgolint、Prettier 3、Stylelint 18、lefthook、GitHub Actions |
-| 插件 | Python、aiohttp、Pillow、uv、ruff、pytest（ComfyUI 插件，[ComfyUI 插件 §6](./comfyui-plugin.md#6-包装服务)、[§10](./comfyui-plugin.md#10-开发与测试)） |
+| 插件与自建服务 | Python、aiohttp、Pillow、uv、ruff、pytest（[ComfyUI 插件 §6](./comfyui-plugin.md#6-包装服务)、[§10](./comfyui-plugin.md#10-开发与测试)，[Colab 宿主 §11](./colab-host.md#11-开发与测试)，[Strata 自建模型服务 §6](./strata.md#6-网关)、[§11](./strata.md#11-开发与测试)） |
 
 ## 3. 仓库与工具链
 
@@ -38,9 +38,9 @@
 | **Node 24** | 开发和独立运行 core 时的运行时 | 和 Electron 45 内置的 Node 主版本一致，避免开发时和打包后的行为不同。版本写在 `.node-version` 和各包的 `engines` 里 |
 | **Vite 8** | client 的开发服务器与构建 | 事实标准；8.x 用 Rolldown 打包 |
 | **tsdown** | core、desktop 的打包 | 基于 Rolldown，和 Vite 8 用同一套打包器；是 tsup 的继任者 |
-| **uv** | 插件的 Python 环境与依赖锁定 | 一个可执行文件同时管理 Python 版本、虚拟环境和锁定文件，速度快，是当前最流行的 Python 项目工具。只用于 `plugins/` 下的 Python 插件 |
-| **ruff** | 插件的 Python lint 与格式化 | 一个工具同时做 lint 和格式化，速度快，规则覆盖 flake8、isort 等常用工具 |
-| **pytest** | 插件的测试 | Python 测试的事实标准，aiohttp 的测试工具也基于它 |
+| **uv** | 插件和自建服务的 Python 环境与依赖锁定 | 一个可执行文件同时管理 Python 版本、虚拟环境和锁定文件，速度快，是当前最流行的 Python 项目工具。只用于 `plugins/` 和 `selfhost/` 下的 Python 代码 |
+| **ruff** | 插件和自建服务的 Python lint 与格式化 | 一个工具同时做 lint 和格式化，速度快，规则覆盖 flake8、isort 等常用工具 |
+| **pytest** | 插件和自建服务的测试 | Python 测试的事实标准，aiohttp 的测试工具也基于它 |
 | **Lightning CSS** | CSS 转换 | 由 Vite 内置调用，负责 CSS Modules、嵌套语法和 `@custom-media` 断点（[主题与 token §4.4](./theme.md#44-层级不透明度断点)），不再需要 PostCSS |
 
 **内部包直接导出 TypeScript 源码。** `packages/contracts` 不单独构建，`exports` 直接指向 `src/*.ts`，由使用它的 Vite 和 tsdown 一起打包。这样不需要生成 `.d.ts`，也就避开了 TS 7 下生成声明文件的工具兼容问题。它有两个入口：`@unwritten/contracts` 是 client 与 core 之间的契约，`@unwritten/contracts/desktop` 是 core 与 desktop 之间的进程消息类型。desktop 只导入后者，打包时不会带上整份 oRPC 契约。
@@ -131,7 +131,7 @@ Electron 45 的 npm 包不再用 postinstall 下载本体，而是在首次运�
 | --- | --- | --- |
 | 1 | `oxlint --fix` | 暂存的 TypeScript、JS 文件 |
 | 2 | `stylelint --fix` | 暂存的 `apps/client/src` 下的 CSS |
-| 3 | `ruff check --fix`、`ruff format` | 暂存的 `plugins/` 下的 Python 文件，用插件自己的 uv 环境运行 |
+| 3 | `ruff check --fix`、`ruff format` | 暂存的 `plugins/` 和 `selfhost/` 下的 Python 文件，用所在目录自己的 uv 环境运行 |
 | 4 | `prettier --write` | 暂存的、`pnpm format` 覆盖到的文件 |
 
 Prettier 放最后，因为它决定最终排版；前面几步修出来的代码由它收口。Python 文件不归 Prettier 管，由 ruff 自己格式化。四个阶段都开了 `stage_fixed`，改好的内容回到暂存区，不会留下没暂存的残留。
@@ -225,7 +225,7 @@ unwritten/
 │     │  ├─ net/                  外发请求的统一出口：不跟随重定向、时间上限、取消
 │     │  ├─ image/                出图服务的配置、两种出图协议、排队、返回校验、调用记录
 │     │  │  └─ conformance/       Unwritten 图像协议的一致性测试
-│     │  ├─ illustration/         插图与立绘：何时画、镜头描述、图片存储与清理
+│     │  ├─ illustration/         插图与人物参考：何时画、镜头描述、图片存储与清理
 │     │  ├─ settings/             外观与阅读偏好
 │     │  ├─ log/                  SQLite 运行事件、性能样本、诊断库迁移
 │     │  ├─ events/               进程内事件总线：各模块发布变更，事件流过程订阅
@@ -233,7 +233,10 @@ unwritten/
 │     ├─ drizzle.config.ts
 │     └─ package.json
 ├─ plugins/                       插件：实现 Unwritten 协议的独立服务，见插件 §6
-│  └─ comfyui/                    ComfyUI 插件（Python），见 ComfyUI 插件与 Colab 部署
+│  └─ comfyui/                    ComfyUI 插件（Python），见 ComfyUI 插件
+├─ selfhost/                      用户自己部署、不属于插件的服务（Python），见 Colab 宿主 §1
+│  ├─ colab/                      Colab 宿主，见 Colab 宿主
+│  └─ strata/                     Strata 自建模型服务，见 Strata 自建模型服务
 ├─ e2e/                           Playwright：浏览器模式与 Electron 模式
 ├─ evals/                         真实模型评测，按需运行
 ├─ docs/                          设计文档
@@ -247,7 +250,7 @@ unwritten/
 ├─ .oxlintrc.json
 ├─ .prettierrc.json
 ├─ stylelint.config.mjs
-├─ lefthook.yml                  提交前对暂存文件跑 oxlint、stylelint、Prettier
+├─ lefthook.yml                  提交前对暂存文件跑 oxlint、stylelint、ruff、Prettier
 └─ .node-version
 ```
 
@@ -256,9 +259,9 @@ unwritten/
 - `apps/client` 只依赖 `@unwritten/contracts`，不导入 `/desktop` 入口；
 - `packages/core` 依赖 `@unwritten/contracts` 的两个入口；
 - `apps/desktop` 只依赖 `@unwritten/contracts/desktop`，负责启动 core 的构建产物，不导入 core 的代码；
-- `plugins/` 下的插件不导入仓库里的任何 TypeScript 代码，`apps/` 和 `packages/` 也不导入插件，两边只共享协议规范。
+- `plugins/` 和 `selfhost/` 不导入仓库里的任何 TypeScript 代码，`apps/` 和 `packages/` 也不导入它们，两边只共享协议规范。
 
-前三条由 oxlint 的 import 规则检查；`apps/` 和 `packages/` 里不出现插件专属的名字，由一条扫描源码的测试检查（[插件 §2](./plugins.md#2-边界)）。
+前三条由 oxlint 的 import 规则检查；`apps/` 和 `packages/` 里不出现插件和 `selfhost/` 专属的名字，由一条扫描源码的测试检查（[插件 §2](./plugins.md#2-边界)）。
 
 ## 12. 不选的方案
 
@@ -281,7 +284,7 @@ unwritten/
 | Vercel AI SDK、LiteLLM | 见 [LLM 端点](./llm-endpoints.md)；LiteLLM 是 Python 库 |
 | 载入 core 的代码插件 | core 持有全部 key 和故事数据，插件改为实现协议的独立服务（[插件 §1](./plugins.md#1-什么是插件)） |
 | sharp 等原生图像库 | client 用 Canvas 整理导入图，core 校验后保存。使用原生模块会增加 Electron 的跨平台打包工作（[插图与出图服务 §6.2](./image.md#62-人物参考组)） |
-| pip + requirements.txt 管理插件的开发环境、Poetry | pip 没有锁定文件和 Python 版本管理；Poetry 的功能被 uv 覆盖，速度慢得多。Colab 上安装用的 `requirements.txt` 由 uv 从锁定文件导出 |
+| pip + requirements.txt 管理插件和自建服务的开发环境、Poetry | pip 没有锁定文件和 Python 版本管理；Poetry 的功能被 uv 覆盖，速度慢得多。Colab 上安装用的 `requirements.txt` 由 uv 从锁定文件导出 |
 
 ## 13. 验收
 

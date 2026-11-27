@@ -179,7 +179,7 @@ DTCG 里没有直接对应的几类值，约定这样写：
 | `--uw-color-ink-selection` | 正文选中底，半透明 |
 | `--uw-color-ink-highlight` | 从手记跳回原文时的定位高亮、搜索命中 |
 | `--uw-color-scrim` | 对话框遮罩，半透明 |
-| `--uw-color-image-dim` | 叠在插图和立绘上的一层，半透明。浅色主题为透明；深色主题略压暗图片，免得亮图在暗色页面上刺眼（[设计准则 §2](./design-guidelines.md#2-七条准则)） |
+| `--uw-color-image-dim` | 叠在插图和参考图上的一层，半透明。浅色主题为透明；深色主题略压暗图片，免得亮图在暗色页面上刺眼（[设计准则 §2](./design-guidelines.md#2-七条准则)） |
 
 **对比度。** 下表的“各个表面”指全部 7 种表面底色：`bg`、`surface`、`surface-raised`、`surface-sunken`、`surface-hover`、`surface-pressed`、`surface-selected`。`node scripts/check-tokens.mjs` 按 token 文件逐套主题计算每一组，不达标就失败。
 

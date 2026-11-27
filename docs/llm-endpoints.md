@@ -115,7 +115,7 @@ OpenCode Go 是可选的服务商。创作与游玩可以使用其他满足用�
 | llama.cpp | `http://127.0.0.1:8080/v1` |
 | OpenCode Go | 见 §5 |
 
-前四项照搬 thinkrail 的 `LOCAL_SERVER_PRESETS`。
+前四项照搬 thinkrail 的 `LOCAL_SERVER_PRESETS`。在 Colab 或另一台机器上自建的模型服务同样按自定义端点接入，不另加预设，例如 [Strata 自建模型服务](./strata.md#9-在-unwritten-里接上)。
 
 **配置流程：** 选预设或手填 → 填名称、地址、协议和 key → 点“查找模型” → 勾选模型（能力字段已预填，可以改）→ 保存 → 可选“测试连接”。
 
