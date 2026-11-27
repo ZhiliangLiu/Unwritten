@@ -22,7 +22,7 @@
   z-index: var(--uw-z-overlay);
   display: grid;
   grid-template-rows: auto 1fr;
-  inline-size: var(--uw-size-panel);
+  inline-size: clamp(var(--uw-size-panel), calc(var(--uw-size-panel-ratio) * 100vw), var(--uw-size-panel-max));
   max-inline-size: 100%;
   color: var(--uw-color-text);
   background-color: var(--uw-material-overlay-bg);
