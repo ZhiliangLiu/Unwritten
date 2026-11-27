@@ -32,6 +32,7 @@ export function findLeaks(input: {
   changes: ValidatedChanges;
   paragraphs: string[];
   options: string[];
+  extras?: string[];
 }): string[] {
   const known = knownNames(input.projection);
   const timing: Array<{ para: number; name: string }> = [];
@@ -87,6 +88,11 @@ export function findLeaks(input: {
   input.options.forEach((option, index) => {
     for (const leaked of firstUnknown(option, atOptions, candidates)) {
       errors.push(`第 ${index + 1} 个推荐行动出现了主角还不知道的名字「${leaked}」。${advice(leaked)}`);
+    }
+  });
+  (input.extras ?? []).forEach((extra, index) => {
+    for (const leaked of firstUnknown(extra, atOptions, candidates)) {
+      errors.push(`第 ${index + 1} 条提醒出现了主角还不知道的名字「${leaked}」。${advice(leaked)}`);
     }
   });
   return errors;

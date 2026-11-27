@@ -23,8 +23,8 @@ function expectKeys(keys: string[]): void {
 }
 
 describe('settings labels', () => {
-  it('枚举常量分别有 3、7、7 个值', () => {
-    expect(PURPOSES.length).toBe(3);
+  it('枚举常量分别有 4、7、7 个值', () => {
+    expect(PURPOSES.length).toBe(4);
     expect(THINKING_LEVELS.length).toBe(7);
     expect(THINKING_FORMATS.length).toBe(7);
   });

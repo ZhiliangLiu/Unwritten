@@ -1,8 +1,18 @@
 import { z } from 'zod';
-import { EntityKindSchema, KnowledgeLevelSchema, type EntityKind, type KnowledgeLevel } from '@unwritten/contracts';
+import {
+  EntityKindSchema,
+  KnowledgeLevelSchema,
+  ListItemStatusSchema,
+  StateConfigSchema,
+  StateDisplaySchema,
+  type EntityKind,
+  type KnowledgeLevel,
+  type StateConfig,
+  type StateDisplay,
+} from '@unwritten/contracts';
 import type { StoredAction, StoredScene } from '../store/meta.ts';
 
-export const FACT_KINDS = ['event', 'trait', 'relation', 'promise'] as const;
+export const FACT_KINDS = ['event', 'trait', 'relation', 'promise', 'secret', 'scene_hit'] as const;
 export const FactKindSchema = z.enum(FACT_KINDS);
 export type FactKind = z.infer<typeof FactKindSchema>;
 
@@ -61,6 +71,7 @@ export const NewEntityChangeSchema = z.object({
   profile: z.string(),
   para: z.number().int().positive(),
   protagonist: z.boolean(),
+  slot: z.string().nullable().default(null),
 });
 
 export const NameChangeSchema = z.object({
@@ -99,12 +110,63 @@ export const SceneChangeSchema = z.object({
   present: z.array(EntityRefSchema),
 });
 
+export const StateDefRefSchema = z.union([
+  z.object({ existing: z.string().min(1) }),
+  z.object({ created: z.number().int().positive() }),
+]);
+export type StateDefRef = z.infer<typeof StateDefRefSchema>;
+
+export const StateChangeSchema = z.object({
+  line: z.number().int().positive(),
+  stateDef: StateDefRefSchema,
+  value: z.string().nullable(),
+  visible: z.boolean().nullable(),
+  closed: z.boolean().nullable(),
+});
+
+export const StateItemChangeSchema = z.object({
+  line: z.number().int().positive(),
+  stateDef: StateDefRefSchema,
+  item: z.string().min(1),
+  status: ListItemStatusSchema,
+});
+
+export const NewStateChangeSchema = z.object({
+  line: z.number().int().positive(),
+  key: z.string().min(1),
+  label: z.string().min(1),
+  display: StateDisplaySchema,
+  config: StateConfigSchema,
+  hidden: z.boolean(),
+});
+
+export const SecretChangeSchema = z.object({
+  line: z.number().int().positive(),
+  subject: EntityRefSchema.nullable(),
+  title: z.string().min(1),
+  statement: z.string().min(1),
+  reveal: z.string(),
+  knowers: z.array(EntityRefSchema),
+  para: z.number().int().positive(),
+});
+
+export const SceneHitChangeSchema = z.object({
+  line: z.number().int().positive(),
+  sceneId: z.string().min(1),
+  para: z.number().int().positive(),
+});
+
 export const ValidatedChangesSchema = z.object({
   entities: z.array(NewEntityChangeSchema),
   names: z.array(NameChangeSchema),
   facts: z.array(FactChangeSchema),
   knowledge: z.array(KnowledgeChangeSchema),
   scene: SceneChangeSchema.nullable(),
+  states: z.array(StateChangeSchema).default([]),
+  stateItems: z.array(StateItemChangeSchema).default([]),
+  newStates: z.array(NewStateChangeSchema).default([]),
+  secrets: z.array(SecretChangeSchema).default([]),
+  sceneHits: z.array(SceneHitChangeSchema).default([]),
 });
 export type ValidatedChanges = z.infer<typeof ValidatedChangesSchema>;
 export type NewEntityChange = z.infer<typeof NewEntityChangeSchema>;
@@ -112,8 +174,24 @@ export type NameChange = z.infer<typeof NameChangeSchema>;
 export type FactChange = z.infer<typeof FactChangeSchema>;
 export type KnowledgeChange = z.infer<typeof KnowledgeChangeSchema>;
 export type SceneChange = z.infer<typeof SceneChangeSchema>;
+export type StateChange = z.infer<typeof StateChangeSchema>;
+export type StateItemChange = z.infer<typeof StateItemChangeSchema>;
+export type NewStateChange = z.infer<typeof NewStateChangeSchema>;
+export type SecretChange = z.infer<typeof SecretChangeSchema>;
+export type SceneHitChange = z.infer<typeof SceneHitChangeSchema>;
 
-export const EMPTY_CHANGES: ValidatedChanges = { entities: [], names: [], facts: [], knowledge: [], scene: null };
+export const EMPTY_CHANGES: ValidatedChanges = {
+  entities: [],
+  names: [],
+  facts: [],
+  knowledge: [],
+  scene: null,
+  states: [],
+  stateItems: [],
+  newStates: [],
+  secrets: [],
+  sceneHits: [],
+};
 
 export interface ProjEntity {
   id: string;
@@ -167,6 +245,27 @@ export interface ChainTurn {
   scene: StoredScene;
 }
 
+export interface ProjStateDef {
+  id: string;
+  key: string;
+  label: string;
+  display: StateDisplay;
+  config: StateConfig;
+  hidden: boolean;
+  reveal: string | null;
+  originTurnId: string | null;
+  originDepth: number;
+}
+
+export interface ProjStateValue {
+  stateDefId: string;
+  turnId: string;
+  depth: number;
+  value: string | null;
+  visible: boolean;
+  closed: boolean;
+}
+
 export interface StoryProjection {
   versionId: string;
   headTurnId: string;
@@ -177,4 +276,6 @@ export interface StoryProjection {
   facts: ProjFact[];
   knowledge: ProjKnowledge[];
   summaries: Map<string, string>;
+  stateDefs: Map<string, ProjStateDef>;
+  stateValues: ProjStateValue[];
 }

@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
-import { seedNorthCape } from '../test-support/story-fixtures.ts';
+import { seedLighthouseTown, seedNorthCape } from '../test-support/story-fixtures.ts';
 import { ancestorChain } from '../play/chain.ts';
 import { openDatabase } from '../store/db.ts';
 import { createCodeBook } from './codebook.ts';
@@ -12,6 +12,9 @@ import {
   renderEntityDetail,
   renderEntityLine,
   renderSceneBlock,
+  renderSceneLines,
+  renderSecretLines,
+  renderStateBlock,
   renderSearchHits,
   renderTurnText,
   renderWhoKnows,
@@ -134,5 +137,57 @@ describe('render', () => {
       opened.close();
       temp.cleanup();
     }
+  });
+});
+
+describe('render 状态栏、秘密、场面', () => {
+  function lighthouseSetup() {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    const seeded = seedLighthouseTown(opened.db);
+    const chain = ancestorChain(opened.db, seeded.headTurnId).map((turn) => ({
+      id: turn.id,
+      depth: turn.depth,
+      action: turn.action,
+      prose: turn.prose,
+      scene: turn.scene,
+    }));
+    const projection = loadProjection(opened.db, { versionId: seeded.versionId, chain });
+    const codebook = createCodeBook(projection);
+    return { temp, opened, seeded, projection, codebook };
+  }
+
+  it('状态栏给叙述者看全部栏目和幕后标记', () => {
+    const { temp, opened, projection, codebook } = lighthouseSetup();
+    try {
+      const block = renderStateBlock(projection, codebook);
+      expect(block).toContain('- 潮位（key 潮位，数字 0 到 10 米）= 3');
+      expect(block).toContain('- 信任（key 信任，阶段 陌生|相识|信任|决裂）= 相识');
+      expect(block).toContain('- 旧信（key 旧信，清单）= 第一封：已完成');
+      expect(block).toContain('- 真名（key 真名，文字，幕后栏目）= 还没有值；目前不显示给玩家');
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('秘密只列在场者有关的', () => {
+    const { temp, opened, seeded, projection, codebook } = lighthouseSetup();
+    try {
+      const lines = renderSecretLines(projection, codebook, [seeded.ids.linchao ?? '']);
+      expect(lines).toContain('秘密「上一任邮差的去向」');
+      expect(lines).toContain('上一任邮差在灯塔里住过一年，后来乘夜船离开');
+      expect(lines).toContain('揭晓：主角拿到第三封旧信时');
+      expect(renderSecretLines(projection, codebook, [seeded.ids.postOffice ?? ''])).toBe('');
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('关键场面按编号列出触发条件', () => {
+    expect(
+      renderSceneLines([{ id: 's', condition: '主角第一次独自登上灯塔顶', outcome: '林潮讲起上一任邮差', once: true }]),
+    ).toBe('- S1：条件：主角第一次独自登上灯塔顶；发生：林潮讲起上一任邮差；只发生一次');
   });
 });

@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
-import { seedNorthCape, seedStory } from '../test-support/story-fixtures.ts';
+import { seedLighthouseTown, seedNorthCape, seedStory } from '../test-support/story-fixtures.ts';
 import { ancestorChain } from '../play/chain.ts';
 import { openDatabase, type Database } from '../store/db.ts';
 import { loadProjection } from './projection.ts';
@@ -96,6 +96,25 @@ describe('findLeaks', () => {
     }
   });
 
+  it('提醒里的未知名字被拦下', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const projection = projectionAt(opened.db, seeded.versionId, seeded.turnIds[0] ?? '');
+      const errors = findLeaks({
+        projection,
+        changes: EMPTY_CHANGES,
+        paragraphs: ['第一段'],
+        options: ['去码头'],
+        extras: ['去问林潮'],
+      });
+      expect(errors.some((error) => error.includes('提醒') && error.includes('林潮'))).toBe(true);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
   it('长称呼包着短真名时不误报', () => {
     const { temp, opened } = setup();
     try {
@@ -124,8 +143,26 @@ describe('findLeaks', () => {
     const changes: ValidatedChanges = {
       ...EMPTY_CHANGES,
       entities: [
-        { line: 1, kind: 'item', name: '密信', knownAs: '那封信', profile: '', para: 1, protagonist: false },
-        { line: 2, kind: 'item', name: '黑豆仓', knownAs: '半仓黑豆', profile: '', para: 1, protagonist: false },
+        {
+          line: 1,
+          kind: 'item',
+          name: '密信',
+          knownAs: '那封信',
+          profile: '',
+          para: 1,
+          protagonist: false,
+          slot: null,
+        },
+        {
+          line: 2,
+          kind: 'item',
+          name: '黑豆仓',
+          knownAs: '半仓黑豆',
+          profile: '',
+          para: 1,
+          protagonist: false,
+          slot: null,
+        },
       ],
     };
     const errors = findLeaks({
@@ -153,6 +190,7 @@ describe('findLeaks', () => {
             profile: '',
             para: 1,
             protagonist: true,
+            slot: null,
           },
         ],
       };

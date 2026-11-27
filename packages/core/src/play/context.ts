@@ -1,13 +1,24 @@
+import type { WorkSettings } from '@unwritten/contracts';
 import { readAnchors, type StoredAction, type VersionMeta } from '../store/meta.ts';
+import { readPublicSetting } from '../store/plan.ts';
 import type { ResolvedModel } from '../llm/types.ts';
 import { NARRATOR_SYSTEM_PROMPT } from './narrator-prompt.ts';
 import type { CodeBook } from '../story/codebook.ts';
-import { appearedEntityIds, openPromises } from '../story/projection.ts';
-import { renderEntityLine, renderEntityLineWithCode, renderPromiseLine, renderSceneBlock } from '../story/render.ts';
+import { appearedEntityIds, openPromises, presentIdsAtHead, sceneHitIds } from '../story/projection.ts';
+import {
+  renderEntityLine,
+  renderEntityLineWithCode,
+  renderPromiseLine,
+  renderSceneBlock,
+  renderSceneLines,
+  renderSecretLines,
+  renderStateBlock,
+} from '../story/render.ts';
 import type { ChainTurn, StoryProjection } from '../story/types.ts';
 
 export interface NarratorContextInput {
   meta: VersionMeta;
+  settings: WorkSettings;
   projection: StoryProjection;
   codebook: CodeBook;
   action: StoredAction;
@@ -25,6 +36,10 @@ export type NarratorContext =
       omittedTurns: number;
       summaryLines: number;
       indexEntities: number;
+      secretLines: number;
+      stateLines: number;
+      sceneLines: number;
+      sceneCodes: Array<{ code: string; id: string; once: boolean }>;
       contextTokens: number;
       anchorTokens: number;
     }
@@ -33,6 +48,10 @@ export type NarratorContext =
 function clip(value: string, max: number): string {
   const chars = Array.from(value);
   return chars.length <= max ? value : `${chars.slice(0, max).join('')}…`;
+}
+
+function lineCount(text: string): number {
+  return text ? text.split('\n').length : 0;
 }
 
 function turnBlock(turn: ChainTurn, latest: boolean): string {
@@ -66,7 +85,7 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
     input.estimateTokens(improvisationScope);
   const head = input.projection.chain.at(-1);
   if (!head) return { ok: false, code: 'context_too_small', anchorTokens };
-  const publicSetting = input.meta.plan?.items.find((item) => item.id === 'public_setting')?.text ?? '';
+  const publicSetting = readPublicSetting(input.meta);
   const language = input.meta.narration?.language ?? 'zh-CN';
   const protagonist = input.projection.entities.get(input.projection.protagonistId);
   if (!protagonist) return { ok: false, code: 'context_too_small', anchorTokens };
@@ -79,6 +98,23 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
   const contentBlock = contentPolicy ? `【内容边界】\n${contentPolicy}` : '';
   const improvisationBlock = improvisationScope ? `【即兴范围】\n${improvisationScope}` : '';
   const protagonistBlock = `【主角】\n@1 ${protagonist.name} · ${clip(protagonist.profile || '未写档案', 40)}`;
+  const actionHint =
+    input.settings.actions.hints === 'known_consequences'
+      ? '提醒已知后果：每个推荐行动可以带一句 hint，只用主角已知的信息。'
+      : '只显示行动：推荐行动不写 hint。';
+  const actionHintBlock = `【行动提示】\n${actionHint}`;
+  const endingBlock = `【结束条件】\n${input.meta.ending?.trim() || '这部作品没有结束条件，ending 只能填 "false"。'}`;
+  const stateText = renderStateBlock(input.projection, input.codebook);
+  const stateBlock = stateText ? `【状态栏】\n${stateText}` : '';
+  const presentIds = new Set(presentIdsAtHead(input.projection));
+  presentIds.add(input.projection.protagonistId);
+  const secretText = renderSecretLines(input.projection, input.codebook, presentIds);
+  const secretBlock = secretText ? `【和在场者有关的秘密】\n${secretText}` : '';
+  const sceneHit = sceneHitIds(input.projection);
+  const scenes = (input.meta.keyScenes ?? []).filter((scene) => !(scene.once && sceneHit.has(scene.id)));
+  const sceneText = renderSceneLines(scenes);
+  const sceneBlock = sceneText ? `【未触发的关键场面】\n${sceneText}` : '';
+  const sceneCodes = scenes.map((scene, index) => ({ code: `S${index + 1}`, id: scene.id, once: scene.once }));
   const scene = renderSceneBlock(input.projection, input.codebook);
   const headBlock = turnBlock(head, true);
   const action = actionBlock(input.action);
@@ -88,6 +124,11 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
     narration,
     contentBlock,
     protagonistBlock,
+    actionHintBlock,
+    endingBlock,
+    stateBlock,
+    secretBlock,
+    sceneBlock,
     scene,
     headBlock,
     action,
@@ -181,9 +222,19 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
   }
   summaryLines.reverse();
 
-  const parts: string[] = [setting, improvisationBlock, narration, contentBlock, protagonistBlock, scene].filter(
-    Boolean,
-  );
+  const parts: string[] = [
+    setting,
+    improvisationBlock,
+    narration,
+    contentBlock,
+    protagonistBlock,
+    actionHintBlock,
+    endingBlock,
+    stateBlock,
+    secretBlock,
+    sceneBlock,
+    scene,
+  ].filter(Boolean);
   if (indexLines.length) parts.push(`【人物与事物索引】\n${indexLines.join('\n')}`);
   if (promiseLines.length) parts.push(`【未了结的约定】\n${promiseLines.join('\n')}`);
   if (summaryLines.length || omittedTurns > 0) {
@@ -203,6 +254,10 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
     omittedTurns,
     summaryLines: summaryLines.length,
     indexEntities: indexLines.filter((line) => line.startsWith('- ')).length,
+    secretLines: lineCount(secretText),
+    stateLines: lineCount(stateText),
+    sceneLines: lineCount(sceneText),
+    sceneCodes,
     contextTokens: input.estimateTokens(prompt),
     anchorTokens,
   };

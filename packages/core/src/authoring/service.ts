@@ -1,19 +1,25 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
 import PQueue from 'p-queue';
-import type { Preview, PreviewJobView, PreviewJobView as PreviewJobViewType } from '@unwritten/contracts';
+import type { PlanJobView, Preview, PreviewJobView, PreviewJobView as PreviewJobViewType } from '@unwritten/contracts';
 import { appError } from '../errors.ts';
 import { diagnosticFault, storageError } from '../log/fault.ts';
 import type { AuthoringService, CoreDeps, LlmService } from '../services.ts';
 import { previewJobView } from '../library/service.ts';
-import { PREVIEW_TOOL_NAME, PREVIEW_TOOL_PARAMETERS, parsePreviewArgs } from './preview-tool.ts';
+import { createPlanJobs } from './plan-job.ts';
+import { confirmPlan, removePlanItem, updatePlanItem } from './plan-edit.ts';
+import { PREVIEW_TOOL_NAME, parsePreviewArgs, previewToolParameters } from './preview-tool.ts';
 import type { PreviewField } from './preview-tool.ts';
 import { PREVIEW_SYSTEM_PROMPT, buildPreviewPrompt } from './preview-prompt.ts';
-import { jobs, playthroughs, routes, turns, workVersions, works } from '../store/schema.ts';
+import { entities, jobs, workVersions, works } from '../store/schema.ts';
 import type { PreviewJobResult, VersionMeta } from '../store/meta.ts';
-import { PUBLIC_SETTING_PLAN_ITEM_ID, readAnchors } from '../store/meta.ts';
-import { indexTurnProse } from '../store/prose-index.ts';
-import { allocateEntityIds, writeChanges } from '../story/writer.ts';
+import { PUBLIC_SETTING_PLAN_ITEM_ID, previewJobParts, readAnchors } from '../store/meta.ts';
+import { isPlanConfirmed, readPlan, readSettings } from '../store/plan.ts';
+import { createCodeBook } from '../story/codebook.ts';
+import { copyAuthorSetting } from '../story/copy.ts';
+import type { OpeningProposal, OpeningProposalContext } from '../story/opening-proposal.ts';
+import { loadProjection } from '../story/projection.ts';
+import { ValidatedChangesSchema } from '../story/types.ts';
 import type { ValidatedChanges } from '../story/types.ts';
 import type { LlmTool } from '../llm/types.ts';
 import { LlmRunError } from '../llm/types.ts';
@@ -27,6 +33,7 @@ function viewOf(row: typeof jobs.$inferSelect): PreviewJobViewType {
 
 export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): AuthoringService {
   const queue = new PQueue({ concurrency: PREVIEW_CONCURRENCY });
+  const planJobs = createPlanJobs(deps);
 
   const saveFailure = (jobId: string, workId: string, code: NonNullable<PreviewJobView['error']>) => {
     try {
@@ -60,17 +67,50 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
       workId: job.workId,
     });
 
+    const work = deps.db.select().from(works).where(eq(works.id, job.workId)).get();
+    if (!work) return;
+    const draft = deps.db.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
+    if (!draft) return;
+    const meta = draft.meta as VersionMeta;
+    const settings = readSettings(meta);
+    const projection = loadProjection(deps.db, { versionId: draft.id, chain: [] });
+    const codebook = createCodeBook(projection);
+    const nameField = settings.protagonist.fields.find((field) => field.isName) ?? null;
+    const protagonistName = projection.entities.get(projection.protagonistId)?.name ?? '';
+    const forbiddenNames = nameField ? [...new Set([protagonistName, nameField.defaultValue].filter(Boolean))] : [];
+    const stateDefaults = new Map(
+      (readPlan(meta)?.items ?? []).flatMap((item) =>
+        item.kind === 'state' ? [[item.id, { value: item.initial, visible: !item.hidden }] as const] : [],
+      ),
+    );
+    const ctx: OpeningProposalContext = {
+      projection,
+      codebook,
+      hintMode: settings.actions.hints,
+      fixedProse: settings.opening.mode === 'author_text' ? settings.opening.text : null,
+      fieldNames: settings.protagonist.fields.map((field) => field.name),
+      forbiddenNames,
+      placeholderPolicy: settings.opening.mode === 'author_text' ? 'review' : 'reject',
+      slots:
+        settings.cast.mode === 'per_run'
+          ? (meta.castSlots ?? []).map((slot, index) => ({ index: String(index + 1), slotId: slot.id, name: null }))
+          : [],
+      stateDefaults,
+    };
+
     let preview: Preview | null = null;
     let changes: ValidatedChanges | null = null;
+    let initialState: OpeningProposal['initialState'] | null = null;
+    let slotOf: Map<number, string> | null = null;
     let corrections = 0;
     const rejected: { last: { errorCount: number; fields: PreviewField[] } | null } = { last: null };
     const tool: LlmTool = {
       name: PREVIEW_TOOL_NAME,
-      description: '提交开场预览的标题、简介、公开设定、正文、推荐行动和场景。',
-      parameters: PREVIEW_TOOL_PARAMETERS,
+      description: '提交开场预览的标题、简介、公开设定、正文、推荐行动、场景和初始状态。',
+      parameters: previewToolParameters(settings.opening.mode, settings.cast.mode),
       async execute(args) {
         const started = performance.now();
-        const parsed = parsePreviewArgs(args);
+        const parsed = parsePreviewArgs(args, ctx);
         const failure = parsed.ok ? null : { errorCount: parsed.errors.length, fields: parsed.fields };
         if (failure) rejected.last = failure;
         deps.logger.sample({
@@ -84,6 +124,8 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
         if (parsed.ok) {
           preview = parsed.value.preview;
           changes = parsed.value.changes;
+          initialState = parsed.value.initialState;
+          slotOf = parsed.value.slotOf;
           return { text: '已收到。', terminate: true };
         }
         corrections += 1;
@@ -99,7 +141,7 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
       await deps.llm.run({
         purpose: 'narrator',
         system: PREVIEW_SYSTEM_PROMPT,
-        prompt: buildPreviewPrompt({ background: job.input.background, anchors: readAnchors(job.input) }),
+        prompt: buildPreviewPrompt({ meta, settings, projection, codebook }),
         tools: [tool],
         requiredToolName: PREVIEW_TOOL_NAME,
         sessionId: job.workId,
@@ -155,7 +197,13 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
         .update(jobs)
         .set({
           status: 'done',
-          result: { preview: completedPreview, changes: changes ?? undefined, adoption: null } as PreviewJobResult,
+          result: {
+            preview: completedPreview,
+            changes: changes ?? undefined,
+            initialState: initialState ?? undefined,
+            slots: slotOf ? Object.fromEntries(slotOf) : undefined,
+            adoption: null,
+          } as PreviewJobResult,
           updatedAt: now,
         })
         .where(and(eq(jobs.id, jobId), eq(jobs.status, 'running')))
@@ -249,7 +297,7 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
         (tx) => {
           const existing = tx.select().from(jobs).where(eq(jobs.id, input.jobId)).get();
           if (existing) {
-            if (existing.workId !== input.workId || existing.input.contentRev !== input.contentRev) {
+            if (existing.workId !== input.workId || previewJobParts(existing).input.contentRev !== input.contentRev) {
               throw appError('idempotency_conflict', 'job id is already used');
             }
             return { view: viewOf(existing), created: false, workId: existing.workId };
@@ -260,8 +308,16 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
           const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
           if (!draft) throw appError('not_found', 'draft not found');
           if (draft.contentRev !== input.contentRev) throw appError('stale_revision', 'draft revision is stale');
-          const background = (draft.meta as VersionMeta).background;
+          const meta = draft.meta as VersionMeta;
+          const background = meta.background;
           if (!background.trim()) throw appError('background_required', 'background is empty');
+          if (!isPlanConfirmed(meta, input.contentRev)) {
+            throw appError('plan_not_confirmed', 'plan is not confirmed');
+          }
+          const settings = readSettings(meta);
+          if (settings.opening.mode === 'author_text' && !settings.opening.text.trim()) {
+            throw appError('invalid_input', 'author text is empty');
+          }
           const running = tx
             .select()
             .from(jobs)
@@ -301,28 +357,58 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
       return result.view;
     },
     adoptPreview(input) {
-      const routeId = deps.db.transaction(
+      const adopted = deps.db.transaction(
         (tx) => {
           const job = tx.select().from(jobs).where(eq(jobs.id, input.jobId)).get();
           if (!job || job.workId !== input.workId) throw appError('not_found', 'preview job not found');
-          if (job.result?.adoption) return job.result.adoption.routeId;
+          const parts = previewJobParts(job);
+          if (parts.result?.adoption) return null;
           const work = tx.select().from(works).where(eq(works.id, input.workId)).get();
           if (!work) throw appError('not_found', 'work not found');
           if (work.publishedId) throw appError('already_published', 'work is already published');
-          if (job.status !== 'done' || !job.result) throw appError('preview_not_ready', 'preview is not ready');
+          if (job.status !== 'done' || !parts.result) throw appError('preview_not_ready', 'preview is not ready');
           const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
           if (!draft) throw appError('not_found', 'draft not found');
-          if (job.input.contentRev !== draft.contentRev) throw appError('stale_preview', 'preview is stale');
-          const preview = job.result.preview;
-          const changes = job.result.changes;
-          if (!changes) throw appError('stale_preview', 'preview predates story facts');
-          const createdIds = allocateEntityIds(changes);
-          const scenePresent = (changes.scene?.present ?? []).map((ref) => {
+          if (parts.input.contentRev !== draft.contentRev) throw appError('stale_preview', 'preview is stale');
+          const preview = parts.result.preview;
+          if (preview.needsReview.length > 0) throw appError('opening_needs_review', 'opening has unresolved text');
+          if (!parts.result.changes) throw appError('stale_preview', 'preview predates story facts');
+          const changes = ValidatedChangesSchema.parse(parts.result.changes);
+          const meta = draft.meta as VersionMeta;
+          const settings = readSettings(meta);
+          const slotLines = new Set(Object.keys(parts.result.slots ?? {}).map(Number));
+          const createdIds = new Map<number, string>();
+          for (const entity of changes.entities) {
+            if (!slotLines.has(entity.line)) createdIds.set(entity.line, randomUUID());
+          }
+          if (createdIds.size) {
+            tx.insert(entities)
+              .values(
+                changes.entities.flatMap((entity) => {
+                  const id = createdIds.get(entity.line);
+                  if (!id) return [];
+                  return [
+                    {
+                      versionId: draft.id,
+                      id,
+                      kind: entity.kind,
+                      name: entity.name,
+                      profile: { text: entity.profile },
+                      isProtagonist: entity.protagonist ? 1 : 0,
+                      originTurnId: null,
+                    },
+                  ];
+                }),
+              )
+              .run();
+          }
+          const scenePresent = (changes.scene?.present ?? []).flatMap((ref) => {
             if ('created' in ref) {
               const entity = changes.entities.find((candidate) => candidate.line === ref.created);
-              return { name: entity?.name ?? '', id: createdIds.get(ref.created) ?? '' };
+              const id = createdIds.get(ref.created);
+              return id ? [{ name: entity?.name ?? '', id }] : [];
             }
-            return { name: '', id: ref.existing };
+            return [{ name: '', id: ref.existing }];
           });
           const openingScene = {
             place: preview.scene.place,
@@ -333,25 +419,39 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
           const now = Date.now();
           const nextRev = draft.contentRev + 1;
           const publishedId = randomUUID();
-          const rootTurnId = randomUUID();
-          const playthroughId = randomUUID();
-          const adoptedRouteId = randomUUID();
-          const meta: VersionMeta = {
-            background: (draft.meta as VersionMeta).background,
-            anchors: readAnchors(draft.meta as VersionMeta),
-            plan: {
-              items: [{ id: PUBLIC_SETTING_PLAN_ITEM_ID, text: preview.publicSetting, source: 'ai' }],
-            },
+          const currentPlan = readPlan(meta);
+          const publicSetting = {
+            kind: 'summary' as const,
+            key: 'public_setting' as const,
+            id: PUBLIC_SETTING_PLAN_ITEM_ID,
+            text: preview.publicSetting,
+            source: 'ai' as const,
+          };
+          const hasPublicSetting = (currentPlan?.items ?? []).some(
+            (item) => item.kind === 'summary' && item.key === 'public_setting',
+          );
+          const items = (currentPlan?.items ?? []).map((item) =>
+            item.kind === 'summary' && item.key === 'public_setting' ? publicSetting : item,
+          );
+          if (!hasPublicSetting) items.push(publicSetting);
+          const createdIdRecord = Object.fromEntries([...createdIds].map(([line, id]) => [String(line), id]));
+          const nextMeta: VersionMeta = {
+            ...meta,
+            plan: { items, conflicts: currentPlan?.conflicts ?? [], confirmedRev: nextRev },
+            narration: { language: preview.language },
             opening: {
               prose: preview.prose,
               options: preview.options,
               scene: openingScene,
               changes,
+              initialState: parts.result.initialState ?? [],
+              createdIds: createdIdRecord,
+              template: settings.cast.mode === 'per_run',
             },
-            narration: { language: preview.language },
           };
+          const { wizardStep: _wizardStep, ...publishedMeta } = nextMeta;
           tx.update(workVersions)
-            .set({ meta, contentRev: nextRev, updatedAt: now })
+            .set({ meta: nextMeta, contentRev: nextRev, updatedAt: now })
             .where(eq(workVersions.id, draft.id))
             .run();
           tx.insert(workVersions)
@@ -362,61 +462,28 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
               copiedFrom: draft.id,
               contentRev: nextRev,
               sourceRev: nextRev,
-              meta,
+              meta: publishedMeta,
               createdAt: now,
               updatedAt: now,
             })
             .run();
+          copyAuthorSetting(tx, { fromVersionId: draft.id, toVersionId: publishedId });
           tx.update(works)
             .set({ title: preview.title, blurb: preview.blurb, publishedId, updatedAt: now })
             .where(eq(works.id, work.id))
             .run();
-          tx.insert(playthroughs)
-            .values({ id: playthroughId, versionId: publishedId, kind: 'play', rootTurnId, createdAt: now })
-            .run();
-          tx.insert(turns)
-            .values({
-              id: rootTurnId,
-              playthroughId,
-              depth: 0,
-              prose: meta.opening!.prose,
-              options: meta.opening!.options,
-              scene: meta.opening!.scene,
-              status: 'committed',
-              createdAt: now,
-            })
-            .run();
-          writeChanges(tx, {
-            changes,
-            createdIds,
-            turnId: rootTurnId,
-            versionId: publishedId,
-            entityVersionIds: [draft.id, publishedId],
-            entityOrigin: 'version',
-            protagonistId: null,
-            parentPresentIds: [],
-          });
-          indexTurnProse(tx, rootTurnId, preview.prose);
-          tx.insert(routes)
-            .values({
-              id: adoptedRouteId,
-              playthroughId,
-              headTurnId: rootTurnId,
-              createdAt: now,
-              updatedAt: now,
-            })
-            .run();
           tx.update(jobs)
             .set({
-              result: { preview, changes, adoption: { versionId: publishedId, routeId: adoptedRouteId } },
+              result: { ...parts.result, adoption: { versionId: publishedId, routeId: null } },
               updatedAt: now,
             })
             .where(eq(jobs.id, job.id))
             .run();
-          return adoptedRouteId;
+          return { versionId: publishedId };
         },
         { behavior: 'immediate' },
       );
+      if (!adopted) return { routeId: null };
       deps.bus.publish({ type: 'works.changed', workId: input.workId });
       deps.logger.record({
         level: 'info',
@@ -424,23 +491,38 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
         event: 'work.adopted',
         workId: input.workId,
         jobId: input.jobId,
-        data: { routeId },
+        data: { versionId: adopted.versionId },
       });
-      return { routeId };
+      return { routeId: null };
+    },
+    generatePlan(input): PlanJobView {
+      return planJobs.generatePlan(input);
+    },
+    adoptStalePlan(input) {
+      return planJobs.adoptStalePlan(input);
+    },
+    updatePlanItem(input) {
+      return updatePlanItem(deps, input);
+    },
+    removePlanItem(input) {
+      return removePlanItem(deps, input);
+    },
+    confirmPlan(input) {
+      return confirmPlan(deps, input);
     },
     recoverInterrupted(): number {
       const now = Date.now();
-      const recovered = deps.db.all<{ id: string; work_id: string }>(
+      const recovered = deps.db.all<{ id: string; work_id: string; kind: string }>(
         sql`update jobs set status = 'failed', error = 'interrupted', updated_at = ${now}
-            where status = 'running' and kind = 'preview'
-            returning id, work_id`,
+            where status = 'running' and kind in ('preview', 'plan')
+            returning id, work_id, kind`,
       );
       for (const row of recovered) {
         deps.bus.publish({ type: 'job.updated', workId: row.work_id, jobId: row.id, status: 'failed' });
         deps.logger.record({
           level: 'warn',
           module: 'authoring',
-          event: 'preview.job.failed',
+          event: row.kind === 'plan' ? 'plan.job.failed' : 'preview.job.failed',
           jobId: row.id,
           workId: row.work_id,
           data: { code: 'interrupted' },
@@ -449,7 +531,7 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
       return recovered.length;
     },
     whenIdle() {
-      return queue.onIdle();
+      return Promise.all([queue.onIdle(), planJobs.whenIdle()]).then(() => undefined);
     },
   };
 }

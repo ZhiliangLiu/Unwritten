@@ -1,5 +1,3 @@
-import type { StoredOption } from '../store/meta.ts';
-
 export type ParseResult<T> = { ok: true; value: T } | { ok: false; errors: string[] };
 export type JsonLine = { line: number; value: unknown };
 
@@ -56,17 +54,18 @@ export function parseJsonLines(text: string, label: string): ParseResult<JsonLin
   return errors.length ? { ok: false, errors } : { ok: true, value: result };
 }
 
+export const OPTION_HINT_MAX_LENGTH = 100;
+
 export function parseOptionLines(
   text: string,
-  limits: { min: number; max: number; textMax: number },
-): ParseResult<StoredOption[]> {
+  limits: { min: number; max: number; textMax: number; allowHint?: boolean },
+): ParseResult<Array<{ text: string; hint: string | null }>> {
   const parsed = parseJsonLines(text, 'options');
   if (!parsed.ok) return parsed;
   const errors: string[] = [];
-  const options: StoredOption[] = [];
+  const options: Array<{ text: string; hint: string | null }> = [];
   for (const { line, value } of parsed.value) {
     const option = value as Record<string, unknown>;
-    if ('hint' in option) errors.push(`第 ${line} 行 options：本作品不接受 hint`);
     if (typeof option.text !== 'string') {
       errors.push(`第 ${line} 行 options.text：必须是字符串`);
       continue;
@@ -80,7 +79,24 @@ export function parseOptionLines(
       errors.push(`第 ${line} 行 options.text：不能超过 ${limits.textMax} 个字符`);
       continue;
     }
-    options.push({ text: optionText });
+    let hint: string | null = null;
+    if (option.hint !== undefined && option.hint !== null && option.hint !== '') {
+      if (typeof option.hint !== 'string') {
+        errors.push(`第 ${line} 行 options.hint：必须是字符串`);
+        continue;
+      }
+      hint = option.hint.trim();
+      if (hint && !limits.allowHint) {
+        errors.push('这部作品只显示行动，推荐行动不写 hint。');
+        continue;
+      }
+      if (Array.from(hint).length > OPTION_HINT_MAX_LENGTH) {
+        errors.push(`第 ${line} 行 options.hint：不能超过 ${OPTION_HINT_MAX_LENGTH} 个字符`);
+        continue;
+      }
+      if (!hint) hint = null;
+    }
+    options.push({ text: optionText, hint });
   }
   if (options.length < limits.min || options.length > limits.max) {
     errors.push(`options：条数必须在 ${limits.min} 到 ${limits.max} 之间`);

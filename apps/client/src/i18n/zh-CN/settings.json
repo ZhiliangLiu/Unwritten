@@ -11,11 +11,13 @@
     "name": {
       "default": "默认",
       "narrator": "游玩",
+      "author_chat": "创作",
       "background": "后台摘要"
     },
     "help": {
       "default": "生成开场预览，以及没有单独设置的用途都用它。",
       "narrator": "写开场之后的每一回合。",
+      "author_chat": "生成故事方案时使用。要求支持工具调用；听从指令、格式稳定比文笔更重要。",
       "background": "给每个回合写一两句摘要。便宜、快的模型就够。"
     },
     "model": "模型",
@@ -28,7 +30,7 @@
     "problem": {
       "not_configured": "还没有选模型",
       "model_missing": "选的模型已经不存在",
-      "no_tools": "这个模型不支持工具调用，不能用于游玩"
+      "no_tools": "这个模型不支持工具调用，不能用于这个用途"
     }
   },
   "params": {

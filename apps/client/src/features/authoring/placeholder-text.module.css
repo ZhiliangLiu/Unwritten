@@ -1,0 +1,7 @@
+.token {
+  padding-inline: var(--uw-space-1);
+  color: var(--uw-color-text-muted);
+  background-color: var(--uw-color-surface-sunken);
+  border: var(--uw-border-width) solid var(--uw-color-border);
+  border-radius: var(--uw-radius-sm);
+}

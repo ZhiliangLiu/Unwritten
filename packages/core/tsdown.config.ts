@@ -8,7 +8,7 @@ export default defineConfig({
   outDir: 'dist',
   clean: true,
   fixedExtension: false,
-  noExternal: ['@unwritten/contracts'],
+  noExternal: ['@unwritten/contracts', '@unwritten/contracts/desktop'],
   copy: [
     { from: 'src/store/migrations', to: 'dist' },
     { from: 'src/log/migrations', to: 'dist', rename: 'diagnostic-migrations' },

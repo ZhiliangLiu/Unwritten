@@ -21,6 +21,12 @@ export const ClientLogInputSchema = z.union([
     }),
     z.strictObject({
       ...SampleBase,
+      metric: z.literal('client.plan_visible'),
+      workId: UuidSchema.optional(),
+      jobId: UuidSchema,
+    }),
+    z.strictObject({
+      ...SampleBase,
       metric: z.literal('client.turn_visible'),
       workId: UuidSchema.optional(),
       requestId: UuidSchema,

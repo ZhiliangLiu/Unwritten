@@ -14,9 +14,13 @@ export function WorkCard({ work, onDelete }: { work: WorkSummary; onDelete: () =
   const { t } = useTranslation();
   const navigate = useNavigate();
   const title = (work.title ?? work.label) || t('library:card.untitled');
-  const routeId = work.status === 'playable' ? work.routeId : null;
-  const entryLabel =
-    routeId === null ? t('library:card.edit') : work.hasProgress ? t('library:card.resume') : t('library:card.play');
+  const playable = work.status === 'playable';
+  const routeId = playable ? work.routeId : null;
+  const entryLabel = !playable
+    ? t('library:card.edit')
+    : routeId === null || !work.hasProgress
+      ? t('library:card.play')
+      : t('library:card.resume');
 
   return (
     <Card as='article'>
@@ -34,13 +38,18 @@ export function WorkCard({ work, onDelete }: { work: WorkSummary; onDelete: () =
         {work.blurb ? <p className={styles.blurb}>{work.blurb}</p> : null}
         <p className={styles.updated}>{t('library:card.updated', { time: formatRelative(work.updatedAt) })}</p>
         <div className={styles.footer}>
-          {routeId !== null ? (
+          {!playable ? (
+            <Link className={buttonClassName('secondary')} to='/works/$workId/edit' params={{ workId: work.id }}>
+              {entryLabel}
+            </Link>
+          ) : routeId !== null ? (
             <Link className={buttonClassName('secondary')} to='/play/$routeId' params={{ routeId }}>
               <Icon icon={Play} size='sm' />
               {entryLabel}
             </Link>
           ) : (
-            <Link className={buttonClassName('secondary')} to='/works/$workId/edit' params={{ workId: work.id }}>
+            <Link className={buttonClassName('secondary')} to='/works/$workId/start' params={{ workId: work.id }}>
+              <Icon icon={Play} size='sm' />
               {entryLabel}
             </Link>
           )}
@@ -52,6 +61,10 @@ export function WorkCard({ work, onDelete }: { work: WorkSummary; onDelete: () =
                     {
                       label: t('library:card.viewDraft'),
                       onSelect: () => void navigate({ to: '/works/$workId/edit', params: { workId: work.id } }),
+                    },
+                    {
+                      label: t('library:card.restart'),
+                      onSelect: () => void navigate({ to: '/works/$workId/start', params: { workId: work.id } }),
                     },
                   ]
                 : []),

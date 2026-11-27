@@ -1,4 +1,5 @@
 import type { EntityKind, KnowledgeLevel } from '@unwritten/contracts';
+import type { KeyScene } from '../store/meta.ts';
 import type { SearchHit } from './search.ts';
 import type { CodeBook } from './codebook.ts';
 import {
@@ -7,8 +8,10 @@ import {
   currentNameHeldBy,
   knowledgeOf,
   protagonistNameOf,
+  stateAt,
 } from './projection.ts';
-import { STORY_LIMITS, type ChainTurn, type ProjFact, type StoryProjection } from './types.ts';
+import { listValueText } from './status.ts';
+import { STORY_LIMITS, type ChainTurn, type ProjFact, type ProjStateDef, type StoryProjection } from './types.ts';
 
 export const CATALOG_CATEGORIES = [
   'characters',
@@ -118,6 +121,68 @@ export function renderSceneBlock(p: StoryProjection, cb: CodeBook): string {
     }
   }
   return lines.join('\n');
+}
+
+export function renderStateBlock(p: StoryProjection, _cb: CodeBook): string {
+  const headDepth = p.chain.at(-1)?.depth ?? -1;
+  const defs = [...p.stateDefs.values()].sort((left, right) => left.originDepth - right.originDepth);
+  return defs
+    .map((def) => {
+      const current = stateAt(p, def.id, headDepth);
+      const valueText =
+        !current || current.value === null
+          ? '还没有值'
+          : def.display === 'list'
+            ? listValueText(current.value)
+            : current.value;
+      let line = `- ${def.label}（key ${def.key}，${stateDisplayText(def)}）= ${valueText}`;
+      if (!current?.visible || def.hidden) line += '；目前不显示给玩家';
+      if (current?.closed) line += '；已了结';
+      return line;
+    })
+    .join('\n');
+}
+
+function stateDisplayText(def: ProjStateDef): string {
+  switch (def.display) {
+    case 'number': {
+      let text = '数字';
+      if (def.config.min !== null && def.config.max !== null) text += ` ${def.config.min} 到 ${def.config.max}`;
+      if (def.config.unit) text += ` ${def.config.unit}`;
+      return def.hidden ? `${text}，幕后栏目` : text;
+    }
+    case 'stage':
+      return def.hidden ? `阶段 ${def.config.stages.join('|')}，幕后栏目` : `阶段 ${def.config.stages.join('|')}`;
+    case 'list':
+      return def.hidden ? '清单，幕后栏目' : '清单';
+    case 'text':
+      return def.hidden ? '文字，幕后栏目' : '文字';
+  }
+}
+
+export function renderSecretLines(p: StoryProjection, cb: CodeBook, presentIds: Iterable<string>): string {
+  const present = new Set(presentIds);
+  const lines: string[] = [];
+  for (const fact of p.facts) {
+    if (fact.kind !== 'secret') continue;
+    const knowers = knowledgeOf(p, fact.id).map((record) => record.holderId);
+    if (!(fact.subjectId && present.has(fact.subjectId)) && !knowers.some((holderId) => present.has(holderId)))
+      continue;
+    const title = typeof fact.data?.title === 'string' ? fact.data.title : '';
+    const reveal = typeof fact.data?.reveal === 'string' && fact.data.reveal ? fact.data.reveal : '作者没写';
+    const knowerText = knowers.length ? knowers.map((holderId) => cb.entityCode(holderId)).join('、') : '无人';
+    lines.push(`- ${cb.factCode(fact.id)} 秘密「${title}」：${fact.statement}。知情：${knowerText}。揭晓：${reveal}`);
+  }
+  return lines.join('\n');
+}
+
+export function renderSceneLines(scenes: readonly KeyScene[]): string {
+  return scenes
+    .map(
+      (scene, index) =>
+        `- S${index + 1}：条件：${scene.condition}；发生：${scene.outcome}；${scene.once ? '只发生一次' : '可以重复发生'}`,
+    )
+    .join('\n');
 }
 
 export function renderPromiseLine(p: StoryProjection, cb: CodeBook, fact: ProjFact): string {

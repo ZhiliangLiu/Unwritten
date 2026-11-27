@@ -1,0 +1,178 @@
+.column {
+  display: grid;
+  gap: var(--uw-space-2);
+  align-content: start;
+  min-inline-size: 0;
+  padding: var(--uw-space-2) var(--uw-space-3);
+  border-radius: var(--uw-radius-md);
+}
+
+.changed {
+  background-color: var(--uw-color-accent-soft);
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.term {
+  display: flex;
+  align-items: center;
+  gap: var(--uw-space-2);
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.label {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.value {
+  display: grid;
+  gap: var(--uw-space-2);
+  margin: 0;
+}
+
+.number {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--uw-space-2);
+}
+
+.numberValue {
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  font-weight: var(--uw-typography-body-font-weight);
+  line-height: var(--uw-typography-body-line-height);
+  letter-spacing: var(--uw-typography-body-letter-spacing);
+  color: var(--uw-color-text);
+}
+
+.muted {
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.delta {
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-accent-text);
+}
+
+.meter {
+  position: relative;
+  display: block;
+  block-size: var(--uw-size-meter);
+  overflow: hidden;
+  background-color: var(--uw-color-surface-sunken);
+  border-radius: var(--uw-radius-full);
+}
+
+.meterFill {
+  display: block;
+  block-size: 100%;
+  inline-size: var(--status-ratio);
+  background-color: var(--uw-color-accent);
+  border-radius: inherit;
+}
+
+.stage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--uw-space-2);
+}
+
+.stageName {
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  font-weight: var(--uw-typography-body-font-weight);
+  line-height: var(--uw-typography-body-line-height);
+  letter-spacing: var(--uw-typography-body-letter-spacing);
+  color: var(--uw-color-text);
+}
+
+.previous {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.segments {
+  display: flex;
+  gap: var(--uw-space-1);
+}
+
+.segment {
+  flex: 1;
+  block-size: var(--uw-size-meter);
+  background-color: var(--uw-color-surface-sunken);
+  border-radius: var(--uw-radius-full);
+}
+
+.segmentFilled {
+  background-color: var(--uw-color-accent);
+}
+
+.list {
+  display: grid;
+  gap: var(--uw-space-1);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--uw-space-2);
+  padding-inline: var(--uw-space-1);
+  border-radius: var(--uw-radius-sm);
+}
+
+.itemChanged {
+  background-color: var(--uw-color-accent-soft);
+}
+
+.itemText {
+  overflow-wrap: anywhere;
+}
+
+.itemStatus {
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.text {
+  margin: 0;
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  font-weight: var(--uw-typography-body-font-weight);
+  line-height: var(--uw-typography-body-line-height);
+  letter-spacing: var(--uw-typography-body-letter-spacing);
+  color: var(--uw-color-text);
+  overflow-wrap: anywhere;
+}

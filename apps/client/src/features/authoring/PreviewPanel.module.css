@@ -18,6 +18,15 @@
   letter-spacing: var(--uw-typography-section-title-letter-spacing);
 }
 
+.openingIntro {
+  margin: 0;
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  line-height: var(--uw-typography-body-line-height);
+  letter-spacing: var(--uw-typography-body-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
 .staleHelp {
   margin: 0;
   font-family: var(--uw-typography-caption-font-family);
@@ -73,14 +82,19 @@
   letter-spacing: var(--uw-typography-body-letter-spacing);
 }
 
-.prose {
+.paper {
   display: grid;
-  gap: var(--uw-prose-paragraph-gap);
+  gap: var(--uw-space-4);
   padding: var(--uw-space-6);
   color: var(--uw-color-ink);
   background-color: var(--uw-color-page);
   border: var(--uw-border-width) solid var(--uw-color-border);
   border-radius: var(--uw-radius-lg);
+}
+
+.prose {
+  display: grid;
+  gap: var(--uw-prose-paragraph-gap);
   font-family: var(--uw-prose-font);
   font-size: var(--uw-prose-size);
   line-height: var(--uw-prose-leading);
@@ -120,7 +134,110 @@
   color: var(--uw-color-text-muted);
 }
 
+.optionBody {
+  display: grid;
+  gap: var(--uw-space-1);
+}
+
+.hint {
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.stateList {
+  display: grid;
+  gap: var(--uw-space-1);
+  margin: 0;
+}
+
+.stateRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--uw-space-1);
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  line-height: var(--uw-typography-body-line-height);
+  letter-spacing: var(--uw-typography-body-letter-spacing);
+}
+
+.stateLabel {
+  color: var(--uw-color-text-muted);
+}
+
+.stateValue {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--uw-space-2);
+  margin: 0;
+}
+
+.stateHidden {
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.review {
+  display: grid;
+  gap: var(--uw-space-2);
+}
+
+.reviewHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--uw-space-2);
+  color: var(--uw-color-warning);
+}
+
+.reviewList {
+  display: grid;
+  gap: var(--uw-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reviewItem {
+  display: grid;
+  gap: var(--uw-space-1);
+}
+
+.reviewWhere {
+  margin: 0;
+  font-family: var(--uw-typography-label-font-family);
+  font-size: var(--uw-typography-label-font-size);
+  font-weight: var(--uw-typography-label-font-weight);
+  line-height: var(--uw-typography-label-line-height);
+  letter-spacing: var(--uw-typography-label-letter-spacing);
+}
+
+.reviewText {
+  margin: 0;
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  line-height: var(--uw-typography-body-line-height);
+  letter-spacing: var(--uw-typography-body-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
 .actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
+  gap: var(--uw-space-3);
+}
+
+.blocked {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
 }

@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { EntityKind } from '@unwritten/contracts';
 import type { Database } from '../store/db.ts';
-import { entities, entityNames, facts, knowledge, turnSummaries } from '../store/schema.ts';
+import { entities, entityNames, facts, knowledge, stateDefs, stateValues, turnSummaries } from '../store/schema.ts';
 import type { StoredAction, StoredScene } from '../store/meta.ts';
 import { splitParagraphs } from '../text/turn-text.ts';
 import {
@@ -13,6 +13,8 @@ import {
   type ProjFact,
   type ProjKnowledge,
   type ProjName,
+  type ProjStateDef,
+  type ProjStateValue,
   type StoryProjection,
 } from './types.ts';
 
@@ -33,10 +35,26 @@ export function loadProjection(db: Database, input: ProjectionInput): StoryProje
   const chainIds = input.chain.map((turn) => turn.id);
   const depthOf = new Map(input.chain.map((turn) => [turn.id, turn.depth]));
   const depth = (turnId: string | null): number => (turnId === null ? -1 : (depthOf.get(turnId) ?? -1));
-  const visible = or(isNull(entities.originTurnId), inArray(entities.originTurnId, chainIds));
-  const visibleNames = or(isNull(entityNames.originTurnId), inArray(entityNames.originTurnId, chainIds));
-  const visibleFacts = or(isNull(facts.originTurnId), inArray(facts.originTurnId, chainIds));
-  const visibleKnowledge = or(isNull(knowledge.originTurnId), inArray(knowledge.originTurnId, chainIds));
+  const visible =
+    chainIds.length === 0
+      ? isNull(entities.originTurnId)
+      : or(isNull(entities.originTurnId), inArray(entities.originTurnId, chainIds));
+  const visibleNames =
+    chainIds.length === 0
+      ? isNull(entityNames.originTurnId)
+      : or(isNull(entityNames.originTurnId), inArray(entityNames.originTurnId, chainIds));
+  const visibleFacts =
+    chainIds.length === 0
+      ? isNull(facts.originTurnId)
+      : or(isNull(facts.originTurnId), inArray(facts.originTurnId, chainIds));
+  const visibleKnowledge =
+    chainIds.length === 0
+      ? isNull(knowledge.originTurnId)
+      : or(isNull(knowledge.originTurnId), inArray(knowledge.originTurnId, chainIds));
+  const visibleStateDefs =
+    chainIds.length === 0
+      ? isNull(stateDefs.originTurnId)
+      : or(isNull(stateDefs.originTurnId), inArray(stateDefs.originTurnId, chainIds));
 
   const entityRows = db
     .select()
@@ -134,7 +152,47 @@ export function loadProjection(db: Database, input: ProjectionInput): StoryProje
   }
   const knowledgeList = [...knowledgeByHolder.values()].sort((left, right) => left.depth - right.depth);
 
-  const summaryRows = db.select().from(turnSummaries).where(inArray(turnSummaries.turnId, chainIds)).all();
+  const stateDefRows = db
+    .select()
+    .from(stateDefs)
+    .where(and(eq(stateDefs.versionId, input.versionId), visibleStateDefs))
+    .all();
+  const projectionStateDefs = new Map<string, ProjStateDef>();
+  for (const row of stateDefRows) {
+    projectionStateDefs.set(row.id, {
+      id: row.id,
+      key: row.key,
+      label: row.label,
+      display: row.display,
+      config: row.config,
+      hidden: row.hidden === 1,
+      reveal: row.reveal,
+      originTurnId: row.originTurnId,
+      originDepth: depth(row.originTurnId),
+    });
+  }
+
+  const stateValueRows =
+    chainIds.length === 0
+      ? []
+      : db
+          .select()
+          .from(stateValues)
+          .where(and(eq(stateValues.versionId, input.versionId), inArray(stateValues.turnId, chainIds)))
+          .all();
+  const projectionStateValues: ProjStateValue[] = stateValueRows
+    .map((row) => ({
+      stateDefId: row.stateDefId,
+      turnId: row.turnId,
+      depth: depth(row.turnId),
+      value: row.value,
+      visible: row.visible === 1,
+      closed: row.closed === 1,
+    }))
+    .sort((left, right) => left.depth - right.depth);
+
+  const summaryRows =
+    chainIds.length === 0 ? [] : db.select().from(turnSummaries).where(inArray(turnSummaries.turnId, chainIds)).all();
   const summaries = new Map(summaryRows.map((row) => [row.turnId, row.summary]));
 
   const chain: ChainTurn[] = input.chain.map((turn) => ({
@@ -158,6 +216,8 @@ export function loadProjection(db: Database, input: ProjectionInput): StoryProje
     facts: covered,
     knowledge: knowledgeList,
     summaries,
+    stateDefs: projectionStateDefs,
+    stateValues: projectionStateValues,
   };
 }
 
@@ -228,6 +288,30 @@ export function acquaintanceStage(p: StoryProjection, entityId: string): string 
 
 export function openPromises(p: StoryProjection): ProjFact[] {
   return p.facts.filter((fact) => fact.kind === 'promise' && fact.data?.status === 'agreed');
+}
+
+export function stateDefByKey(p: StoryProjection, key: string): ProjStateDef | null {
+  let found: ProjStateDef | null = null;
+  for (const def of p.stateDefs.values()) {
+    if (def.key !== key) continue;
+    if (!found || def.originDepth > found.originDepth) found = def;
+  }
+  return found;
+}
+
+export function stateAt(p: StoryProjection, stateDefId: string, depth: number): ProjStateValue | null {
+  let found: ProjStateValue | null = null;
+  for (const value of p.stateValues) {
+    if (value.stateDefId !== stateDefId || value.depth > depth) continue;
+    if (!found || value.depth > found.depth) found = value;
+  }
+  return found;
+}
+
+export function sceneHitIds(p: StoryProjection): Set<string> {
+  const ids = new Set<string>();
+  for (const fact of p.facts) if (fact.kind === 'scene_hit' && fact.key !== null) ids.add(fact.key);
+  return ids;
 }
 
 export function protagonistKnownStrings(p: StoryProjection): Set<string> {

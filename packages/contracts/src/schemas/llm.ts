@@ -16,7 +16,7 @@ export const THINKING_FORMATS = [
 ] as const;
 export const ThinkingFormatSchema = z.enum(THINKING_FORMATS);
 
-export const PURPOSES = ['default', 'narrator', 'background'] as const;
+export const PURPOSES = ['default', 'narrator', 'author_chat', 'background'] as const;
 export const PurposeSchema = z.enum(PURPOSES);
 
 export const GENERATION_LIMITS = { thinkingBudgetMax: 1_000_000, temperatureMax: 2, topKMax: 1_000 } as const;

@@ -2,27 +2,40 @@ import type {
   AddModelInput,
   AdoptPreviewInput,
   AdoptPreviewOutput,
+  AdoptStalePlanInput,
   Appearance,
+  ConfirmPlanInput,
   CreateEndpointInput,
   CreateEndpointOutput,
+  GeneratePlanInput,
   GeneratePreviewInput,
   JournalView,
   LlmConfigView,
+  PlaythroughIdInput,
+  PlaythroughView,
+  PlanJobView,
   PreviewJobView,
   RemoveEndpointInput,
   RemoveModelInput,
+  RemovePlanItemInput,
   RetryInput,
+  RetryOpeningInput,
   RouteIdInput,
   RouteView,
   SaveDraftInput,
   SaveDraftOutput,
   SetPurposeInput,
+  SetWizardStepInput,
+  StartInfo,
+  StartPlaythroughInput,
+  StatusView,
   SubmitActionInput,
   TestConnectionInput,
   TestConnectionResult,
   TurnRequestView,
   UpdateEndpointInput,
   UpdateModelInput,
+  UpdatePlanItemInput,
   WorkDetail,
   WorkIdInput,
   WorkSummary,
@@ -61,12 +74,18 @@ export interface LibraryService {
   create(input: WorkIdInput): WorkDetail;
   get(input: WorkIdInput): WorkDetail;
   saveDraft(input: SaveDraftInput): SaveDraftOutput;
+  setWizardStep(input: SetWizardStepInput): Record<string, never>;
   delete(input: WorkIdInput): Record<string, never>;
 }
 
 export interface AuthoringService {
   generatePreview(input: GeneratePreviewInput): PreviewJobView;
   adoptPreview(input: AdoptPreviewInput): AdoptPreviewOutput;
+  generatePlan(input: GeneratePlanInput): PlanJobView;
+  adoptStalePlan(input: AdoptStalePlanInput): SaveDraftOutput;
+  updatePlanItem(input: UpdatePlanItemInput): SaveDraftOutput;
+  removePlanItem(input: RemovePlanItemInput): SaveDraftOutput;
+  confirmPlan(input: ConfirmPlanInput): SaveDraftOutput;
   recoverInterrupted(): number;
   whenIdle(): Promise<void>;
 }
@@ -76,6 +95,11 @@ export interface PlayService {
   submitAction(input: SubmitActionInput): TurnRequestView;
   retry(input: RetryInput): TurnRequestView;
   getJournal(input: RouteIdInput): JournalView;
+  getStartInfo(input: WorkIdInput): StartInfo;
+  start(input: StartPlaythroughInput): PlaythroughView;
+  getPlaythrough(input: PlaythroughIdInput): PlaythroughView;
+  retryOpening(input: RetryOpeningInput): PlaythroughView;
+  getStatus(input: RouteIdInput): StatusView;
   recoverInterrupted(): number;
   pruneOldRequestLogs(): number;
   whenIdle(): Promise<void>;

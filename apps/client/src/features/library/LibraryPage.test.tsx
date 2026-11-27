@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { EMPTY_WORK_ANCHORS } from '@unwritten/contracts';
+import { DEFAULT_WORK_SETTINGS, EMPTY_WORK_ANCHORS } from '@unwritten/contracts';
 import type { WorkDetail, WorkSummary } from '@unwritten/contracts';
 import { createFakeApi } from '../../shared/test/fake-api.ts';
 import type { FakeApiCall } from '../../shared/test/fake-api.ts';
@@ -28,9 +28,16 @@ function detail(): WorkDetail {
     title: null,
     blurb: null,
     status: 'draft',
-    routeId: null,
-    draft: { contentRev: 1, background: '一段背景', anchors: EMPTY_WORK_ANCHORS },
+    draft: {
+      contentRev: 1,
+      background: '一段背景',
+      anchors: EMPTY_WORK_ANCHORS,
+      settings: DEFAULT_WORK_SETTINGS,
+      wizardStep: 'background',
+      plan: null,
+    },
     latestPreviewJob: null,
+    latestPlanJob: null,
   };
 }
 
@@ -106,6 +113,26 @@ describe('LibraryPage', () => {
     await expect.element(screen.getByRole('link', { name: '继续创作' })).toBeVisible();
     await expect.element(screen.getByRole('link', { name: '开始故事' })).toBeVisible();
     await expect.element(screen.getByRole('link', { name: '继续游玩' })).toBeVisible();
+    await screen.unmount();
+  });
+
+  it('可玩但没开过局的作品指向开局页', async () => {
+    const work = summary({ title: '灯塔夜班', status: 'playable' });
+    const { screen } = await renderLibrary([work]);
+    const link = screen.getByRole('link', { name: '开始故事' });
+    await expect.element(link).toBeVisible();
+    await expect.element(link).toHaveAttribute('href', `/works/${work.id}/start`);
+    await screen.unmount();
+  });
+
+  it('更多操作里有重新开局', async () => {
+    const work = summary({ title: '灯塔夜班', status: 'playable', routeId: crypto.randomUUID() });
+    const { screen } = await renderLibrary([work]);
+    await screen.getByRole('button', { name: '《灯塔夜班》的更多操作' }).click();
+    const restart = screen.getByRole('menuitem', { name: '重新开局' });
+    await expect.element(restart).toBeVisible();
+    await restart.click();
+    await vi.waitFor(() => expect(screen.router.state.location.pathname).toBe(`/works/${work.id}/start`));
     await screen.unmount();
   });
 

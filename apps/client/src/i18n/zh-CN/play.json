@@ -1,6 +1,22 @@
 {
   "turn": { "opening": "开场", "heading": "第 {{count}} 回合" },
   "page": { "untitled": "未命名的故事" },
+  "start": {
+    "heading": "开始故事",
+    "intro": "开局前，先告诉故事几件事。留空的项目会用作者给的默认值。",
+    "fieldHelp": "留空时用「{{value}}」",
+    "submit": "开始故事",
+    "opening": "正在打开故事",
+    "back": "返回作品库"
+  },
+  "openingRequest": {
+    "pending": "正在为这一局准备人物和开场",
+    "pendingHelp": "主要人物每局都不一样。可以离开这一页，生成完成后从作品库继续。",
+    "keptCast": "这一局已经确定的人物会保留，重试时沿用。",
+    "failed": "这一局的开场没有生成成功",
+    "retry": "重试这次开局",
+    "back": "返回作品库"
+  },
   "input": {
     "label": "你的行动",
     "placeholder": "写下你想做的事，或想说的话",
@@ -15,7 +31,31 @@
     "rewrite": "改写行动"
   },
   "action": { "heading": "你的行动", "prefix": "你的行动：" },
-  "options": { "label": "推荐行动" },
+  "status": {
+    "heading": "当前状态",
+    "new": "新",
+    "increase": "+{{delta}}",
+    "decrease": "−{{delta}}",
+    "previousText": "原来：{{text}}",
+    "previousStep": "原来在第 {{step}} 步",
+    "step": "第 {{step}} 步，共 {{total}} 步",
+    "ofMax": "/ {{max}}",
+    "item": { "open": "进行中", "done": "已完成", "failed": "落空", "new": "新", "changed": "变了" },
+    "historyTitle": "{{label}}的来历",
+    "historyEntry": "第 {{depth}} 回合",
+    "historyOpening": "开场",
+    "historyCurrent": "当前",
+    "historyNote": "只列出这一栏显示以来的变化。",
+    "jump": "跳回这一回合",
+    "closed": "已了结 {{count}} 项：{{labels}}"
+  },
+  "options": { "label": "推荐行动", "hint": "提醒：{{text}}" },
+  "ended": {
+    "heading": "故事到这里结束了",
+    "description": "可以往上重读，也可以从开场重新开始。",
+    "restart": "重新开局",
+    "back": "返回作品库"
+  },
   "replace": {
     "title": "输入框里还有你写的内容",
     "description": "要改用这个推荐行动吗？你写的内容会被清空。",

@@ -1,7 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import type { Database } from '../store/db.ts';
-import { entities, entityNames, facts, knowledge } from '../store/schema.ts';
-import type { EntityRef, FactChange, FactRef, ValidatedChanges } from './types.ts';
+import { entities, entityNames, facts, knowledge, stateDefs, stateValues } from '../store/schema.ts';
+import { mergeListItems } from './state.ts';
+import type {
+  EntityRef,
+  FactChange,
+  FactRef,
+  StateChange,
+  StateDefRef,
+  StateItemChange,
+  ValidatedChanges,
+} from './types.ts';
 
 export type StoryTx = Pick<Database, 'insert'>;
 
@@ -20,6 +29,8 @@ export interface WriteChangesInput {
   entityOrigin: 'version' | 'turn';
   protagonistId: string | null;
   parentPresentIds: string[];
+  parentStates?: Map<string, { value: string | null; visible: boolean; closed: boolean }>;
+  castSlots?: Map<number, string>;
 }
 
 export interface WriteChangesResult {
@@ -29,6 +40,9 @@ export interface WriteChangesResult {
 }
 
 export function writeChanges(tx: StoryTx, input: WriteChangesInput): WriteChangesResult {
+  const parentStates =
+    input.parentStates ?? new Map<string, { value: string | null; visible: boolean; closed: boolean }>();
+  const castSlots = input.castSlots ?? new Map<number, string>();
   const createdId = (line: number): string => {
     const id = input.createdIds.get(line);
     if (!id) throw new Error(`missing created entity for line ${line}`);
@@ -44,6 +58,7 @@ export function writeChanges(tx: StoryTx, input: WriteChangesInput): WriteChange
       name: entity.name,
       profile: { text: entity.profile },
       isProtagonist: entity.protagonist ? 1 : 0,
+      castSlot: castSlots.get(entity.line) ?? null,
       originTurnId: input.entityOrigin === 'version' ? null : input.turnId,
     })),
   );
@@ -118,6 +133,37 @@ export function writeChanges(tx: StoryTx, input: WriteChangesInput): WriteChange
       data,
     });
   }
+  const secretFactIds = new Map<number, string>();
+  for (const secret of input.changes.secrets) {
+    const id = randomUUID();
+    secretFactIds.set(secret.line, id);
+    factRows.push({
+      versionId: input.versionId,
+      id,
+      originTurnId: input.turnId,
+      sourcePara: secret.para,
+      kind: 'secret',
+      subjectId: secret.subject ? resolve(secret.subject) : null,
+      objectId: null,
+      key: null,
+      statement: secret.statement,
+      data: { title: secret.title, reveal: secret.reveal },
+    });
+  }
+  for (const hit of input.changes.sceneHits) {
+    factRows.push({
+      versionId: input.versionId,
+      id: randomUUID(),
+      originTurnId: input.turnId,
+      sourcePara: hit.para,
+      kind: 'scene_hit',
+      subjectId: null,
+      objectId: null,
+      key: hit.sceneId,
+      statement: '关键场面已经发生。',
+      data: null,
+    });
+  }
   if (factRows.length) tx.insert(facts).values(factRows).run();
 
   const knowledgeRows = new Map<
@@ -160,6 +206,13 @@ export function writeChanges(tx: StoryTx, input: WriteChangesInput): WriteChange
       addKnowledge(factId, resolve(witness), 'confirmed', null, null, fact.para);
     }
   }
+  for (const secret of input.changes.secrets) {
+    const factId = secretFactIds.get(secret.line);
+    if (!factId) continue;
+    for (const knower of secret.knowers) {
+      addKnowledge(factId, resolve(knower), 'confirmed', null, null, secret.para);
+    }
+  }
   const resolveFact = (ref: FactRef): string => {
     if ('existing' in ref) return ref.existing;
     const id = factIds.get(ref.line);
@@ -181,9 +234,93 @@ export function writeChanges(tx: StoryTx, input: WriteChangesInput): WriteChange
       .values([...knowledgeRows.values()])
       .run();
 
+  const stateDefIds = new Map<number, string>();
+  const stateDefRows = input.changes.newStates.map((def) => {
+    const id = randomUUID();
+    stateDefIds.set(def.line, id);
+    return {
+      versionId: input.versionId,
+      id,
+      key: def.key,
+      label: def.label,
+      display: def.display,
+      config: def.config,
+      hidden: def.hidden ? 1 : 0,
+      reveal: null,
+      originTurnId: input.turnId,
+      rev: 0,
+    };
+  });
+  if (stateDefRows.length) tx.insert(stateDefs).values(stateDefRows).run();
+
+  const stateDefId = (ref: StateDefRef): string => {
+    if ('existing' in ref) return ref.existing;
+    const id = stateDefIds.get(ref.created);
+    if (!id) throw new Error(`missing created state for line ${ref.created}`);
+    return id;
+  };
+  const stateById = new Map<string, StateChange>();
+  const itemsById = new Map<string, StateItemChange[]>();
+  for (const state of input.changes.states) {
+    stateById.set(stateDefId(state.stateDef), state);
+  }
+  for (const item of input.changes.stateItems) {
+    const id = stateDefId(item.stateDef);
+    const list = itemsById.get(id) ?? [];
+    list.push(item);
+    itemsById.set(id, list);
+  }
+  const stateValueInputs: Array<{
+    stateDefId: string;
+    value: string | null;
+    visible: boolean;
+    closed: boolean;
+  }> = [];
+  for (const id of new Set([...stateById.keys(), ...itemsById.keys()])) {
+    const base = parentStates.get(id) ?? { value: null, visible: false, closed: false };
+    const own = stateById.get(id);
+    const items = itemsById.get(id) ?? [];
+    const value = items.length
+      ? mergeListItems(
+          base.value,
+          items.map((item) => ({ item: item.item, status: item.status })),
+        )
+      : (own?.value ?? base.value);
+    stateValueInputs.push({
+      stateDefId: id,
+      value,
+      visible: own?.visible ?? base.visible,
+      closed: own?.closed ?? base.closed,
+    });
+  }
+  writeStateValues(tx, { versionId: input.versionId, turnId: input.turnId, values: stateValueInputs });
+
   return {
     createdIds: input.createdIds,
     protagonistId,
     scene: input.changes.scene ? { presentIds: input.changes.scene.present.map(resolve) } : null,
   };
+}
+
+export function writeStateValues(
+  tx: StoryTx,
+  input: {
+    versionId: string;
+    turnId: string;
+    values: Array<{ stateDefId: string; value: string | null; visible: boolean; closed: boolean }>;
+  },
+): void {
+  if (!input.values.length) return;
+  tx.insert(stateValues)
+    .values(
+      input.values.map((value) => ({
+        versionId: input.versionId,
+        turnId: input.turnId,
+        stateDefId: value.stateDefId,
+        value: value.value,
+        visible: value.visible ? 1 : 0,
+        closed: value.closed ? 1 : 0,
+      })),
+    )
+    .run();
 }

@@ -1,7 +1,8 @@
 import { join } from 'node:path';
+import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
-import { seedStory } from '../test-support/story-fixtures.ts';
+import { seedLighthouseTown, seedStory } from '../test-support/story-fixtures.ts';
 import { ancestorChain } from '../play/chain.ts';
 import { openDatabase, type Database } from '../store/db.ts';
 import { buildJournal } from './journal.ts';
@@ -111,6 +112,39 @@ describe('buildJournal', () => {
       });
       const view = journal(opened.db, seeded.versionId, seeded.headTurnId, seeded.routeId);
       expect(view.subjects[0]?.lines[0]?.text).toBe('听说她认识船工');
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+});
+
+describe('buildJournal 秘密', () => {
+  it('主角不知情的秘密不进手记', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const view = journal(opened.db, seeded.versionId, seeded.headTurnId, seeded.routeId);
+      const lines = view.subjects.flatMap((subject) => subject.lines);
+      expect(lines.map((line) => line.text)).not.toContain('上一任邮差在灯塔里住过一年，后来乘夜船离开');
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('主角得知后进手记', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      opened.db.run(
+        sql`insert into knowledge (version_id, fact_id, holder_id, level, origin_turn_id, source_para)
+            values (${seeded.versionId}, ${seeded.ids.secret}, ${seeded.ids.protagonist}, 'confirmed',
+                    ${seeded.turnIds[2]}, 2)`,
+      );
+      const view = journal(opened.db, seeded.versionId, seeded.headTurnId, seeded.routeId);
+      const subject = view.subjects.find((candidate) => candidate.entityId === seeded.ids.linchao);
+      expect(subject?.lines.map((line) => line.text)).toContain('上一任邮差在灯塔里住过一年，后来乘夜船离开');
     } finally {
       opened.close();
       temp.cleanup();

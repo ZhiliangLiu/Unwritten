@@ -1,5 +1,13 @@
 import { z } from 'zod';
 import { ErrorCodeSchema } from '../errors.ts';
+import {
+  JobStatusSchema,
+  PlanItemSchema,
+  PlanJobViewSchema,
+  PlanViewSchema,
+  WorkSettingsSchema,
+  WizardStepSchema,
+} from './authoring.ts';
 import { ContentRevSchema, LanguageTagSchema, TimestampSchema, UuidSchema } from './common.ts';
 import { EntityKindSchema } from './story.ts';
 
@@ -38,18 +46,29 @@ export const PreviewCastMemberSchema = z.object({
   protagonist: z.boolean(),
 });
 
+export const OptionViewSchema = z.object({ text: z.string(), hint: z.string().nullable().default(null) });
+export type OptionView = z.infer<typeof OptionViewSchema>;
+
+export const NeedsReviewSchema = z.object({
+  where: z.enum(['prose', 'option']),
+  index: z.number().int().positive(),
+  text: z.string(),
+  reason: z.enum(['hardcoded_name', 'unknown_placeholder']),
+});
+export type NeedsReview = z.infer<typeof NeedsReviewSchema>;
+
 export const PreviewSchema = z.object({
   title: z.string(),
   blurb: z.string(),
   publicSetting: z.string(),
   prose: z.string(),
-  options: z.array(z.object({ text: z.string() })),
+  options: z.array(OptionViewSchema),
   scene: z.object({ place: z.string(), time: z.string() }),
   language: LanguageTagSchema,
   cast: z.array(PreviewCastMemberSchema).default([]),
+  needsReview: z.array(NeedsReviewSchema).default([]),
+  initialState: z.array(z.object({ label: z.string(), text: z.string(), visible: z.boolean() })).default([]),
 });
-
-export const JobStatusSchema = z.enum(['running', 'done', 'failed']);
 
 export const PreviewJobViewSchema = z.object({
   id: UuidSchema,
@@ -65,9 +84,16 @@ export const WorkDetailSchema = z.object({
   title: z.string().nullable(),
   blurb: z.string().nullable(),
   status: WorkStatusSchema,
-  routeId: UuidSchema.nullable(),
-  draft: z.object({ contentRev: ContentRevSchema, background: z.string(), anchors: WorkAnchorsSchema }),
+  draft: z.object({
+    contentRev: ContentRevSchema,
+    background: z.string(),
+    anchors: WorkAnchorsSchema,
+    settings: WorkSettingsSchema,
+    wizardStep: WizardStepSchema,
+    plan: PlanViewSchema.nullable(),
+  }),
   latestPreviewJob: PreviewJobViewSchema.nullable(),
+  latestPlanJob: PlanJobViewSchema.nullable(),
 });
 
 export const WorkIdInputSchema = z.object({ workId: UuidSchema });
@@ -77,6 +103,7 @@ export const SaveDraftInputSchema = z.object({
   baseContentRev: ContentRevSchema,
   background: z.string().max(BACKGROUND_MAX_LENGTH),
   anchors: WorkAnchorsSchema.default(EMPTY_WORK_ANCHORS),
+  settings: WorkSettingsSchema,
 });
 export const SaveDraftOutputSchema = z.object({ contentRev: ContentRevSchema });
 
@@ -87,14 +114,43 @@ export const GeneratePreviewInputSchema = z.object({
 });
 
 export const AdoptPreviewInputSchema = z.object({ workId: UuidSchema, jobId: UuidSchema });
-export const AdoptPreviewOutputSchema = z.object({ routeId: UuidSchema });
+export const AdoptPreviewOutputSchema = z.object({ routeId: UuidSchema.nullable() });
+
+export const GeneratePlanInputSchema = z.object({
+  workId: UuidSchema,
+  jobId: UuidSchema,
+  contentRev: ContentRevSchema,
+});
+
+export const AdoptStalePlanInputSchema = z.object({ workId: UuidSchema, jobId: UuidSchema });
+
+export const UpdatePlanItemInputSchema = z.object({
+  workId: UuidSchema,
+  baseContentRev: ContentRevSchema,
+  item: PlanItemSchema,
+});
+
+export const RemovePlanItemInputSchema = z.object({
+  workId: UuidSchema,
+  baseContentRev: ContentRevSchema,
+  itemId: z.string().min(1).max(64),
+});
+
+export const ConfirmPlanInputSchema = z.object({
+  workId: UuidSchema,
+  baseContentRev: ContentRevSchema,
+});
+
+export const SetWizardStepInputSchema = z.object({
+  workId: UuidSchema,
+  step: WizardStepSchema,
+});
 
 export type WorkAnchors = z.infer<typeof WorkAnchorsSchema>;
 export type WorkStatus = z.infer<typeof WorkStatusSchema>;
 export type WorkSummary = z.infer<typeof WorkSummarySchema>;
 export type Preview = z.infer<typeof PreviewSchema>;
 export type PreviewCastMember = z.infer<typeof PreviewCastMemberSchema>;
-export type JobStatus = z.infer<typeof JobStatusSchema>;
 export type PreviewJobView = z.infer<typeof PreviewJobViewSchema>;
 export type WorkDetail = z.infer<typeof WorkDetailSchema>;
 export type WorkIdInput = z.infer<typeof WorkIdInputSchema>;
@@ -103,3 +159,9 @@ export type SaveDraftOutput = z.infer<typeof SaveDraftOutputSchema>;
 export type GeneratePreviewInput = z.infer<typeof GeneratePreviewInputSchema>;
 export type AdoptPreviewInput = z.infer<typeof AdoptPreviewInputSchema>;
 export type AdoptPreviewOutput = z.infer<typeof AdoptPreviewOutputSchema>;
+export type GeneratePlanInput = z.infer<typeof GeneratePlanInputSchema>;
+export type AdoptStalePlanInput = z.infer<typeof AdoptStalePlanInputSchema>;
+export type UpdatePlanItemInput = z.infer<typeof UpdatePlanItemInputSchema>;
+export type RemovePlanItemInput = z.infer<typeof RemovePlanItemInputSchema>;
+export type ConfirmPlanInput = z.infer<typeof ConfirmPlanInputSchema>;
+export type SetWizardStepInput = z.infer<typeof SetWizardStepInputSchema>;

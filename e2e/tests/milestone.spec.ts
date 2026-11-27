@@ -5,7 +5,12 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { startFakeOpenAiServer } from '../../packages/core/src/test-support/fake-openai-server.ts';
-import { pingStep, proposePreviewStep, proposeTurnStep } from '../../packages/core/src/test-support/llm-steps.ts';
+import {
+  pingStep,
+  proposePlanStep,
+  proposePreviewStep,
+  proposeTurnStep,
+} from '../../packages/core/src/test-support/llm-steps.ts';
 
 const corePath = fileURLToPath(new URL('../../packages/core/dist/main.js', import.meta.url));
 
@@ -74,6 +79,7 @@ test('从界面配置模型、创作、连续游玩并重启续玩', async ({ pa
   await page.getByRole('button', { name: '新建故事' }).click();
   await page.getByRole('textbox', { name: /故事背景/ }).fill('雨夜修钟铺');
   server.enqueue(
+    proposePlanStep(),
     proposePreviewStep({
       title: '雨夜修钟铺',
       blurb: '一个雨夜，你在钟铺里等一个人。',
@@ -85,12 +91,17 @@ test('从界面配置模型、创作、连续游玩并重启续玩', async ({ pa
       language: 'zh-CN',
     }),
   );
-  await page.getByRole('button', { name: '生成开场预览' }).click();
-  await expect(page.getByRole('heading', { name: '预览开场' })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole('button', { name: '生成故事方案' }).click();
+  await expect(page.getByRole('heading', { name: '故事方案' })).toBeVisible();
+  await page.getByRole('button', { name: '确认方案，生成开场' }).click();
+  await expect(page.getByRole('heading', { name: '开场', exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('雨声盖住钟声。')).toBeVisible();
+  await page.getByRole('button', { name: '背景', exact: true }).click();
   await page.getByRole('textbox', { name: /故事背景/ }).fill('改过的背景');
   await expect(page.getByText('已保存')).toBeVisible({ timeout: 10_000 });
+  await page.getByRole('button', { name: '开场', exact: true }).click();
   await expect(page.getByRole('button', { name: '采用开场并存入作品库' })).toBeDisabled();
+  await page.getByRole('button', { name: '背景', exact: true }).click();
   await page.getByRole('textbox', { name: /故事背景/ }).fill('雨夜修钟铺');
   await expect(page.getByText('已保存')).toBeVisible({ timeout: 10_000 });
   server.enqueue(
@@ -105,7 +116,8 @@ test('从界面配置模型、创作、连续游玩并重启续玩', async ({ pa
       language: 'zh-CN',
     }),
   );
-  await page.getByRole('button', { name: '生成开场预览' }).click();
+  await page.getByRole('button', { name: '方案', exact: true }).click();
+  await page.getByRole('button', { name: '确认方案，生成开场' }).click();
   await expect(page.getByRole('button', { name: '采用开场并存入作品库' })).toBeEnabled({ timeout: 20_000 });
   await page.getByRole('button', { name: '采用开场并存入作品库' }).click();
   await page.getByRole('link', { name: '开始故事' }).click();

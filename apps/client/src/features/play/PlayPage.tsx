@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { BookOpen, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { StorySource, TurnRequestView } from '@unwritten/contracts';
+import type { RouteView, StorySource, TurnRequestView } from '@unwritten/contracts';
 import { useApi } from '../../shared/api/context.tsx';
 import { queryKeys } from '../../shared/api/query.ts';
 import { useFollowLatest } from '../../shared/hooks/useFollowLatest.ts';
@@ -16,11 +16,13 @@ import { Page } from '../../shared/ui/Page.tsx';
 import { Skeleton } from '../../shared/ui/Skeleton.tsx';
 import { ActionComposer } from './ActionComposer.tsx';
 import { BackToLatest } from './BackToLatest.tsx';
+import { EndedPanel } from './EndedPanel.tsx';
 import { FailedTurn } from './FailedTurn.tsx';
 import { JournalSheet } from './JournalSheet.tsx';
 import { OptionList } from './OptionList.tsx';
 import { PendingTurn } from './PendingTurn.tsx';
 import { ReplaceInputDialog } from './ReplaceInputDialog.tsx';
+import { StatusBar } from './StatusBar.tsx';
 import { TurnArticle } from './TurnArticle.tsx';
 import { paragraphAnchorId, turnHeadingId } from './anchors.ts';
 import { useAnnouncement } from './useAnnouncement.ts';
@@ -31,6 +33,24 @@ import styles from './PlayPage.module.css';
 interface ReplaceChoice {
   optionIndex: number;
   text: string;
+}
+
+function useEndedAnnouncement(route: RouteView | undefined): string | null {
+  const { t } = useTranslation();
+  const [announcedRouteId, setAnnouncedRouteId] = useState<string | null>(null);
+  const seen = useRef<{ id: string; ended: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!route) return;
+    const previous = seen.current;
+    seen.current = { id: route.id, ended: route.ended };
+    if (previous && previous.id === route.id && !previous.ended && route.ended) {
+      setAnnouncedRouteId(route.id);
+    }
+  }, [route]);
+
+  if (!route?.ended || announcedRouteId !== route.id) return null;
+  return t('play:ended.heading');
 }
 
 export function PlayPage({ routeId }: { routeId: string }) {
@@ -64,6 +84,7 @@ export function PlayPage({ routeId }: { routeId: string }) {
   });
   useTurnVisibleSample({ api, route: route.data, activeRequest, startedAt });
   const announcement = useAnnouncement(route.data);
+  const endedAnnouncement = useEndedAnnouncement(route.data);
 
   let initialTurnIds = initialTurns?.ids ?? null;
   if (route.data && initialTurns?.routeId !== route.data.id) {
@@ -77,7 +98,7 @@ export function PlayPage({ routeId }: { routeId: string }) {
   const running = pending?.status === 'running';
   const failed = pending?.status === 'failed' && pending.id !== dismissedFailureId ? pending : null;
   const requestInProgress = running || submit.isPending || retry.isPending;
-  const showActions = Boolean(route.data) && !requestInProgress && !failed;
+  const showActions = Boolean(route.data) && !route.data?.ended && !requestInProgress && !failed;
 
   useEffect(() => {
     if (focusInputSeq === 0) return;
@@ -167,6 +188,16 @@ export function PlayPage({ routeId }: { routeId: string }) {
     setHighlight({ id: targetId, seq: highlightSeq.current });
   };
 
+  const jumpToTurn = (turnId: string) => {
+    const targetId = turnHeadingId(turnId);
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    target.scrollIntoView({ block: 'center' });
+    target.focus();
+    highlightSeq.current += 1;
+    setHighlight({ id: targetId, seq: highlightSeq.current });
+  };
+
   const backToLatest = () => {
     followLatest.scrollToLatest();
     if (latestTurnId) document.getElementById(turnHeadingId(latestTurnId))?.focus();
@@ -230,7 +261,10 @@ export function PlayPage({ routeId }: { routeId: string }) {
               ) : null}
               <div ref={sentinelRef} />
             </div>
-            {showActions ? (
+            {route.data.ended || showActions ? <StatusBar routeId={routeId} onJumpToTurn={jumpToTurn} /> : null}
+            {route.data.ended ? (
+              <EndedPanel workId={route.data.workId} />
+            ) : showActions ? (
               <section
                 key={latestTurnId ?? 'actions'}
                 ref={actionSectionRef}
@@ -260,7 +294,11 @@ export function PlayPage({ routeId }: { routeId: string }) {
           </>
         ) : null}
       </div>
-      <LiveRegion key={announcement.seq} message={announcement.message} politeness={announcement.politeness} />
+      <LiveRegion
+        key={endedAnnouncement ? `ended-${route.data?.headTurnId ?? ''}` : announcement.seq}
+        message={endedAnnouncement ?? announcement.message}
+        politeness={endedAnnouncement ? 'polite' : announcement.politeness}
+      />
       <ReplaceInputDialog
         open={replaceChoice !== null}
         onOpenChange={(open) => {

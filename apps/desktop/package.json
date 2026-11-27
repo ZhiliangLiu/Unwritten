@@ -1,0 +1,33 @@
+{
+  "name": "@unwritten/desktop",
+  "productName": "Unwritten",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "postinstall": "install-electron",
+    "dev": "tsdown && UNWRITTEN_DEV_CLIENT_ORIGIN=http://localhost:5173 UNWRITTEN_USER_DATA_DIR=../../.data electron .",
+    "start": "tsdown && electron .",
+    "stage": "node scripts/stage.mjs",
+    "package": "pnpm run build && node scripts/stage.mjs && electron-builder --config electron-builder.yml",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@unwritten/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "electron": "catalog:",
+    "electron-builder": "catalog:",
+    "shell-env": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

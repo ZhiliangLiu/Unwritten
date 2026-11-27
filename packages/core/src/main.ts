@@ -1,6 +1,10 @@
 import './llm/fetch-guard-install.ts';
+import type { ParentPortLike } from './desktop/channel.ts';
+import { attachDesktopChannel, desktopParentPort, waitForStart } from './desktop/channel.ts';
 import { parseCliArgs } from './cli.ts';
 import { CoreStartupError, startCore } from './app.ts';
+import type { RunningCore } from './app.ts';
+import type { ServiceFactories } from './services.ts';
 import { createLlmService } from './llm/service.ts';
 import { createLibraryService } from './library/service.ts';
 import { createSettingsService } from './settings/service.ts';
@@ -8,25 +12,61 @@ import { createSummaryService } from './summary/queue.ts';
 import { createAuthoringService } from './authoring/service.ts';
 import { createPlayService } from './play/service.ts';
 
-async function run(): Promise<void> {
-  const options = parseCliArgs(process.argv.slice(2));
-  const core = await startCore(options, {
-    llm: (deps) => createLlmService(deps),
-    library: (deps) => createLibraryService(deps),
-    settings: (deps) => createSettingsService(deps),
-    summary: (deps) => createSummaryService(deps),
-    authoring: (deps) => createAuthoringService(deps),
-    play: (deps) => createPlayService(deps),
-  });
-  console.log(`UNWRITTEN_CORE_URL=${core.url}`);
+const START_FAILED_EXIT_DELAY_MS = 2_000;
 
+const factories: ServiceFactories = {
+  llm: (deps) => createLlmService(deps),
+  library: (deps) => createLibraryService(deps),
+  settings: (deps) => createSettingsService(deps),
+  summary: (deps) => createSummaryService(deps),
+  authoring: (deps) => createAuthoringService(deps),
+  play: (deps) => createPlayService(deps),
+};
+
+function shutdownFor(core: RunningCore): () => Promise<void> {
   let closing = false;
-  const shutdown = async () => {
+  return async () => {
     if (closing) return;
     closing = true;
     await core.close();
     process.exit(0);
   };
+}
+
+async function runInDesktop(port: ParentPortLike): Promise<void> {
+  const { start, invalid } = await waitForStart(port);
+  let core: RunningCore;
+  try {
+    core = await startCore(
+      {
+        dataDir: start.dataDir,
+        port: start.port,
+        clientDir: start.clientDir,
+        clientOrigin: start.clientOrigin,
+        logLevel: start.logLevel,
+        token: start.token,
+      },
+      factories,
+    );
+  } catch (error) {
+    if (!(error instanceof CoreStartupError)) throw error;
+    port.postMessage({ type: 'start-failed', reason: error.reason, diagnosticId: error.diagnosticId });
+    setTimeout(() => process.exit(1), START_FAILED_EXIT_DELAY_MS);
+    return;
+  }
+  const shutdown = shutdownFor(core);
+  attachDesktopChannel({ port, core, invalidBeforeStart: invalid, onStop: () => void shutdown() });
+  process.on('SIGINT', () => void shutdown());
+  process.on('SIGTERM', () => void shutdown());
+}
+
+async function run(): Promise<void> {
+  const port = desktopParentPort();
+  if (port) return runInDesktop(port);
+  const options = parseCliArgs(process.argv.slice(2));
+  const core = await startCore(options, factories);
+  console.log(`UNWRITTEN_CORE_URL=${core.url}`);
+  const shutdown = shutdownFor(core);
   process.on('SIGINT', () => void shutdown());
   process.on('SIGTERM', () => void shutdown());
 }

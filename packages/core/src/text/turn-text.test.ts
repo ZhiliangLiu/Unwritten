@@ -60,14 +60,20 @@ describe('parseOptionLines', () => {
   it('解析合格选项', () => {
     expect(parseOptionLines('{"text":"推门"}\n{"text":"离开"}', limits)).toEqual({
       ok: true,
-      value: [{ text: '推门' }, { text: '离开' }],
+      value: [
+        { text: '推门', hint: null },
+        { text: '离开', hint: null },
+      ],
     });
   });
 
   it('一行 JSON 数组等价于每个选项各占一行', () => {
     expect(parseOptionLines('[{"text":"推门"},{"text":"离开"}]', limits)).toEqual({
       ok: true,
-      value: [{ text: '推门' }, { text: '离开' }],
+      value: [
+        { text: '推门', hint: null },
+        { text: '离开', hint: null },
+      ],
     });
   });
 
@@ -76,5 +82,19 @@ describe('parseOptionLines', () => {
     expect(parseOptionLines('{"text":"  "}', limits).ok).toBe(false);
     expect(parseOptionLines('{"text":"太长了啊啊啊"}', limits).ok).toBe(false);
     expect(parseOptionLines('{"text":"一"}\n{"text":"二"}\n{"text":"三"}', limits).ok).toBe(false);
+  });
+
+  it('只显示行动的作品不接受提醒', () => {
+    const result = parseOptionLines('{"text":"推门","hint":"门后有动静"}', { ...limits, allowHint: false });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors).toContain('这部作品只显示行动，推荐行动不写 hint。');
+  });
+
+  it('带提醒的作品保留提醒文字', () => {
+    const result = parseOptionLines('{"text":"推门","hint":" 门后有动静 "}', { ...limits, allowHint: true });
+    expect(result).toEqual({ ok: true, value: [{ text: '推门', hint: '门后有动静' }] });
+    expect(
+      parseOptionLines('{"text":"推门","hint":"长'.concat('啊'.repeat(100), '"}'), { ...limits, allowHint: true }).ok,
+    ).toBe(false);
   });
 });

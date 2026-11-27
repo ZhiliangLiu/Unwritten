@@ -2,7 +2,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Play } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { PreviewJobView, WorkDetail } from '@unwritten/contracts';
+import { SETTING_SECTION_IDS } from '@unwritten/contracts';
+import type { PlanJobView, WorkDetail } from '@unwritten/contracts';
 import { queryKeys } from '../../shared/api/query.ts';
 import { useApi } from '../../shared/api/context.tsx';
 import { errorCode } from '../../shared/api/errors.ts';
@@ -15,31 +16,43 @@ import { LiveRegion } from '../../shared/ui/LiveRegion.tsx';
 import { TextArea } from '../../shared/ui/TextArea.tsx';
 import styles from './BackgroundEditor.module.css';
 import { sameDraft, type DraftContent } from './draft.ts';
+import { SettingsSections } from './SettingsSections.tsx';
 
 export const AUTOSAVE_DELAY_MS = 800;
+
+function filledSettingsCount(settings: DraftContent['settings']): number {
+  return (
+    SETTING_SECTION_IDS.filter((id) => settings[id].text.trim().length > 0).length +
+    (settings.cast.mode !== 'fixed' ? 1 : 0) +
+    (settings.opening.mode !== 'ai' ? 1 : 0) +
+    (settings.actions.hints !== 'actions_only' ? 1 : 0) +
+    settings.protagonist.fields.length
+  );
+}
 
 export function BackgroundEditor({
   work,
   draft,
   savedDraft,
   onDraftChange,
-  onGenerate,
+  onGeneratePlan,
   generating,
-  previewJob,
+  planJob,
 }: {
   work: WorkDetail;
   draft: DraftContent;
   savedDraft: DraftContent;
   onDraftChange: (draft: DraftContent) => void;
-  onGenerate: (contentRev: number) => void;
+  onGeneratePlan: (contentRev: number) => void;
   generating: boolean;
-  previewJob: PreviewJobView | null;
+  planJob: PlanJobView | null;
 }) {
   const api = useApi();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const startedAt = useRef<number | null>(null);
   const reportedJob = useRef<string | null>(null);
+  const openingTextRef = useRef<HTMLTextAreaElement>(null);
 
   const save = async (next: DraftContent) => {
     const contentRev =
@@ -50,10 +63,20 @@ export function BackgroundEditor({
         baseContentRev: contentRev,
         background: next.background,
         anchors: next.anchors,
+        settings: next.settings,
       });
       queryClient.setQueryData<WorkDetail>(queryKeys.work(work.id), (old) =>
         old
-          ? { ...old, draft: { contentRev: result.contentRev, background: next.background, anchors: next.anchors } }
+          ? {
+              ...old,
+              draft: {
+                ...old.draft,
+                contentRev: result.contentRev,
+                background: next.background,
+                anchors: next.anchors,
+                settings: next.settings,
+              },
+            }
           : old,
       );
     } catch (error) {
@@ -65,6 +88,7 @@ export function BackgroundEditor({
   };
 
   const filledAnchors = Object.values(draft.anchors).filter((value) => value.trim().length > 0).length;
+  const filledItems = filledAnchors + filledSettingsCount(draft.settings);
 
   const autosave = useAutosave({
     value: draft,
@@ -76,30 +100,25 @@ export function BackgroundEditor({
   });
 
   useEffect(() => {
-    if (
-      !previewJob ||
-      previewJob.status === 'running' ||
-      startedAt.current === null ||
-      reportedJob.current === previewJob.id
-    )
+    if (!planJob || planJob.status === 'running' || startedAt.current === null || reportedJob.current === planJob.id)
       return;
-    reportedJob.current = previewJob.id;
+    reportedJob.current = planJob.id;
     reportSample(api, {
-      metric: 'client.preview_visible',
+      metric: 'client.plan_visible',
       durationMs: performance.now() - startedAt.current,
-      outcome: previewJob.status === 'done' ? 'ok' : 'error',
+      outcome: planJob.status === 'done' ? 'ok' : 'error',
       workId: work.id,
-      jobId: previewJob.id,
+      jobId: planJob.id,
     });
     startedAt.current = null;
-  }, [api, previewJob, work.id]);
+  }, [api, planJob, work.id]);
 
   const generate = async () => {
     startedAt.current = performance.now();
     await autosave.flush();
     const latest = queryClient.getQueryData<WorkDetail>(queryKeys.work(work.id));
     if (!latest || !sameDraft(latest.draft, draft)) return;
-    onGenerate(latest.draft.contentRev);
+    onGeneratePlan(latest.draft.contentRev);
   };
 
   const status =
@@ -110,11 +129,11 @@ export function BackgroundEditor({
         : null;
 
   const liveMessage = generating
-    ? t('authoring:preview.running')
-    : previewJob?.status === 'failed'
-      ? t('authoring:preview.failed')
-      : previewJob?.status === 'done'
-        ? t('authoring:preview.done')
+    ? t('authoring:plan.running')
+    : planJob?.status === 'failed'
+      ? t('authoring:plan.failed')
+      : planJob?.status === 'done'
+        ? t('authoring:plan.done')
         : '';
 
   return (
@@ -129,8 +148,8 @@ export function BackgroundEditor({
       />
       <details className={styles.anchors}>
         <summary className={styles.anchorsSummary}>
-          {filledAnchors > 0
-            ? t('authoring:anchors.headingFilled', { count: filledAnchors })
+          {filledItems > 0
+            ? t('authoring:anchors.headingFilled', { count: filledItems })
             : t('authoring:anchors.heading')}
         </summary>
         <div className={styles.anchorsBody}>
@@ -160,6 +179,12 @@ export function BackgroundEditor({
             }
             minRows={2}
           />
+          <p className={styles.settingsIntro}>{t('authoring:settings.intro')}</p>
+          <SettingsSections
+            settings={draft.settings}
+            onChange={(settings) => onDraftChange({ ...draft, settings })}
+            openingTextRef={openingTextRef}
+          />
         </div>
       </details>
       <div className={styles.actions}>
@@ -170,10 +195,10 @@ export function BackgroundEditor({
           disabled={generating || draft.background.trim().length === 0}
           onClick={() => void generate()}
         >
-          {t('authoring:preview.generate')}
+          {work.draft.plan ? t('authoring:plan.regenerate') : t('authoring:plan.generate')}
         </Button>
         {status ? <p className={styles.status}>{status}</p> : null}
-        {generating ? <GeneratingMarker label={t('authoring:preview.running')} /> : null}
+        {generating ? <GeneratingMarker label={t('authoring:plan.running')} /> : null}
       </div>
       <ErrorNotice
         error={autosave.error}

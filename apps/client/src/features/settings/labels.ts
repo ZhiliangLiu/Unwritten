@@ -3,12 +3,14 @@ import type { LlmPurpose, PurposeProblem, ThinkingFormat, ThinkingLevel } from '
 export const PURPOSE_LABEL_KEYS: Record<LlmPurpose, string> = {
   default: 'settings:purpose.name.default',
   narrator: 'settings:purpose.name.narrator',
+  author_chat: 'settings:purpose.name.author_chat',
   background: 'settings:purpose.name.background',
 };
 
 export const PURPOSE_HELP_KEYS: Record<LlmPurpose, string> = {
   default: 'settings:purpose.help.default',
   narrator: 'settings:purpose.help.narrator',
+  author_chat: 'settings:purpose.help.author_chat',
   background: 'settings:purpose.help.background',
 };
 
