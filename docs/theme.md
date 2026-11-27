@@ -52,7 +52,8 @@ token 的名字表达角色，不表达取值：写 `--uw-color-text-muted`，�
 
 DTCG 里没有直接对应的几类值，约定这样写：
 
-- **相对字号的长度**（字距、版心、段间距、玩家行动的字号）：DTCG 的 `dimension` 只有 `px` 和 `rem`，所以写成 `number`，并在 `$extensions.unwritten.unit` 标 `em`；
+- **相对字号的长度**（字距、版心、段间距、段首缩进、玩家行动的字号）：DTCG 的 `dimension` 只有 `px` 和 `rem`，所以写成 `number`，并在 `$extensions.unwritten.unit` 标 `em`；
+- **比例**（正文列占视口和版面最大宽度的份额）：写成不带单位的 `number`，在 CSS 里用 `calc()` 乘上基准长度；
 - **过渡涉及哪些属性**：写在 `$extensions.unwritten.properties`；循环动画另标 `iteration`；
 - **不播放的过渡和动画**：时长写 0；
 - **材质的背景模糊**：写成模糊半径，0 表示不模糊；
@@ -100,8 +101,10 @@ DTCG 里没有直接对应的几类值，约定这样写：
 | `--uw-prose-font` | 随阅读偏好在衬线和无衬线之间切换，默认衬线 |
 | `--uw-prose-size` | 随阅读偏好在五档（`prose.size-scale.1` 到 `5`）之间切换，默认第 3 档 |
 | `--uw-prose-leading` | 随阅读偏好在舒适和紧凑之间切换，默认舒适 |
-| `--uw-prose-measure` | 版心宽度，约 36 个汉字；相对正文字号 |
-| `--uw-prose-paragraph-gap` | 段间距，正文不首行缩进；相对正文字号 |
+| `--uw-prose-measure` | 对话框、空状态等窄内容的最大宽度，约 36 个汉字；相对正文字号 |
+| `--uw-prose-page-ratio` | 版心占视口宽度和 `--uw-size-page-max` 的比例 |
+| `--uw-prose-paragraph-gap` | 段间距；相对正文字号 |
+| `--uw-prose-indent` | 段首缩进，两个汉字宽；相对正文字号 |
 | `--uw-prose-action-size` | 玩家行动的字号；相对正文字号，随阅读偏好一起缩放 |
 
 阅读偏好写在根元素上（§9）。三个随偏好切换的 token 在 `$extensions.unwritten` 里写明对应哪项偏好（`preference`）和每个选项指向哪个 token（`options`）。web 据此生成属性选择器，例如 `:root[data-uw-prose-size='1']` 把 `--uw-prose-size` 指向第 1 档。

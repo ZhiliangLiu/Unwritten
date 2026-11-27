@@ -7,6 +7,8 @@
   gap: var(--uw-space-6);
   padding-inline: var(--uw-space-6);
   padding-block: var(--uw-space-8);
+  max-inline-size: var(--uw-size-page-max);
+  margin-inline: auto;
   transition: var(--uw-transition-dialog);
 }
 
@@ -17,13 +19,12 @@
   }
 }
 
-.content {
-  max-inline-size: var(--uw-size-page-max);
-  margin-inline: auto;
-}
-
 .prose {
-  max-inline-size: var(--uw-prose-measure);
+  max-inline-size: clamp(
+    calc(var(--uw-size-page-max) * var(--uw-prose-page-ratio)),
+    calc(var(--uw-prose-page-ratio) * 100vw),
+    var(--uw-size-page-max)
+  );
   margin-inline: auto;
 }
 

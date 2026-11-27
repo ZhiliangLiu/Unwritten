@@ -102,6 +102,7 @@
 
 .prose p {
   margin: 0;
+  text-indent: var(--uw-prose-indent);
 }
 
 .options {
