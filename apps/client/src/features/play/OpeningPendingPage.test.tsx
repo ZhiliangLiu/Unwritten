@@ -49,6 +49,24 @@ describe('OpeningPendingPage', () => {
     await screen.unmount();
   });
 
+  it('重试请求进行中时显示生成标记', async () => {
+    let resolveRetry: (value: PlaythroughView) => void = () => {};
+    const retryPending = new Promise<PlaythroughView>((resolve) => {
+      resolveRetry = resolve;
+    });
+    const fake = createFakeApi({
+      'play.getPlaythrough': () =>
+        playthrough({ opening: { id: requestId, status: 'failed', error: 'network', attempts: 1, updatedAt: 1 } }),
+      'play.retryOpening': () => retryPending,
+    });
+    const screen = await renderRoute(`/playthroughs/${playthroughId}`, { api: fake.api });
+
+    await screen.getByRole('button', { name: '重试这次开局' }).click();
+    await expect.element(screen.getByText('正在打开故事')).toBeVisible();
+    resolveRetry(playthrough());
+    await screen.unmount();
+  });
+
   it('完成后进入游玩页', async () => {
     const fake = createFakeApi({
       'play.getPlaythrough': () => playthrough({ routeId }),

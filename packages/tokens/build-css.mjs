@@ -14,6 +14,10 @@ const PREFERENCE_MEDIA = {
   'reduced-motion': 'prefers-reduced-motion: reduce',
   'contrast-more': 'prefers-contrast: more',
 };
+const ANIMATION_KEYFRAMES = [
+  '@keyframes uw-pulse {\n  0%, 100% { opacity: 1; }\n  50% { opacity: var(--uw-opacity-muted); }\n}',
+  '@keyframes uw-spin {\n  to { transform: rotate(1turn); }\n}',
+];
 
 function flatten(group, prefix = '', inheritedType) {
   return Object.entries(group)
@@ -145,9 +149,9 @@ export function buildCss(document) {
           field('cubicBezier', timingFunction),
           field('duration', delay),
         ].join(' ');
-        if (path === 'animation.pulse') {
+        if (path.startsWith('animation.')) {
           if (options.iteration !== 'infinite') throw new Error(`${path}: iteration 必须是 infinite`);
-          return `uw-pulse ${timing} ${options.iteration}`;
+          return `uw-${path.split('.').at(-1)} ${timing} ${options.iteration}`;
         }
         if (
           !Array.isArray(options.properties) ||
@@ -221,7 +225,7 @@ export function buildCss(document) {
       ...preferences,
       ...overridesFor('base', ':root'),
       rules(':root[data-uw-theme-switching]', ['--uw-transition-feedback: none;']),
-      '@keyframes uw-pulse {\n  0%, 100% { opacity: 1; }\n  50% { opacity: var(--uw-opacity-muted); }\n}',
+      ...ANIMATION_KEYFRAMES,
     ),
     'media.css':
       base

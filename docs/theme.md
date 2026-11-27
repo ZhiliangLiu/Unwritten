@@ -314,7 +314,7 @@ apps/client/src/theme/
 
 - token 生成 CSS 变量，名字按 §3。引用生成 `var()`。偏好覆盖中引用同一组覆盖掉的 token 时，使用它在原主题中的值，以便 `text-subtle` 保留原来的 `text-muted`；
 - 颜色有 alpha 时生成 `rgb(r g b / a)`，没有时生成十六进制；
-- `shadow` 生成一个 `box-shadow` 值；`transition` 按 `properties` 生成 `transition` 简写；`animation.pulse` 生成 `animation` 简写，关键帧写在 `tokens.css` 里；
+- `shadow` 生成一个 `box-shadow` 值；`transition` 按 `properties` 生成 `transition` 简写；`animation` 下的 token 按名字生成 `animation` 简写，关键帧写在 `tokens.css` 里；
 - `typography` 每个字段生成一个变量，例如 `--uw-typography-page-title-font-size`；
 - 标了 `em` 的 `number` 生成 `em` 长度；
 - 时长为 0 的过渡和动画、模糊半径为 0 的 `backdrop` 生成 `none`，模糊半径不为 0 时生成 `blur()`；

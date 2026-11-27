@@ -156,6 +156,12 @@ describe('PlanPanel', () => {
     await screen.unmount();
   });
 
+  it('请求进行中时显示生成标记', async () => {
+    const screen = await render(<PlanPanel work={workDetail([summaryItem])} {...noopProps()} busy />);
+    await expect.element(screen.getByText('正在生成故事方案')).toBeVisible();
+    await screen.unmount();
+  });
+
   it('生成期间改过草稿时给出两个选择', async () => {
     const onAdoptStale = vi.fn();
     const screen = await render(

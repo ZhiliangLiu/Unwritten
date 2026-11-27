@@ -35,6 +35,7 @@
 | `--uw-motion-duration-theme` | 主题切换时的整页交叉淡入淡出 |
 | `--uw-motion-duration-highlight` | 变化高亮淡回原色 |
 | `--uw-motion-duration-pulse` | 加载指示的一次呼吸周期 |
+| `--uw-motion-duration-spin` | 生成中图标转一圈的时长 |
 | `--uw-motion-delay-tooltip` | 提示出现前的停留时间 |
 | `--uw-motion-delay-stagger` | 新剧情的正文块与其后的状态栏、推荐行动之间的间隔 |
 
@@ -66,7 +67,8 @@
 | `--uw-transition-dialog` / `-dialog-exit` | `opacity`、`transform`，用 `slow` + `enter` / `exit` | 对话框、窄窗口下的工作站浮层、手记与存档浮层 |
 | `--uw-transition-panel` | `inline-size`，用 `slow` + `standard` | 工作站面板开合，全应用唯一的布局动画 |
 | `--uw-transition-reading` | `opacity`、`transform`，用 `reading` + `enter` | 新剧情、提案卡出现 |
-| `--uw-animation-pulse` | 透明度呼吸，用 `duration-pulse` + `ease-linear`，无限循环 | 加载骨架、“生成中”标记 |
+| `--uw-animation-pulse` | 透明度呼吸，用 `duration-pulse` + `ease-linear`，无限循环 | 加载骨架、插图占位的状态文字 |
+| `--uw-animation-spin` | 旋转，用 `duration-spin` + `ease-linear`，无限循环 | “生成中”标记的图标 |
 
 ## 4. 减少动态效果
 
@@ -79,7 +81,8 @@
 | `--uw-motion-duration-slow`、`-reading` | `var(--uw-motion-duration-fast)` | 大面积的过渡改成很短的淡入 |
 | `--uw-transition-panel` | `none` | 面板直接出现或收起 |
 | `scroll-behavior` | `auto` | 不做平滑滚动 |
-| `--uw-animation-pulse` | `none` | 不再呼吸。加载和生成中只显示静态的标记与文字，循环的明暗变化对前庭敏感的人同样不舒服 |
+| `--uw-animation-pulse` | `none` | 不再呼吸。加载骨架和插图占位只显示静态的文字与色块 |
+| `--uw-animation-spin` | `none` | 不再旋转。生成中只显示静态的图标与文字，循环的明暗变化和旋转对前庭敏感的人同样不舒服 |
 
 淡入淡出、颜色变化、主题切换的交叉淡入淡出都保留：它们不涉及位移，不会引起眩晕，反而能避免亮度突变。这条遵循 Apple 的做法：减少动态效果不等于取消所有反馈，而是换成不引起眩晕的等价形式。
 
@@ -99,7 +102,7 @@
 | 手记与存档浮层（游玩页） | 从右侧整体滑入，覆盖在正文之上 | 滑回右侧，阅读位置不变 | `transition-dialog`、`-dialog-exit` |
 | 页面切换 | 外壳不动；新内容淡入并上移 `distance-md` | 旧内容直接移除，不播放离开动画，免得用户等待 | `transition-dialog` |
 | 新剧情到达 | 整段正文作为一个块淡入，并上移 `distance-sm`；间隔 `delay-stagger` 后，状态栏和推荐行动淡入 | 无 | `transition-reading` |
-| 生成中 | 显示“生成中”标记，透明度缓慢呼吸 | 提交后移除标记，按“新剧情到达”显示正式回合 | `animation-pulse` |
+| 生成中 | 显示旋转的图标和“生成中”文字 | 生成结束后移除标记；游玩页按“新剧情到达”显示正式回合 | `animation-spin` |
 | 插图占位 | 随所在回合的正文块一起淡入；画图期间框里的状态文字透明度缓慢呼吸 | 图到达时移除状态文字；画失败时框直接收成一行失败提示，不做高度动画 | `transition-reading`、`animation-pulse` |
 | 插图到达 | 图片在已经占好的框里淡入，只改透明度，不位移、不缩放；不触发自动跟随 | 无 | `transition-reading` 中的 `opacity` |
 | 自动跟随 | 玩家停在最新位置时，新内容出现后平滑滚动，让它进入视野 | 玩家往上翻过时不滚动，改为淡入一个“回到最新”按钮 | `transition-popup` |

@@ -237,7 +237,7 @@ export function AuthoringPage({ workId }: { workId: string }) {
                 preview={preview}
                 stale={stale}
                 status={
-                  previewJob?.status === 'running' ? (
+                  generatePreview.isPending || previewJob?.status === 'running' ? (
                     <GeneratingMarker label={t('authoring:preview.running')} />
                   ) : previewJob?.status === 'failed' ? (
                     <ErrorNotice code={previewJob.error ?? 'unknown'} diagnosticId={previewJob.id} />
