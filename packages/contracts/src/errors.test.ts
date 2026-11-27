@@ -18,9 +18,9 @@ describe('ERROR_CODES', () => {
 });
 
 describe('appearanceAttributes', () => {
-  it('默认值输出四个属性', () => {
+  it('默认值输出六个属性', () => {
     expect(appearanceAttributes(DEFAULT_APPEARANCE)).toBe(
-      'data-uw-appearance="system" data-uw-prose-size="3" data-uw-prose-font="serif" data-uw-prose-leading="comfortable"',
+      'data-uw-appearance="system" data-uw-prose-size="3" data-uw-prose-font="serif" data-uw-prose-leading="comfortable" data-uw-prose-layout="book" data-uw-prose-indent="2"',
     );
   });
 

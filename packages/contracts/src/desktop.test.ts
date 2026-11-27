@@ -72,7 +72,14 @@ describe('desktop contracts', () => {
   });
 
   it('core → desktop 的三类消息都能解析', () => {
-    const appearance = { appearance: 'system', proseSize: '3', proseFont: 'serif', proseLeading: 'comfortable' };
+    const appearance = {
+      appearance: 'system',
+      proseSize: '3',
+      proseFont: 'serif',
+      proseLeading: 'comfortable',
+      proseLayout: 'book',
+      proseIndent: '2',
+    };
     expect(CoreToDesktopSchema.safeParse({ type: 'ready', port: 4317, appearance }).success).toBe(true);
     expect(CoreToDesktopSchema.safeParse({ type: 'appearance-changed', appearance }).success).toBe(true);
     expect(

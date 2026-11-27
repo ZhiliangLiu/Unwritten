@@ -53,6 +53,8 @@ describe('createSettingsService', () => {
         proseSize: '4' as const,
         proseFont: 'sans' as const,
         proseLeading: 'compact' as const,
+        proseLayout: 'chat' as const,
+        proseIndent: '0' as const,
       };
       expect(service.update(next)).toEqual(next);
       expect(service.get()).toEqual(next);
@@ -99,6 +101,27 @@ describe('createSettingsService', () => {
             values (1, '{"appearance":"purple"}', ${Date.now()})`,
       );
       expect(service.get()).toEqual(DEFAULT_APPEARANCE);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('旧版本存下的偏好缺少正文样式和段首缩进时补成默认，其余偏好保留', () => {
+    const { temp, opened, service } = setup();
+    try {
+      opened.db.run(
+        sql`insert into app_settings (id, appearance, updated_at)
+            values (1, '{"appearance":"dark","proseSize":"5","proseFont":"sans","proseLeading":"compact"}', ${Date.now()})`,
+      );
+      expect(service.get()).toEqual({
+        appearance: 'dark',
+        proseSize: '5',
+        proseFont: 'sans',
+        proseLeading: 'compact',
+        proseLayout: 'book',
+        proseIndent: '2',
+      });
     } finally {
       opened.close();
       temp.cleanup();

@@ -9,7 +9,7 @@ export function createSettingsService(deps: CoreDeps): SettingsService {
   const get = (): Appearance => {
     const row = deps.db.select().from(appSettings).where(eq(appSettings.id, 1)).get();
     if (!row) return { ...DEFAULT_APPEARANCE };
-    const parsed = AppearanceSchema.safeParse(row.appearance);
+    const parsed = AppearanceSchema.safeParse({ ...DEFAULT_APPEARANCE, ...row.appearance });
     return parsed.success ? parsed.data : { ...DEFAULT_APPEARANCE };
   };
 
@@ -19,12 +19,7 @@ export function createSettingsService(deps: CoreDeps): SettingsService {
       const startedAt = performance.now();
       const next = AppearanceSchema.parse(input);
       const current = get();
-      if (
-        current.appearance === next.appearance &&
-        current.proseSize === next.proseSize &&
-        current.proseFont === next.proseFont &&
-        current.proseLeading === next.proseLeading
-      ) {
+      if ((Object.keys(next) as (keyof Appearance)[]).every((key) => current[key] === next[key])) {
         deps.logger.sample({
           metric: 'settings.update',
           durationMs: performance.now() - startedAt,
@@ -56,12 +51,7 @@ export function createSettingsService(deps: CoreDeps): SettingsService {
         level: 'info',
         module: 'settings',
         event: 'settings.changed',
-        data: {
-          appearance: next.appearance,
-          proseSize: next.proseSize,
-          proseFont: next.proseFont,
-          proseLeading: next.proseLeading,
-        },
+        data: next,
       });
       deps.logger.sample({
         metric: 'settings.update',

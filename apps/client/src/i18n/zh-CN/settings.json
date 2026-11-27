@@ -146,6 +146,16 @@
       "comfortable": "舒适",
       "compact": "紧凑"
     },
+    "proseLayout": "正文样式",
+    "layoutOption": {
+      "book": "书页",
+      "chat": "聊天气泡"
+    },
+    "proseIndent": "段首缩进",
+    "indentOption": {
+      "2": "缩进两字",
+      "0": "不缩进"
+    },
     "preview": "示例",
     "sample": "雨停的时候，渡口的灯还亮着。守夜人把最后一张船票压在茶杯下面，抬头看见有人沿着栈桥走来。",
     "saveFailed": "外观设置没有保存，已恢复原来的设置。"

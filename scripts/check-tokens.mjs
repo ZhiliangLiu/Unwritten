@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { AppearanceSchema } from '../packages/contracts/src/schemas/appearance.ts';
 import { buildCss } from '../packages/tokens/build-css.mjs';
 
 const tokensPath =
@@ -182,11 +183,13 @@ for (const [path, token] of tokens) {
 }
 
 const READING_PREFERENCES = [
-  ['font', 'fontFamily', ['serif', 'sans']],
-  ['size', 'dimension', ['1', '2', '3', '4', '5']],
-  ['leading', 'number', ['comfortable', 'compact']],
+  ['font', 'fontFamily', 'proseFont'],
+  ['size', 'dimension', 'proseSize'],
+  ['leading', 'number', 'proseLeading'],
+  ['indent', 'number', 'proseIndent'],
 ];
-for (const [name, type, keys] of READING_PREFERENCES) {
+for (const [name, type, field] of READING_PREFERENCES) {
+  const keys = AppearanceSchema.shape[field].options;
   const path = `base.prose.${name}`;
   const token = tokens.get(path);
   const { preference, options } = token?.extensions ?? {};
@@ -302,7 +305,7 @@ const CONTRAST_REQUIREMENTS = [
   { foregrounds: ['ink'], backgrounds: ['page'], min: 10, max: 12 },
   { foregrounds: ['accent-text'], backgrounds: SURFACES, min: 4.5 },
   { foregrounds: ['text-on-accent'], backgrounds: ['accent', 'accent-hover', 'accent-pressed'], min: 4.5 },
-  { foregrounds: ['ink-action'], backgrounds: ['page'], min: 4.5 },
+  { foregrounds: ['ink-action'], backgrounds: ['page', 'surface-sunken'], min: 4.5 },
   { foregrounds: ['success', 'warning', 'danger', 'info'], backgrounds: ['surface'], min: 4.5 },
   ...['success', 'warning', 'danger', 'info'].map((name) => ({
     foregrounds: [name],
