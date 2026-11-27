@@ -89,7 +89,7 @@ function workDetail(overrides: Partial<WorkDetail> = {}): WorkDetail {
   };
 }
 
-function makeApi(initial: WorkDetail) {
+function makeApi(initial: WorkDetail, handlers: Record<string, (input: unknown) => unknown> = {}) {
   const state = { detail: initial, confirmRevs: [] as number[] };
   const fake = createFakeApi({
     'works.get': () => state.detail,
@@ -165,12 +165,13 @@ function makeApi(initial: WorkDetail) {
     'works.removePlanItem': () => ({ contentRev: state.detail.draft.contentRev + 1 }),
     'works.delete': () => ({}),
     'log.client': () => ({}),
+    ...handlers,
   });
   return { ...fake, state };
 }
 
-async function renderAuthoring(detail: WorkDetail) {
-  const { api, calls, state } = makeApi(detail);
+async function renderAuthoring(detail: WorkDetail, handlers: Record<string, (input: unknown) => unknown> = {}) {
+  const { api, calls, state } = makeApi(detail, handlers);
   const screen = await renderRoute(`/works/${detail.id}/edit`, { api });
   return { screen, calls, state, queryClient: screen.queryClient };
 }
@@ -271,6 +272,22 @@ describe('AuthoringPage', () => {
     const { screen } = await renderAuthoring(detail);
     await expect.element(screen.getByRole('textbox', { name: '故事背景' })).toBeVisible();
     await expect.element(screen.getByRole('button', { name: '开场' })).toBeDisabled();
+    await screen.unmount();
+  });
+
+  it('重新生成开场的请求进行中时显示生成标记', async () => {
+    let resolvePreview: (preview: PreviewJobView) => void = () => {};
+    const previewPending = new Promise<PreviewJobView>((resolve) => {
+      resolvePreview = resolve;
+    });
+    const detail = workDetail({
+      draft: { ...workDetail().draft, wizardStep: 'opening', plan: plan({ confirmed: true }) },
+      latestPreviewJob: job(),
+    });
+    const { screen } = await renderAuthoring(detail, { 'works.generatePreview': () => previewPending });
+    await screen.getByRole('button', { name: '重新生成开场' }).click();
+    await expect.element(screen.getByText('正在写开场')).toBeVisible();
+    resolvePreview(job({ status: 'running', preview: null }));
     await screen.unmount();
   });
 

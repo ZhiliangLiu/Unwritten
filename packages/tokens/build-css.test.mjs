@@ -36,9 +36,10 @@ test('viewport, typography and reading preferences use the source tokens', () =>
 test('motion renders the declared aliases and disables looping for reduced motion', () => {
   assert.match(css['tokens.css'], /--uw-transition-feedback: color var\(--uw-motion-duration-fast\)/);
   assert.match(css['tokens.css'], /--uw-animation-pulse: uw-pulse var\(--uw-motion-duration-pulse\)/);
+  assert.match(css['tokens.css'], /--uw-animation-spin: uw-spin var\(--uw-motion-duration-spin\)/);
   assert.match(
     css['tokens.css'],
-    /prefers-reduced-motion: reduce[\s\S]*--uw-transition-panel: none;\s*--uw-animation-pulse: none/,
+    /prefers-reduced-motion: reduce[\s\S]*--uw-transition-panel: none;\s*--uw-animation-pulse: none;\s*--uw-animation-spin: none/,
   );
 });
 

@@ -91,7 +91,7 @@ interface PlayState {
   status?: StatusView;
 }
 
-async function renderPlay(initial: PlayState) {
+async function renderPlay(initial: PlayState, handlers: Record<string, (input: unknown) => unknown> = {}) {
   const fake = createFakeApi({
     'play.getRoute': () => initial.route,
     'play.getJournal': () => initial.journal,
@@ -100,6 +100,7 @@ async function renderPlay(initial: PlayState) {
     'play.submitAction': (input) => makeRequest({ id: (input as SubmitActionInput).requestId }),
     'play.retry': (input) => makeRequest({ id: (input as RetryInput).requestId, attempts: 2 }),
     'log.client': () => undefined,
+    ...handlers,
   });
   const result = await renderRoute(`/play/${routeId}`, { api: fake.api });
   await waitFor(() => result.container.querySelector('article') !== null);
@@ -260,6 +261,27 @@ describe('游玩页', () => {
     const busy = document.querySelector('article[aria-busy="true"]');
     expect(busy).not.toBeNull();
     expect(busy?.textContent).toContain('正在写下一段');
+  });
+
+  it('提交后立刻显示生成标记', async () => {
+    let resolveSubmit: (request: TurnRequestView) => void = () => {};
+    const submitPending = new Promise<TurnRequestView>((resolve) => {
+      resolveSubmit = resolve;
+    });
+    const turn = opening();
+    const { unmount } = await renderPlay(
+      { route: makeRoute([turn]), journal: journalView([turn]) },
+      {
+        'play.submitAction': () => submitPending,
+      },
+    );
+    await userEvent.fill(textarea(), '推开候船厅的门');
+    findButton('发送行动').click();
+    await waitFor(() => document.body.textContent?.includes('正在写下一段') ?? false);
+    expect(document.querySelector('textarea')).toBeNull();
+    resolveSubmit(makeRequest({ action: { text: '推开候船厅的门', optionIndex: null } }));
+    await waitFor(() => document.querySelector('textarea') !== null);
+    await unmount();
   });
 
   it('⌘ 加数字选择推荐行动', async () => {

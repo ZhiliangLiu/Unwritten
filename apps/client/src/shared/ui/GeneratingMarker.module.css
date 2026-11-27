@@ -11,10 +11,8 @@
   color: var(--uw-color-text-muted);
 }
 
-.dot {
-  inline-size: var(--uw-space-2);
-  block-size: var(--uw-space-2);
-  background-color: var(--uw-color-text-muted);
-  border-radius: var(--uw-radius-full);
-  animation: var(--uw-animation-pulse);
+.icon {
+  display: inline-flex;
+  flex: none;
+  animation: var(--uw-animation-spin);
 }

@@ -49,7 +49,7 @@ export function OpeningPendingPage({ playthroughId }: { playthroughId: string })
         <ErrorNotice error={playthrough.error} />
         {!playthrough.data ? <Skeleton variant='prose' count={2} /> : null}
         {playthrough.data && !routeId ? (
-          opening?.status === 'failed' ? (
+          opening?.status === 'failed' && !retry.isPending ? (
             <>
               <h2 className={styles.heading}>{t('play:openingRequest.failed')}</h2>
               <ErrorNotice code={opening.error ?? 'unknown'} diagnosticId={opening.id} />

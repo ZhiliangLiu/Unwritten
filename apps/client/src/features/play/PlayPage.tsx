@@ -96,8 +96,17 @@ export function PlayPage({ routeId }: { routeId: string }) {
   const latestTurnId = latest?.id ?? null;
   const pending = route.data?.pending ?? null;
   const running = pending?.status === 'running';
-  const failed = pending?.status === 'failed' && pending.id !== dismissedFailureId ? pending : null;
   const requestInProgress = running || submit.isPending || retry.isPending;
+  const failed =
+    pending?.status === 'failed' && pending.id !== dismissedFailureId && !requestInProgress ? pending : null;
+  const pendingAction =
+    running && pending
+      ? pending.action
+      : submit.isPending
+        ? submit.variables
+        : retry.isPending && pending
+          ? pending.action
+          : null;
   const showActions = Boolean(route.data) && !route.data?.ended && !requestInProgress && !failed;
 
   useEffect(() => {
@@ -249,7 +258,7 @@ export function PlayPage({ routeId }: { routeId: string }) {
                   arriving={Boolean(initialTurnIds && !initialTurnIds.has(turn.id))}
                 />
               ))}
-              {running && pending ? <PendingTurn action={pending.action} language={route.data.language} /> : null}
+              {pendingAction ? <PendingTurn action={pendingAction} language={route.data.language} /> : null}
               {failed ? (
                 <FailedTurn
                   request={failed}

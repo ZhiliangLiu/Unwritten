@@ -90,7 +90,7 @@ export function PlanPanel({
       <h2 className={styles.title}>{t('authoring:plan.heading')}</h2>
       <p className={styles.intro}>{t('authoring:plan.intro')}</p>
 
-      {running ? <GeneratingMarker label={t('authoring:plan.running')} /> : null}
+      {busy ? <GeneratingMarker label={t('authoring:plan.running')} /> : null}
       {latest?.status === 'failed' ? (
         <ErrorNotice
           code={latest.error ?? 'unknown'}
