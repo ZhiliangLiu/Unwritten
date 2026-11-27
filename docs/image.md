@@ -8,10 +8,10 @@
 
 | 部分 | 负责什么 | 不负责什么 |
 | --- | --- | --- |
-| `image`（core 模块） | 出图服务的配置与探测、两种协议的客户端、按服务排队、返回数据的校验、调用记录 | 不认识作品、人物和回合 |
+| `image`（core 模块） | 出图服务的配置与探测、两种协议的客户端、启动器客户端与按需唤醒（§12）、按服务排队、返回数据的校验、调用记录 | 不认识作品、人物和回合 |
 | `illustration`（core 模块） | 什么时候画、镜头描述、挑参考人物、人物参考组、图片文件的存储与清理、把结果挂到回合和人物上 | 不认识具体的协议 |
 | 出图服务 | 按协议接收提示词和参考图，返回一张图 | 不认识故事，不接触作品库 |
-| 插件 | 实现 Unwritten 图像协议（§3）的独立服务，例如 [ComfyUI 插件](./comfyui-plugin.md) | 不载入 core，不和 core 共享代码 |
+| 插件 | 实现 Unwritten 图像协议（§3）或启动器协议（§12.2）的独立服务，例如 [ComfyUI 插件](./comfyui-plugin.md)、[Colab 启动器](./colab-launcher.md) | 不载入 core，不和 core 共享代码 |
 
 两条硬规则：
 
@@ -38,7 +38,9 @@
       "name": "ComfyUI",
       "protocol": "unwritten-image",
       "baseUrl": "https://unwritten-image.example-tailnet.ts.net",
-      "apiKey": "$UNWRITTEN_IMAGE_TOKEN"
+      "apiKey": "$UNWRITTEN_IMAGE_TOKEN",
+      "launcher": { "baseUrl": "http://127.0.0.1:8290", "apiKey": "$UNWRITTEN_LAUNCHER_TOKEN" },
+      "idleMinutes": 30
     },
     {
       "id": "image-openai-9b1c2d",
@@ -59,6 +61,7 @@
 - **key 规则全部照搬。** `apiKey` 的三种写法、只返回 `hasKey` 和 `keySource`、编辑时留空就保留、「移除 key」、地址保存后不能改、明文 http 访问非本机地址时警告，都同 [LLM 端点 §3](./llm-endpoints.md#3-key-的来源与保护)。服务的 id 格式是 `image-<名称简写>-<6 位十六进制>`，取法同自定义端点。
 - **令牌由设置页生成，** 规则见[插件 §3.2](./plugins.md#32-鉴权)。用户先复制令牌到服务那一侧，再填服务地址。保存前，令牌和表单草稿随页面关闭而丢弃。重新开始时，用新令牌替换服务侧的令牌。保存后 core 把它写进服务的 `apiKey`。
 - **`image.service` 是用于出图的服务。** 为空时停止出图，开局页收起插图设置。已有图片照常显示和保存，作者仍可从本机录入人物参考。删除正在使用的服务时，确认框写明效果，删除后把它清空。
+- **按需启动是可选项。** 只有 `unwritten-image` 服务能配 `launcher` 和 `idleMinutes`。`launcher` 是启动器的地址和 key，key 的规则同服务的 `apiKey`；`idleMinutes` 默认 `IMAGE_IDLE_MINUTES`（30），取 5 到 720 之间的整数。规则见 §12。
 - **能力从哪来。** `unwritten-image` 服务的能力由服务自己报告（§3.2），配置里不写。`openai-images` 服务没法自报，能力写在 `capabilities` 里；添加服务时按模型 id 预填（§4.3），用户可以改。
 - **「游玩时生成插图」默认关闭。** 首次开启前，设置页列明实际使用的 `background` 和出图服务、各自接收的内容，并提示一张插图可能先生成多张参考图。确认关联的服务 id、`openai-images` 模型 id 和 `background` 的实际端点与模型，存入 `app_settings`。任一项变化后，设置页恢复关闭，重新确认后生效。每局仍可选择纯文字，生效规则见 §7.1。
 
@@ -71,6 +74,7 @@
 | 生成测试图 | `openai-images` 用固定的测试提示词画一张图。用户先确认可能产生费用，成功后显示「已成功出图」 |
 | 状态 | 显示最近一次的连接结果和时间，未就绪时显示原因。成功出过图时，显示最近一次出图时间 |
 | 默认出图规格 | 正文插图的比例默认为「自动」，也可固定。分辨率可选「高 · 720」「很高 · 1K」「非常高 · 2K」，优先预填 1K。当前服务只有一档时显示该档及原因。显示各档的实际宽×高，大尺寸可能更慢或更贵 |
+| 按需启动 | `unwritten-image` 服务可以填启动器地址、点「生成令牌」生成启动器令牌、设空闲多少分钟后关闭服务。「测试启动器」读取启动器的信息和当前状态。见 §12 |
 | 隐私说明 | `background` 服务接收可用的正文片段、人物形象和镜头约束。出图服务接收由此写成的提示词和每次选中的参考图片，可能包括本机导入的图片。手动补齐视角或生成主角预览时，在操作处提示涉及的内容与接收方 |
 
 默认规格保存在 `app_settings`，新开局可覆盖。比例固定时，只提供该比例可用的档位。比例自动时，某档至少有一个比例可用即可选。进入新开局表单时，默认选项已不可用就提示并预填新服务可用的规格。打开表单后能力再变化时，仍可开始故事并保留玩家提交的偏好。无法出图的规格按 §7.4 处理。
@@ -81,12 +85,14 @@ core 接口都是 contracts 里的 oRPC 过程：
 | --- | --- |
 | `image.services.list` | 出图服务列表：协议、地址、`hasKey`、`keySource`、能力、最近一次连接结果和成功出图时间。同时返回 `image.service` |
 | `image.services.create`、`image.services.update`、`image.services.remove` | 增删改，规则同 [LLM 端点 §10](./llm-endpoints.md#10-core-接口) 的端点过程 |
-| `image.services.generateToken` | 生成 `unwritten-image` 服务令牌，只在这次响应里返回原文。创建服务时随表单保存 |
-| `image.services.test` | 测试连接；`paid: true` 时为 `openai-images` 生成一张测试图 |
+| `image.services.generateToken` | 生成 `unwritten-image` 服务令牌或启动器令牌，只在这次响应里返回原文。创建或修改服务时随表单保存 |
+| `image.services.test` | 测试连接；`paid: true` 时为 `openai-images` 生成一张测试图；`target: "launcher"` 时读取启动器的 `/v1/info` 和 `/v1/state` |
 | `image.select` | 修改 `image.service` |
 | `image.outputPreferences` | 读取或修改新开局默认的比例偏好与分辨率档位，返回当前服务可用的比例与像素尺寸 |
 | `image.usage.summary` | 出图用量汇总（§11） |
 | `image.file` | 取一张插图或参考图（§10） |
+| `image.prewarm` | 进入开了插图的开局时，让当前服务提前唤醒（§12.3） |
+| `image.wake.continue` | 用户在浏览器里完成启动器要求的操作后，让唤醒继续（§12.3） |
 
 ## 3. Unwritten 图像协议
 
@@ -276,7 +282,7 @@ OpenAI 图像接口的参考图按 core 的单张 `IMAGE_MAX_BYTES` 限制筛选
 规则：
 
 - **每个服务同时只跑一个任务。** 出图服务背后通常只有一块 GPU。用 p-queue 按服务排队，并发数为 1；开局页的预览优先，其余按先后顺序。
-- **离线时快速失败。** core 记着每个服务最近一次的连接结果。最近 `IMAGE_OFFLINE_TTL_MS`（默认 60000）以内连不上过，自动排进来的新任务直接以 `image_offline` 失败，不再等超时；超过这段时间，下一个任务先探测，再提交。**玩家手动点「重试」「重画」或「预览画风」时不看这条记录，** 先探测一次再提交：玩家往往是刚把服务开起来才点的重试。
+- **离线时快速失败。** core 记着每个服务最近一次的连接结果。最近 `IMAGE_OFFLINE_TTL_MS`（默认 60000）以内连不上过，自动排进来的新任务直接以 `image_offline` 失败，不再等超时；超过这段时间，下一个任务先探测，再提交。**玩家手动点「重试」「重画」或「预览画风」时不看这条记录，** 先探测一次再提交：玩家往往是刚把服务开起来才点的重试。**配了启动器的服务不快速失败，** 连不上时先按 §12.3 唤醒，任务在队列里等。
 - **自家协议的单个任务，** 从提交到取回图片最长 `IMAGE_JOB_TIMEOUT_MS`（默认 600000，可配置）。超时后对服务发 DELETE，以 `image_timeout` 失败。
 - **自动重试最多一次。** Unwritten 图像协议对同一请求复用幂等键，OpenAI 图像接口按 §4.4 处理。再失败就交给玩家点「重试」。
 
@@ -298,7 +304,7 @@ OpenAI 图像接口的参考图按 core 的单张 `IMAGE_MAX_BYTES` 限制筛选
 
 ### 5.4 错误类别
 
-错误码写在 contracts 的 `errors.ts` 里，client 按 `errors:<code>` 显示（[i18n §5](./i18n.md#5-core-返回什么)）。出图错误包括 `image_unauthorized`、`image_quota`、`image_rate_limited`、`image_offline`、`image_not_ready`、`image_busy`、`image_refused`、`image_timeout`、`image_server`、`image_outcome_unknown`、`image_invalid_request`、`image_invalid_response`、`image_redirected`、`image_out_of_memory`、`image_workflow_error`、`image_interrupted`、`image_file_missing`。录入校验失败用 `image_invalid_upload`，参考图超过服务上限且没有可用的同组图片时用 `image_reference_too_large`。提示的写法同[设计准则 §8](./design-guidelines.md#8-文案语气)。
+错误码写在 contracts 的 `errors.ts` 里，client 按 `errors:<code>` 显示（[i18n §5](./i18n.md#5-core-返回什么)）。出图错误包括 `image_unauthorized`、`image_quota`、`image_rate_limited`、`image_offline`、`image_not_ready`、`image_busy`、`image_refused`、`image_timeout`、`image_server`、`image_outcome_unknown`、`image_invalid_request`、`image_invalid_response`、`image_redirected`、`image_out_of_memory`、`image_workflow_error`、`image_interrupted`、`image_file_missing`。按需启动的错误是 `image_launcher_offline`、`image_launcher_unauthorized`、`image_wake_failed`、`image_wake_timeout`（§12.3）。录入校验失败用 `image_invalid_upload`，参考图超过服务上限且没有可用的同组图片时用 `image_reference_too_large`。提示的写法同[设计准则 §8](./design-guidelines.md#8-文案语气)。
 
 选定的比例、分辨率档位或已确定的像素尺寸无法用于当前服务时返回 `image_output_format_unavailable`。提示说明当前服务不支持的选项，以及本次可选规格。
 
@@ -360,7 +366,7 @@ OpenAI 图像接口的参考图按 core 的单张 `IMAGE_MAX_BYTES` 限制筛选
 
 ### 7.2 一张插图的流程
 
-后台取出一张 `queued` 的插图后，按 §7.1 检查启用条件，为本次尝试固定已确认的 `background` 和出图服务。先校验已选规格。待选比例为空，或已确定的规格不再可用时，直接按 §7.4 结束，本次不发模型或出图请求。每次调用前复核采用的服务确认与尝试 id，请求发往固定的目标。服务确认失效时结束本次尝试。
+后台取出一张 `queued` 的插图后，按 §7.1 检查启用条件，为本次尝试固定已确认的 `background` 和出图服务。先校验已选规格。待选比例为空，或已确定的规格不再可用时，直接按 §7.4 结束，本次不发模型或出图请求。每次调用前复核采用的服务确认与尝试 id，请求发往固定的目标。服务确认失效时结束本次尝试。服务连不上且配了启动器时，插图保持 `queued`，等 §12.3 的唤醒完成；唤醒失败时以 `wake` 这一步失败。
 
 1. **主角形象。** 本段允许主角入画且形象为空时，先按 §6.1 补写。补写只使用可公开的主角外观设定。
 2. **镜头描述与规格。** core 从该分辨率档取可用比例。固定比例或仅有一个可用比例时，由 core 确定并交给模型构图。自动且有多个比例时，由 §8 的镜头模型从清单中选。把比例和该档对应的像素尺寸写入本次尝试并通知 client。普通重试或重画使用记录中已经确定的规格。没有确定过比例时才重新选择。
@@ -443,7 +449,7 @@ illustrations (
   format_preference JSON NOT NULL,    -- 排队时的比例偏好和分辨率档位
   format          JSON,               -- 已确定的比例、档位和可选的请求宽高
   status          TEXT NOT NULL,      -- queued | running | done | failed | cancelled | dismissed
-  stage           TEXT,               -- 失败时停在哪一步：appearance | shot | portrait | generate | save
+  stage           TEXT,               -- 失败时停在哪一步：wake | appearance | shot | portrait | generate | save
   caption         TEXT,               -- 画面说明，作品语言
   prompt          TEXT,
   negative_prompt TEXT,
@@ -523,7 +529,8 @@ CREATE UNIQUE INDEX portrait_sets_playthrough_identity
 - **client 在内存里按视图来源、记录 id、位置和更新时间缓存最近用过的 blob URL。** 记录更新后取新图。回合卸载或缓存淘汰时调用 `URL.revokeObjectURL`。
 - **手记缩略图由 core 选。** 主角见过的人物才可能返回当前路线可见基础组的正面位置。形象变化但身份可延续时，仍可显示基础组正面。欠缺可见参考时省略缩略图（[数据模型 §5](./data-model.md#5-可见性规则)）。
 - **回合视图里的插图**提供 id、更新时间、状态、是否在重画、段号、已确定的规格、实际宽高、画面说明和错误类别。尚无完成图时，使用当前尝试已确定的规格留画框。重画成功后才切换完成图的规格。提示词留在 core。
-- **事件。** `illustration.updated`、`portrait.updated` 和 `image.config_changed` 让 client 刷新相关查询。人物参考组变更通知只带作品 id，图片标识和详情由可见视图的查询返回。状态以查询结果为准，见[架构总览 §3](./architecture.md#3-client-与-core-的通信)。
+- **服务的唤醒状态**随 `image.services.list` 返回：已就绪、连不上、唤醒中、等待用户操作（附操作地址）、唤醒失败。排队中的插图、参考图和画风预览据此显示「正在唤醒出图服务」或「等待你完成授权」。
+- **事件。** `illustration.updated`、`portrait.updated`、`image.config_changed` 和 `image.service_state` 让 client 刷新相关查询。人物参考组变更通知只带作品 id，图片标识和详情由可见视图的查询返回。状态以查询结果为准，见[架构总览 §3](./architecture.md#3-client-与-core-的通信)。
 
 插图和人物参考的操作都是 oRPC 过程。文件录入使用 oRPC 的 multipart 请求。有副作用的过程带幂等键，双击和网络重发只生效一次。见[架构总览 §3](./architecture.md#3-client-与-core-的通信)和 [oRPC 运行要求](https://orpc.dev/docs/requirements)。
 
@@ -568,18 +575,90 @@ image_calls (
 - core 启动时删除 90 天以前的记录，同 [LLM 端点 §9](./llm-endpoints.md#9-调用记录)。
 - 插图的事件和计时样本见[运行诊断 §2.1](./diagnostics.md#21-错误提示与诊断编号)和[§3](./diagnostics.md#3-性能样本)。按路线记录的 narrator 标记率用于检查出图频率。
 
-## 12. 不做的事
+## 12. 按需启动
+
+### 12.1 定位
+
+有的出图服务平时关着，用到时才开，例如按计算单元计费、跑在 Colab 上的 GPU。core 不直接开关这类服务，而是调用一个**启动器**：实现 `unwritten-launcher/1` 的插件，例如 [Colab 启动器](./colab-launcher.md)。
+
+- **启动器只负责开和关。** 服务开没开好，core 仍然向服务本身确认（§3.2），启动器只报告运行时走到了哪一步。
+- **只有 `unwritten-image` 服务能配启动器。** OpenAI 图像接口是常开的云服务，用不到它；模型服务不做按需启动的理由见 §13。
+- **core 不认识启动器背后的平台。** 唤醒、等待用户操作、失败，都只按协议的状态处理。
+
+### 12.2 启动器协议 `unwritten-launcher/1`
+
+协议遵守[插件 §3](./plugins.md#3-协议的共同规则)的全部共同规则。本节只写启动器独有的部分。
+
+**`GET /v1/info`** 返回共同字段。未就绪的原因有两种：`not_configured`（启动器缺少配置）和 `not_signed_in`（启动器调用的平台还没有登录）。`capabilities` 目前没有字段。
+
+**`GET /v1/state`**：
+
+```json
+{ "state": "needs_action", "reason": null, "action": { "url": "https://...", "expiresAt": "<Unix 秒数>" }, "since": "<Unix 秒数>" }
+```
+
+| `state` | 含义 |
+| --- | --- |
+| `stopped` | 服务没有运行 |
+| `starting` | 正在开运行时、复制文件、启动服务 |
+| `needs_action` | 要用户在浏览器里打开 `action.url` 完成一步操作，例如授权。过了 `action.expiresAt` 还没继续，就转为 `failed` |
+| `running` | 运行时已经开好，服务进程已经启动。服务是否就绪，由 core 问服务本身 |
+| `stopping` | 正在关闭 |
+| `failed` | 这次启动失败。`reason` 取 `quota`（平台没有可用的额度或加速器）、`not_signed_in`、`action_expired`、`start_error` 之一 |
+
+`since` 是进入当前状态的时刻，Unix 秒数。
+
+| 请求 | 作用 |
+| --- | --- |
+| `POST /v1/start` | 请求体 `{ "idempotencyKey", "idleMinutes" }`。已在 `starting`、`needs_action`、`running` 时什么也不做；在 `stopping` 时，等关闭完成再启动。返回 202 和当前状态 |
+| `POST /v1/continue` | 请求体 `{ "idempotencyKey" }`。用户完成了 `action.url` 上的操作。不在 `needs_action` 时返回 409 `invalid_state` |
+| `POST /v1/stop` | 请求体 `{ "idempotencyKey" }`。已经停止时什么也不做。返回 202 |
+
+- `idleMinutes` 是 5 到 720 之间的整数，由启动器交给服务一侧的看护循环（§12.4），否则返回 400 `invalid_request`。
+- 错误码在共同错误码之外只多一个 `invalid_state`（409）。
+- `action.url` 必须是 `https` 地址。core 收到别的协议时把这次唤醒记为失败，不交给 client。
+
+### 12.3 core 怎样唤醒
+
+- **两种时机。**
+  - 预热：client 进入一个满足 §7.1 启用条件的开局时调用 `image.prewarm`。
+  - 按需：出图任务（插图、参考图、画风预览）从队列里取出时，服务连不上。
+- **先探测，再唤醒。** 服务的 `/v1/info` 能连上时什么也不做。连不上时，向启动器发 `start`，带上这个服务的 `idleMinutes`。
+- **同一个服务同时只有一次唤醒。** 预热和多个任务碰在一起时，共用这一次唤醒，排队的任务都等它。
+- **等待。** 每隔 `IMAGE_WAKE_POLL_MS`（默认 5000）读一次启动器的状态。到了 `running` 以后，改为探测服务的 `/v1/info`，直到它报告就绪。服务报告未就绪、原因又不是 `starting` 时（例如自检时显存不够），不再等下去，唤醒以对应的错误结束，例如 `image_out_of_memory`。整个唤醒最长 `IMAGE_WAKE_TIMEOUT_MS`（默认 1800000，可配置），等用户操作的时间也算在里面。
+- **等待用户操作。** 状态为 `needs_action` 时，core 推送 `image.service_state`，带上操作地址。client 显示一条不会自动消失的提示，写着「出图服务需要你在浏览器里完成授权」，带「打开授权页」和「继续」两个按钮。「打开授权页」在系统浏览器里打开地址；「继续」调用 `image.wake.continue`，由 core 向启动器发 `continue`。
+- **失败。**
+  - 启动器连不上时，返回 `image_launcher_offline`；返回 401 时，返回 `image_launcher_unauthorized`。
+  - 启动器报告 `failed` 时，返回 `image_wake_failed`，并附上原因。
+  - 超过 `IMAGE_WAKE_TIMEOUT_MS` 时，返回 `image_wake_timeout`，并向启动器发一次 `stop`。启动器报告 `running`、服务却一直连不上时，就是这种情况：运行时没开好，留着只会白白消耗计算单元。
+  - 在等的任务都以 `wake` 这一步失败。玩家点「重试」会重新唤醒。
+- **停用时。** 关闭自动出图或换了服务时，按 §7.1 取消在等的游玩任务。已经发出的唤醒不撤回，服务开好后没有请求，到时自己关闭。
+
+### 12.4 空闲关闭
+
+- **由服务一侧计时。** 唤醒时，core 把 `idleMinutes` 经启动器交给服务一侧的看护循环。连续这么久没有出图请求，服务就关闭自己，启动器随后收尾（[Colab 启动器](./colab-launcher.md)）。
+- **只算出图请求。** 插图、参考图、画风预览都算。core 的探测和测试连接不算，文字生成也不算。
+- **为什么不由 core 计时。** Mac 睡眠或 core 退出时，core 发不出关闭请求；服务一侧计时，照样能关。
+- **改了空闲分钟数，下次唤醒时生效。**
+
+### 12.5 一致性测试
+
+`packages/core/src/image/launcher/conformance/` 逐条覆盖 §12.2 和插件协议的共同规则：缺令牌和错令牌被拒、`/v1/info` 字段齐全、状态的转换、`continue` 在错误状态下返回 `invalid_state`、`action.url` 只用 `https`。运行方式见[插件 §3.6](./plugins.md#36-一致性测试)，环境变量是 `UNWRITTEN_LAUNCHER_CONFORMANCE_URL` 和 `UNWRITTEN_LAUNCHER_CONFORMANCE_TOKEN`。对着真实的启动器运行时，会真的开一个运行时，消耗计算单元。
+
+## 13. 不做的事
 
 - **载入 core 的代码插件。** 理由见[插件 §1](./plugins.md#1-什么是插件)。
 - **其他协议的适配器**，例如 Gemini、A1111、阿里云百炼。这些服务可以在前面加一层实现 Unwritten 图像协议的代理来接入。
 - **按路线设置插图配额。** 每回合至多一张，由 narrator 按 §7.1 标记。
-- **离线后自动补画。** 服务连不上时直接失败，由玩家手动重试，免得服务回来后积压的图一口气画出来。
+- **离线后自动补画。** 没配启动器的服务连不上时直接失败，由玩家手动重试，免得服务回来后积压的图一口气画出来。配了启动器时，唤醒期间新来的任务在队列里等，之前已经失败的图仍然等玩家手动重试。
+- **模型服务的按需启动。** 回合要等冷启动的十几分钟，还要改模型调用 120 秒的超时规则；出图可以降级，不挡正文，所以先只给出图服务做。
+- **由 core 按空闲时长关闭服务，以及设置页的「立即关闭」。** 空闲关闭由服务一侧计时（§12.4），Mac 睡眠或 core 退出时照样生效。core 只在唤醒超时后发一次 `stop`，收回没开好的运行时。
 - **生成进度的百分比。** OpenAI 图像接口不报告进度，占位符保持安静，只写「正在画这一幕」。
 - **服务端的原生画风**，例如把「水彩」对应到服务器上的一个 LoRA。画风预设要和服务器上装的模型一一对应，复杂度明显上升。
 - **生成独立的缩略图文件。** 手记里的缩略图直接把当前可见的正面图缩小显示。导入时的格式整理见 §6.2。
 - **候选的插图、游玩中途改画风、手动「画这一幕」、插图的图集和导出、按作品单独指定出图服务。**
 
-## 13. 验收
+## 14. 验收
 
 | 从什么情况开始 | 操作 | 应当看到的结果 |
 | --- | --- | --- |
@@ -617,3 +696,11 @@ image_calls (
 | 一条路线见过某人，另一条路线只听说过他，两条共用同一次开局 | 查看两条手记，再用已见路线的参考图标识从另一条路线取图 | 已见路线能取可见正面，另一条路线的手记没有该图位置，直接取图也被拒绝 |
 | 源码里写一个 `comfy` 字样的分支 | 运行测试 | 扫描源码的测试失败 |
 | `providers.json` 是版本 1 | 启动 core，从界面添加一个出图服务 | 读取正常；保存后文件是版本 2，旧文件存成 `providers.json.bak` |
+| 服务配了伪启动器，服务关着 | 进入一个开了插图的开局 | 启动器收到一次 `start`，带着这个服务的 `idleMinutes`；服务就绪后，开场图开始画 |
+| 服务配了伪启动器，服务关着，同时排着三张图 | 等唤醒完成 | 启动器只收到一次 `start`；三张图按顺序画成 |
+| 伪启动器在唤醒途中转为 `needs_action` | 在提示里点「继续」 | 提示消失，启动器收到 `continue`，唤醒接着进行 |
+| 伪启动器返回 `action.url` 为 `http` 地址 | 等唤醒 | 以 `image_wake_failed` 失败，client 收不到这个地址 |
+| 伪启动器一直停在 `starting` | 等过 `IMAGE_WAKE_TIMEOUT_MS` | 在等的插图以 `image_wake_timeout` 失败，启动器收到一次 `stop`；玩家点「重试」会重新唤醒 |
+| 伪启动器报告 `running`，伪服务报告未就绪，原因是 `out_of_memory` | 等唤醒 | 唤醒很快以 `image_out_of_memory` 结束，不等到超时 |
+| 启动器没有运行 | 玩到一个标了插图的回合 | 很快以 `image_launcher_offline` 失败，正文照常 |
+| 没配启动器的服务连不上 | 玩到一个标了插图的回合 | 照旧快速失败，不发出任何唤醒请求 |

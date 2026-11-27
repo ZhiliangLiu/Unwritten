@@ -9,6 +9,7 @@
 - **宿主只管部署。** 它检查资源、搬运文件、接入 tailnet、看护进程、空闲时释放运行时。它不实现任何协议，core 也不知道它存在。
 - **`selfhost/` 放用户自己部署、但不属于插件的东西：** Colab 宿主，以及 core 用已有协议调用的自建服务，例如 Strata。插件放在 `plugins/`，定义见[插件 §1](./plugins.md#1-什么是插件)。`apps/` 和 `packages/` 不导入 `selfhost/` 的代码，也不出现它们专属的名字，规则和检查同[插件 §2](./plugins.md#2-边界)。
 - **一个运行时只跑一个服务。** 出图模型和大语言模型放在同一块 GPU 上会争抢显存，单卡通常放不下两份权重。两个服务都要用时，开两个运行时，各自是 tailnet 上的一个节点。
+- **两种启动方式，走同一套步骤。** 你可以在浏览器里手动运行笔记本，也可以让 Mac 上的 [Colab 启动器](./colab-launcher.md) 用 Colab CLI 按需开关运行时。两种方式只在代码和密钥从哪来、怎样授权 Drive 上不同（§8.1）。
 - **Colab 只是一种运行方式。** 服务本身不区分机器，在自己的 GPU 机器上运行见各服务文档的「在本机运行」。
 
 ## 2. 前提
@@ -81,7 +82,7 @@ Colab 运行时
 <Drive 根目录>/unwritten/
   colab/            仓库里 selfhost/colab 的副本
   <名称>/
-    code/           服务目录的副本：plugins/comfyui 或 selfhost/strata，笔记本从这里打开
+    code/           服务目录的副本：plugins/comfyui 或 selfhost/strata，笔记本从这里打开；由启动器启动时不用
     models/         模型文件和核对标记
     tailscale/      这个节点的 tailscaled 状态
 ```
@@ -106,6 +107,7 @@ Drive 挂载在 `/content/drive`。宿主在挂载点下依次查找 `MyDrive` �
 - **名字里带上服务。** Colab 的 Secret 属于账号，所有笔记本看到的是同一份清单，访问权限按笔记本分别授予。两个服务用不同的名字，才不会互相覆盖。
 - **读取。** 笔记本用 `google.colab.userdata.get(<名称>)` 读取，只读这一次部署用得到的 Secret（§8 第 2 步）。抛出 `SecretNotFoundError`，说明没有存这个 Secret；抛出 `NotebookAccessError`，说明存了但没给这个笔记本访问权限。两种情况都停下来，写明缺的是哪一个、该怎么做。
 - **令牌和认证 key 不出现在笔记本里。** 不写进任何单元格，也不打印。
+- **由启动器启动时不读 Colab Secrets，** 密钥由启动器上传（§8.1）。
 - **认证 key 用一次性、非临时的。** 节点状态存在 Drive 上（§6），以后每次开机都沿用同一个节点身份，不用再认证。临时节点下线 30 到 60 分钟后才会被清除，在这段时间里重开 Colab 会注册出一个新节点，换一个新的 IP；固定的节点身份让节点名和地址始终不变，设置页里的地址只填一次。带标签的节点首次认证后，默认不会因为 key 过期掉线。
 
 ## 8. 笔记本的步骤
@@ -127,6 +129,29 @@ Drive 挂载在 `/content/drive`。宿主在挂载点下依次查找 `MyDrive` �
 6. **服务的「启动」。** 令牌经环境变量传入，等到状态文件出现。
 7. **对外开放。** 执行 `tailscale --socket=/tmp/tailscaled.sock serve --bg --https=443 http://127.0.0.1:<对外端口>`，打印服务地址 `https://<节点名>.<tailnet 名>.ts.net`。服务还没就绪时也开放，由服务自己回应未就绪；例如出图服务的测试连接会显示未就绪的原因（[插图与出图服务 §3.2](./image.md#32-get-v1info)）。
 8. **看护循环**（§10）。
+
+### 8.1 由启动器启动
+
+[Colab 启动器](./colab-launcher.md)用 `colab exec` 运行一个入口脚本。它解包启动器上传的代码，再调用宿主的同一个入口，按上面的 8 步执行。区别只有这些：
+
+| 步骤 | 手动运行笔记本 | 由启动器启动 |
+| --- | --- | --- |
+| 代码 | Drive 上 `unwritten/` 下的副本 | 启动器从本机仓库打包上传的代码 |
+| 令牌、认证 key 和空闲分钟数 | Colab Secrets，以及笔记本第一个单元格 | `/content/unwritten/launch.json`。宿主读完立即删掉它。空闲分钟数是 Unwritten 设置页为这个服务设的值 |
+| 挂载 Drive | 笔记本调用 `drive.mount`，在浏览器里授权 | 启动器先用 `colab drivemount` 挂好，授权由 Unwritten 提示。宿主发现 `/content/drive` 下已经有 Drive 根目录，就不再调用 `drive.mount` |
+| 输出 | 给人看的文字 | 另外打印状态行，供启动器解析 |
+| 结束 | 空闲到时释放运行时 | 同样调用 `runtime.unassign()`，然后入口返回，启动器再执行 `colab stop` |
+
+**状态行**每行一条，格式是 `unwritten-host <JSON>`：
+
+```
+unwritten-host {"phase": "serving"}
+unwritten-host {"phase": "exiting", "reason": "idle"}
+```
+
+- `phase` 按步骤取 `copying`、`preparing`、`models`、`tailscale`、`starting`、`serving`、`exiting`。服务对外开放（第 7 步）之后报告 `serving`。
+- `exiting` 附 `reason`：`idle`（空闲到时）、`process_exit`（服务进程退出后空闲到时）、`error`（启动途中出错，另附出错的 `step`）。
+- 状态行里只有阶段和原因，不含令牌、地址、提示词或任何用户内容，因为 CLI 会把 `exec` 的输出记进本地日志。
 
 ## 9. Tailscale 的访问控制
 
@@ -161,7 +186,7 @@ Drive 挂载在 `/content/drive`。宿主在挂载点下依次查找 `MyDrive` �
 - 每分钟打印一次就绪状态、未就绪的原因和空闲时长。
 - 「启动」返回的任何一个进程退出时，打印是哪个进程、退出码。服务不再接请求，空闲计时照常进行，到时照样释放运行时，免得服务已经挂了还在消耗计算单元。
 - `inFlight` 为 0 时才算空闲。空闲时长从 `lastActivityAt` 算起，还没有过请求时从看护循环开始时算起。
-- 连续空闲 `IDLE_SHUTDOWN_MINUTES`（默认 30 分钟，在笔记本第一个单元格里配置）后，调用 `google.colab.runtime.unassign()` 释放运行时，不再消耗计算单元。
+- 连续空闲 `IDLE_SHUTDOWN_MINUTES`（默认 30 分钟，在笔记本第一个单元格里配置；由启动器启动时取 `launch.json` 里的值）后，调用 `google.colab.runtime.unassign()` 释放运行时，不再消耗计算单元。
 
 看护循环报告服务状态，并在闲置时主动释放运行时。Colab 仍可能根据套餐、使用量和资源供应回收运行时。
 
@@ -176,7 +201,8 @@ Drive 挂载在 `/content/drive`。宿主在挂载点下依次查找 `MyDrive` �
   - Drive 在服务启动之前卸载；
   - 状态目录在卸载之前复制回 Drive；
   - 首次接入和再次接入时 `up` 的参数，以及再次接入时不读认证 key；
-  - 看护循环的空闲判断和进程退出。
+  - 看护循环的空闲判断和进程退出；
+  - 由启动器启动时：读完 `launch.json` 就删掉，Drive 已挂载时不再调用 `drive.mount`，状态行的格式和内容。
 - **CI** 跑宿主的 pytest。
 
 ## 12. 已知限制
@@ -185,7 +211,7 @@ Drive 挂载在 `/content/drive`。宿主在挂载点下依次查找 `MyDrive` �
 - **用户态网络下的入站转发和 `tailscale serve`，** Tailscale 的官方文档没有明确写出它们的行为。§14 有对应的验收用例；这两条不成立时，这种部署方式就走不通。
 - **卸载之后，tailscaled 状态的变化不写回 Drive。** 带标签的节点默认不会因为 key 过期掉线，平时状态不会再变。Tailscale 要求重新认证时，用一个新的认证 key 再部署一次。
 - **冷启动慢：** 从 Drive 复制模型、安装引擎、加载模型、跑自检。模型越大越慢。
-- **代码靠手动同步到 Drive。** 仓库里的代码更新后，Drive 上的副本不会自动更新。
+- **手动运行笔记本时，代码靠手动同步到 Drive。** 仓库里的代码更新后，Drive 上的副本不会自动更新。由启动器启动时，启动器每次都上传本机仓库里的代码。
 - **两个服务同时用，就要两个运行时，** 计算单元也按两份消耗。
 
 ## 13. 不做的事
@@ -213,4 +239,6 @@ Drive 挂载在 `/content/drive`。宿主在挂载点下依次查找 `MyDrive` �
 | 服务正在处理一个耗时超过 `IDLE_SHUTDOWN_MINUTES` 的请求 | 等待 | 运行时不被释放 |
 | 服务空闲超过 `IDLE_SHUTDOWN_MINUTES` | 等待 | 运行时被释放 |
 | 笔记本运行完 | 搜索所有单元格的输出 | 找不到令牌和认证 key |
+| 由启动器启动，服务已就绪 | 在运行时里查看 `/content/unwritten/`，再查看启动器收到的输出 | 没有 `launch.json`；状态行里只有阶段和原因 |
+| 由启动器启动，Drive 已由 `colab drivemount` 挂好 | 运行到第一步 | 宿主不再调用 `drive.mount`，也没有出现第二次授权 |
 | 伪 Colab | 运行宿主的 pytest | 全部通过 |
