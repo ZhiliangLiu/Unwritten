@@ -5,6 +5,23 @@
   gap: var(--uw-space-12);
 }
 
+.rail {
+  position: sticky;
+  inset-block-start: calc(var(--uw-size-toolbar) + var(--uw-space-8));
+  display: grid;
+  gap: var(--uw-space-6);
+  align-self: start;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--uw-typography-page-title-font-family);
+  font-size: var(--uw-typography-page-title-font-size);
+  font-weight: var(--uw-typography-page-title-font-weight);
+  line-height: var(--uw-typography-page-title-line-height);
+  letter-spacing: var(--uw-typography-page-title-letter-spacing);
+}
+
 .content {
   display: grid;
   gap: var(--uw-space-10);

@@ -8,14 +8,15 @@ import { PageToolbar } from './PageToolbar.tsx';
 
 initTestI18n();
 
-function PageHarness({ heading }: { heading: 'toolbar' | 'content' }) {
+function PageHarness({ heading, subtitle }: { heading: 'toolbar' | 'content' | 'custom'; subtitle?: string }) {
   const [title, setTitle] = useState('作品库');
   return (
     <>
       <button type='button' onClick={() => setTitle('设置')}>
         改标题
       </button>
-      <Page title={title} heading={heading} toolbar={{ start: { kind: 'brand' } }} width='page'>
+      <Page title={title} heading={heading} subtitle={subtitle} toolbar={{ start: { kind: 'brand' } }} width='page'>
+        {heading === 'custom' ? <h1 tabIndex={-1}>{title}</h1> : null}
         <p>内容</p>
       </Page>
     </>
@@ -45,6 +46,14 @@ describe('Page', () => {
     const { container } = await render(<PageHarness heading='content' />);
     expect(container.querySelector('header')?.querySelector('h1')).toBeNull();
     expect(container.querySelector('main header h1')).not.toBeNull();
+  });
+
+  it('标题由页面自己渲染时不再生成页头，并聚焦子元素的 h1', async () => {
+    const { container } = await render(<PageHarness heading='custom' subtitle='副标题' />);
+    expect(container.querySelector('main > header')).toBeNull();
+    expect(document.activeElement).toBe(container.querySelector('h1'));
+    expect(container.textContent).not.toContain('副标题');
+    expectHeadingOutline(container);
   });
 
   it('标题在工具行时 h1 在 header 里', async () => {

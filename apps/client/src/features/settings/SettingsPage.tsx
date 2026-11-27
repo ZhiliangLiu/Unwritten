@@ -23,12 +23,17 @@ export function SettingsPage() {
   return (
     <Page
       title={t('settings:page.heading')}
-      heading='content'
+      heading='custom'
       toolbar={{ start: { kind: 'back', to: '/', label: t('common:nav.library') } }}
       width='page'
     >
       <div className={styles.layout}>
-        <SettingsNav />
+        <div className={styles.rail}>
+          <h1 className={styles.title} tabIndex={-1}>
+            {t('settings:page.heading')}
+          </h1>
+          <SettingsNav />
+        </div>
         <div className={styles.content}>
           {config.data?.problem ? <ConfigProblem problem={config.data.problem} /> : null}
           <ErrorNotice error={config.error} />
