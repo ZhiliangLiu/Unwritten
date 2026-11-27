@@ -42,7 +42,7 @@ export function Page({
         titleIsHeading={heading === 'toolbar'}
         tools={toolbar.tools}
       />
-      <main className={width === 'prose' ? `${styles.main} ${styles.prose}` : `${styles.main} ${styles.content}`}>
+      <main className={width === 'prose' ? `${styles.main} ${styles.prose}` : styles.main}>
         {heading === 'content' ? (
           <header className={styles.pageHeader}>
             <div className={styles.headingText}>
