@@ -14,6 +14,7 @@ release/
 coverage/
 test-results/
 playwright-report/
+.playwright-mcp/
 
 # 本机数据：开发时的数据目录、SQLite 库、含 key 的模型配置
 .data/
