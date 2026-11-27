@@ -39,6 +39,10 @@ export const DESKTOP_STRING_KEYS = [
   'desktop:crash.detail',
   'desktop:crash.restart',
   'desktop:crash.quit',
+  'desktop:renderer.title',
+  'desktop:renderer.message',
+  'desktop:renderer.reload',
+  'desktop:renderer.quit',
 ] as const;
 
 export type DesktopStringKey = (typeof DESKTOP_STRING_KEYS)[number];

@@ -3533,9 +3533,9 @@ Figma 文件 Prototype 页新增 section “Milestone 3 · 作者设定”和 �
 
 | 项 | 类型（欠账 / 不适用） | 为什么现在做不了 | 补上需要什么 |
 | --- | --- | --- | --- |
-| 幕后折叠时只显示条数，还是列出秘密的无剧透标题 | 待裁定 | Figma 只显示“幕后已折叠 · N 条”，[创作工作站 §6](../docs/author-workstation.md#6-工具)和 T22 要求列出标题 | 维护者选定。保留标题不需要改文档；改成条数要同步 docs/author-workstation §6、T22 和附录 A.2 |
-| T17 采用每局生成人物的预览时，`meta.opening.presentIds` 会引用未写进发布版本的示例人物 id | 欠账 | D22 要求带 `slot` 的预览人物不写成作者设定，T17 仍用 `createdIds` 解析 `presentIds` | 在 T17 采用时对带 `slot` 的行跳过 scene 引用，或把模板的 scene 只留名字、不留 id |
-| T17 没有标出作者原文里写死的“每局生成人物”名字 | 欠账 | T17 的 `forbiddenNames` 只含主角名和默认值，[创作工作站 §7](../docs/author-workstation.md#7-受影响范围与开场核对)要求也标出每局生成人物 | 在 `author_text` 模式下把预览人物的名字加入 `forbiddenNames`，或明确缩减 §7 的范围 |
+| 幕后折叠时只显示条数，还是列出秘密的无剧透标题 | 已处置 | 维护者选定列出标题，见 §6.1 D27 | 不需要改文档 |
+| T17 采用每局生成人物的预览时，`meta.opening.presentIds` 会引用未写进发布版本的示例人物 id | 已处置 | `adoptPreview` 只给不带 `slot` 的行分配 id，场景里没有 id 的人物位置被跳过 | `authoring/service.test.ts` 断言每局生成作品的 `presentIds` 为空 |
+| T17 没有标出作者原文里写死的“每局生成人物”名字 | 已处置 | `parseOpeningProposal` 在 `review` 模式下把人物位置的名字也列进待处理 | `opening-proposal.test.ts` 的“作者原文写死每局生成的人物也不写成作者设定” |
 | T12 的 `grep` 判据包含存量测试里的跨模块导入 | 已处置 | 判据原文写“零命中”，但现有 `*.test.ts` 里有 10 条存量命中；T12 新建文件零命中 | 判据已改为排除 `*.test.ts`；存量测试不动 |
 | T22 方案编辑表单不能改秘密的主体和知情者 | 欠账 | `SecretForm` 只编辑标题、真相和揭晓条件，`plan.field.knowers` 因此未使用 | T22 补实体多选，或由维护者确认这次不需要改这两项 |
 | T14 `adoptStalePlan` 无法按名字去重秘密/关键场面 | 欠账 | 规范只给实体、栏目、结束条件的同名规则；秘密和场面没有名称身份，生成期间改过它们时可能留下新旧两份 | 维护者定：按 `statement`/`condition` 去重，或接受重复并在界面提示 |

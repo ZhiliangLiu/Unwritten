@@ -46,3 +46,15 @@ export function crashDialog(_code: number | null): DialogSpec {
     cancelId: 1,
   };
 }
+
+export function rendererGoneDialog(): DialogSpec {
+  return {
+    type: 'warning',
+    title: t('desktop:renderer.title'),
+    message: t('desktop:renderer.message'),
+    detail: '',
+    buttons: [t('desktop:renderer.reload'), t('desktop:renderer.quit')],
+    defaultId: 0,
+    cancelId: 1,
+  };
+}

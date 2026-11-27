@@ -1,7 +1,7 @@
 import { LIST_ITEM_STATUSES } from '@unwritten/contracts';
 import type { HintMode, ListItemStatus, NeedsReview } from '@unwritten/contracts';
 import { normalizeProse, parseJsonLines, parseOptionLines, splitParagraphs } from '../text/turn-text.ts';
-import { placeholderToken, unknownPlaceholders, withoutPlaceholders } from '../text/placeholders.ts';
+import { placeholderNames, placeholderToken, unknownPlaceholders, withoutPlaceholders } from '../text/placeholders.ts';
 import { parseChanges } from './changes.ts';
 import type { CodeBook } from './codebook.ts';
 import { findLeaks } from './leak.ts';
@@ -76,6 +76,39 @@ function stateValueText(def: ProjStateDef, value: string): string {
   if (def.display === 'list') return listValueText(value);
   if (def.display === 'number' && def.config.unit) return `${value} ${def.config.unit}`;
   return value;
+}
+
+export function fixedTextPlaceholderErrors(label: string, text: string, forbiddenNames: readonly string[]): string[] {
+  const errors = [...new Set(placeholderNames(text))].map(
+    (name) =>
+      `${label}：这里不能写 ${placeholderToken(name)}。占位符只能写在正文和推荐行动里，这里提到主角时用不带名字的称呼。`,
+  );
+  for (const name of forbiddenNames) {
+    if (name.length > 0 && text.includes(name)) {
+      errors.push(`${label}：主角的名字留给玩家填写，这里不要写「${name}」，提到主角时用不带名字的称呼。`);
+    }
+  }
+  return errors;
+}
+
+function changesTexts(changes: ValidatedChanges): Array<[string, string]> {
+  const texts: Array<[string, string]> = [];
+  for (const entity of changes.entities) {
+    texts.push([`第 ${entity.line} 行 changes.name`, entity.name]);
+    if (entity.knownAs) texts.push([`第 ${entity.line} 行 changes.known_as`, entity.knownAs]);
+    texts.push([`第 ${entity.line} 行 changes.profile`, entity.profile]);
+  }
+  for (const name of changes.names) texts.push([`第 ${name.line} 行 changes.name`, name.name]);
+  for (const fact of changes.facts) {
+    texts.push([`第 ${fact.line} 行 changes.statement`, fact.statement]);
+    for (const [key, value] of Object.entries(fact.data ?? {})) {
+      if (typeof value === 'string') texts.push([`第 ${fact.line} 行 changes.${key}`, value]);
+    }
+  }
+  for (const entry of changes.knowledge) {
+    if (entry.perceived) texts.push([`第 ${entry.line} 行 changes.perceived`, entry.perceived]);
+  }
+  return texts;
 }
 
 function positionText(where: 'prose' | 'option', index: number): string {
@@ -156,6 +189,14 @@ export function parseOpeningProposal(
     return { ok: false, errors: parsedChanges.errors, fields: ['changes'] };
   }
   const changes = parsedChanges.value;
+  const fixedTexts: Array<[string, string]> = [
+    ['参数 place', place ?? ''],
+    ['参数 time', time ?? ''],
+    ...changesTexts(changes),
+  ];
+  for (const [label, text] of fixedTexts) {
+    for (const message of fixedTextPlaceholderErrors(label, text, ctx.forbiddenNames)) fail('placeholder', message);
+  }
 
   const slotOf = new Map<number, string>();
   const slotLine = new Map<string, number>();
@@ -294,6 +335,25 @@ export function parseOpeningProposal(
         stateValue = checked.value;
       }
       explicitValues.set(def.id, { value: stateValue, visible });
+    }
+  }
+
+  const stateTexts = [
+    ...[...explicitValues.values()].flatMap((entry) => (entry.value === null ? [] : [entry.value])),
+    ...[...explicitItems.values()].flatMap((entries) => entries.map((entry) => entry.item)),
+  ];
+  for (const text of stateTexts) {
+    for (const name of unknownPlaceholders(text, ctx.fieldNames)) {
+      fail('placeholder', `参数 state：${placeholderToken(name)} 不是作者留的填写项。`);
+    }
+    const stripped = withoutPlaceholders(text);
+    for (const name of ctx.forbiddenNames) {
+      if (name.length > 0 && stripped.includes(name)) {
+        fail(
+          'placeholder',
+          `参数 state：主角的名字留给玩家填写，这里写 ${placeholderToken(ctx.fieldNames[0] ?? '')}，不要写「${name}」。`,
+        );
+      }
     }
   }
 

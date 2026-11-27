@@ -1,6 +1,7 @@
 import { BrowserWindow, shell, type RenderProcessGoneDetails } from 'electron';
 import type { DesktopDiagnostics } from './diagnostics.ts';
 import { decideNavigation, decideWindowOpen } from './navigation.ts';
+import { createRendererRecovery } from './renderer-recovery.ts';
 import { t } from './strings.ts';
 
 export const WINDOW_DEFAULT_WIDTH = 1200;
@@ -11,10 +12,15 @@ export const WINDOW_MIN_HEIGHT = 480;
 export interface MainWindow {
   readonly browserWindow: BrowserWindow;
   load(url: string, allowed: string): void;
+  reload(): void;
   focus(): void;
 }
 
-export function createMainWindow(input: { diagnostics: DesktopDiagnostics; onFirstShow: () => void }): MainWindow {
+export function createMainWindow(input: {
+  diagnostics: DesktopDiagnostics;
+  onFirstShow: () => void;
+  onRepeatedRendererGone: () => void;
+}): MainWindow {
   const browserWindow = new BrowserWindow({
     width: WINDOW_DEFAULT_WIDTH,
     height: WINDOW_DEFAULT_HEIGHT,
@@ -32,6 +38,12 @@ export function createMainWindow(input: { diagnostics: DesktopDiagnostics; onFir
   let currentUrl = '';
   let allowed = '';
   let shown = false;
+  const recovery = createRendererRecovery(() => performance.now());
+  const reload = (): void => {
+    if (currentUrl === '') return;
+    recovery.reloaded();
+    void browserWindow.loadURL(currentUrl);
+  };
 
   browserWindow.on('ready-to-show', () => {
     if (shown) return;
@@ -70,7 +82,8 @@ export function createMainWindow(input: { diagnostics: DesktopDiagnostics; onFir
       level: 'warn',
       data: { reason: details.reason },
     });
-    if (currentUrl !== '') void browserWindow.loadURL(currentUrl);
+    if (recovery.next() === 'reload') reload();
+    else input.onRepeatedRendererGone();
   });
 
   return {
@@ -80,6 +93,7 @@ export function createMainWindow(input: { diagnostics: DesktopDiagnostics; onFir
       allowed = allowedOrigin;
       void browserWindow.loadURL(url);
     },
+    reload,
     focus() {
       if (browserWindow.isMinimized()) browserWindow.restore();
       browserWindow.focus();

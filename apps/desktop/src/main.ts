@@ -10,7 +10,7 @@ import { applyThemeSource, forkUtilityCore, installMenu, showDialog } from './el
 import { buildMenuTemplate } from './menu-template.ts';
 import { allowedOrigin, resolveDataDir, resolveDesktopPaths, windowUrl } from './paths.ts';
 import { resolveShellEnv } from './shell-env.ts';
-import { crashDialog, startFailureDialog } from './startup-error.ts';
+import { crashDialog, rendererGoneDialog, startFailureDialog } from './startup-error.ts';
 import { createMainWindow, type MainWindow } from './window.ts';
 
 const dataDir = resolveDataDir({
@@ -130,9 +130,16 @@ async function boot(): Promise<void> {
             durationMs: performance.now() - createdAt,
             outcome: 'ok',
           }),
+        onRepeatedRendererGone: () => void handleRendererGone(),
       });
     }
     mainWindow.load(windowUrl(paths, result.port, result.token), allowedOrigin(paths, result.port));
+  }
+
+  async function handleRendererGone(): Promise<void> {
+    const response = await showDialog(mainWindow?.browserWindow ?? null, rendererGoneDialog());
+    if (response === 0) mainWindow?.reload();
+    else app.quit();
   }
 
   async function handleCrash(): Promise<void> {
@@ -147,5 +154,8 @@ async function boot(): Promise<void> {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  void boot();
+  boot().catch((error: unknown) => {
+    process.stderr.write(`unwritten desktop: ${error instanceof Error ? error.message : String(error)}\n`);
+    app.exit(1);
+  });
 }

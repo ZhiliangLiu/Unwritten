@@ -182,6 +182,64 @@ describe('parseOpeningProposal', () => {
     }
   });
 
+  it('正文和选项以外的地方不能写占位符', () => {
+    const { temp, opened, ctx } = setup();
+    try {
+      const result = parseOpeningProposal(
+        {
+          ...validArgs,
+          place: '{{protagonist.名字}}的船舱',
+          changes:
+            '{"type":"new_entity","kind":"character","name":"沈岚","known_as":"撑伞的女人","profile":"在等{{protagonist.名字}}","para":"2"}',
+        },
+        { ...ctx, fixedProse: authorOpening, placeholderPolicy: 'review' },
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.fields).toContain('placeholder');
+        expect(result.errors.some((error) => error.startsWith('参数 place'))).toBe(true);
+        expect(result.errors.some((error) => error.includes('changes.profile'))).toBe(true);
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('开场事实里写死主角名退回模型', () => {
+    const { temp, opened, ctx } = setup();
+    try {
+      const result = parseOpeningProposal(
+        {
+          ...validArgs,
+          changes:
+            '{"type":"new_entity","kind":"character","name":"沈岚","known_as":"撑伞的女人","profile":"认识阿岚","para":"2"}',
+        },
+        ctx,
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.errors.some((error) => error.includes('「阿岚」'))).toBe(true);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('状态栏开局值里的未知占位符退回模型', () => {
+    const { temp, opened, ctx } = setup();
+    try {
+      const result = parseOpeningProposal(
+        { ...validArgs, state: '{"key":"旧信","item":"写给{{protagonist.年龄}}的信","status":"open"}' },
+        ctx,
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.errors.some((error) => error.includes('{{protagonist.年龄}}'))).toBe(true);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
   it('只显示行动的作品不接受提醒', () => {
     const { temp, opened, ctx } = setup();
     try {

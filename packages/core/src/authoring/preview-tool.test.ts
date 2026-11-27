@@ -104,6 +104,25 @@ describe('parsePreviewArgs', () => {
     }
   });
 
+  it('标题、简介和公开设定里不能写占位符或主角名', () => {
+    const { temp, opened, ctx } = setup();
+    try {
+      const result = parsePreviewArgs(
+        { ...valid, title: '{{protagonist.名字}}的钟铺', blurb: '阿岚在雨夜等一个人。' },
+        { ...ctx, forbiddenNames: ['阿岚'] },
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.fields).toContain('placeholder');
+        expect(result.errors.some((error) => error.startsWith('参数 title'))).toBe(true);
+        expect(result.errors.some((error) => error.startsWith('参数 blurb') && error.includes('「阿岚」'))).toBe(true);
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
   it('预览列出本次新增的人物和地点', () => {
     const { temp, opened, ctx } = setup();
     try {
