@@ -46,6 +46,8 @@ RPC 的失败事件记录过程名、错误码和失败阶段。输入或输出�
 
 故事方案和开局与预览、续写同样记录开始、完成、失败和中断：方案任务记 `plan.job.started`、`plan.job.done`、`plan.job.failed`、`plan.job.interrupted`，完成时附方案项数、冲突数和结果是否过期；作者改一项、删一项、确认方案各有事件，确认时附写入的人物、秘密、栏目、场面条数和主要人物模式。开局记 `playthrough.started`，附人物模式和玩家填了几项；每局生成人物的开场请求记 `opening.request.done` 或 `opening.request.failed`，失败时附阶段（人物、开场、校验、提交）。保存草稿的事件附本次改了的补充设定节。
 
+插图和出图服务各有事件（[插图与出图服务](./image.md)）：`illustration.flagged`（narrator 标了一次高潮，附路线 ID 和回合深度，用来按路线统计标记率）、`illustration.done`、`illustration.failed`（附失败的步骤 `appearance`、`shot`、`portrait`、`generate`、`save` 和错误类别）、`illustration.dismissed`、`portrait.done`、`portrait.failed`；`image.service.probe`（服务 ID、协议、结果是在线、未就绪还是离线，未就绪时附原因）；`image.gc`（删除的目录数、文件数和释放的字节数）。事件只记 ID、计数和错误类别，提示词、画面说明和形象原文都不进诊断库。
+
 desktop 的事件由 contracts 的 `/desktop` 入口逐个定义字段：`desktop.started`（是否打包、是否开发模式、平台）、`desktop.shell_env`（是否成功、是否超时、读到的变量个数）、`desktop.core_exited`（退出码、启动中还是运行中）、`desktop.core_ready_timeout`、`desktop.core_restarted`（重试还是重启）、`desktop.renderer_gone`（Electron 给出的原因）、`desktop.navigation_blocked`（导航还是新窗口、是否交给了系统浏览器）、`desktop.dropped`（丢弃条数）。不合格的进程消息由 core 记 `desktop.channel.invalid`，附消息种类和校验问题数。窗口地址带令牌，任何事件都不记录它。
 
 在数据目录打开 `diagnostics.db`，将界面上的诊断编号传给以下查询：
@@ -103,6 +105,9 @@ performance_samples (
 | `opening.cast` | 开始生成本局人物 | 人物写入开局，或失败 |
 | `opening.validate`、`opening.commit` | 开始校验一次开场提案；开始提交 | 同 `turn.validate`、`turn.commit` |
 | `story.status` | 开始读取一条路线的状态栏 | 主角视角的状态栏可用。附显示中与已了结的栏目数 |
+| `illustration.queue`、`illustration.total` | 插图入队；开始处理 | 开始处理；文件写入并提交、失败或中断。总耗时附参考人物数和是否现画了立绘 |
+| `illustration.shot` | 开始写镜头描述 | 镜头描述校验通过并写入，或失败 |
+| `image.generate` | `image` 模块向出图服务提交一张图 | 取回并校验完图片，或失败、超时、取消。附协议、质量档和参考图张数，`call_id` 关联 `image_calls` |
 | `desktop.core_ready` | desktop 启动 core | 收到 `ready`、`start-failed`、超时或进程退出。`attempt` 是本次启动的第几次尝试 |
 | `desktop.window_ready` | desktop 创建窗口 | 窗口第一次可以显示 |
 | `preview.validate`、`turn.validate` | 开始校验一次模型提案 | 得到校验结果，包括须修正的情况 |

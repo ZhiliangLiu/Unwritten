@@ -19,6 +19,7 @@ works (
   id            TEXT PRIMARY KEY,
   title         TEXT,              -- 作者未起名时为空，作品库用背景首句来辨认
   blurb         TEXT,              -- 玩家可读的简介
+  illustration_style JSON,         -- 作者给的默认画风：{"preset": "<预设 id>"} 或 {"custom": "<画风原文>"}；为空时用默认画风
   draft_id      TEXT NOT NULL,     -- 当前草稿版本
   published_id  TEXT,              -- 最近一次发布的版本；为空表示作品尚在创作
   created_at, updated_at
@@ -42,7 +43,7 @@ work_versions (
 | --- | --- |
 | `background` | 作者写的背景原文 |
 | `settings` | 补充设定，八节：`world`（世界）、`protagonist`（玩家主角）、`cast`（主要人物）、`secrets`（秘密与知情）、`opening`（开场）、`actions`（行动与提示）、`scenes`（关键场面与结局）、`status`（初始状态栏）。每一节保存作者原文 `text` 和这一节自己的修订号 `rev`（这一节的内容变了才加一）。有选择的节另存选择：`cast.mode` 是整部作品的主要人物模式，`fixed`（固定主要角色）或 `per_run`（每次新开局生成）；`actions.hints` 是 `actions_only`（只显示行动）或 `known_consequences`（提醒已知后果）；`opening.mode` 是 `ai`（AI 起草）、`situation`（按作者写的情境起草）或 `author_text`（正文采用作者原文）；`protagonist.fields` 是作者留给玩家填写的主角项目，最多 8 项，每项有项目名 `name`、默认值 `defaultValue` 和 `isName`（是否为主角的名字，最多一项）。玩家留空时用默认值，开场占位符因此总有值可填。作者锚点不在这八节里，单独存在 `anchors` |
-| `plan` | 故事方案：`items`、`conflicts`、`confirmedRev`。`items` 的每一项有 core 分配的 `id`、来源 `source` 和种类 `kind`：`summary`（玩家身份、基调、开场处境、世界、公开设定这几个摘要）、`entity`（人物、地点和事物；主要人物每局生成时是人物位置，带作用和相遇样例）、`secret`（秘密：标题、真相、主体、知情者、揭晓条件）、`state`（状态栏栏目：显示方式、配置、是否幕后、揭晓条件、开局值）、`scene`（关键场面）、`ending`（结束条件）。来源是 `author`（作者写的或作者亲手改过的）、`ai`（AI 补全的）或 `author_confirmed`（作者在提案卡上确认过的 AI 内容）；`author` 和 `author_confirmed` 都受“作者设定优先”的保护，重新生成方案时原样保留。`conflicts` 是 AI 报告的两条互相矛盾的作者原话。`confirmedRev` 是确认方案时的 `content_rev`；它等于草稿当前的 `content_rev` 才算已确认，所以确认之后草稿的任何写入都让方案回到未确认。没有 `kind` 的项按摘要读取，`id` 为 `public_setting` 的就是公开设定 |
+| `plan` | 故事方案：`items`、`conflicts`、`confirmedRev`。`items` 的每一项有 core 分配的 `id`、来源 `source` 和种类 `kind`：`summary`（玩家身份、基调、开场处境、世界、公开设定这几个摘要）、`entity`（人物、地点和事物；人物另有形象 `appearance`，只写此刻看得见的样子；主要人物每局生成时是人物位置，带作用和相遇样例）、`secret`（秘密：标题、真相、主体、知情者、揭晓条件）、`state`（状态栏栏目：显示方式、配置、是否幕后、揭晓条件、开局值）、`scene`（关键场面）、`ending`（结束条件）。来源是 `author`（作者写的或作者亲手改过的）、`ai`（AI 补全的）或 `author_confirmed`（作者在提案卡上确认过的 AI 内容）；`author` 和 `author_confirmed` 都受“作者设定优先”的保护，重新生成方案时原样保留。`conflicts` 是 AI 报告的两条互相矛盾的作者原话。`confirmedRev` 是确认方案时的 `content_rev`；它等于草稿当前的 `content_rev` 才算已确认，所以确认之后草稿的任何写入都让方案回到未确认。没有 `kind` 的项按摘要读取，`id` 为 `public_setting` 的就是公开设定 |
 | `castSlots` | 主要人物每局生成时的人物位置：`id`、作用、相遇样例。确认方案时由方案里的人物位置写入；固定主要角色的作品没有这一项，人物直接写进实体表 |
 | `opening` | 采用的开场：正文、初始选项（可以带提醒）、初始场景、初始状态值 `initialState`、开场的故事变化 `changes`，以及这些变化里新出现的实体分到的 id `createdIds`；每局生成人物的作品另标 `template`，开局时这份开场只作参照。改稿后的核对还要用到它引用了哪些设定、各是什么修订号（见[创作工作站 §7](./author-workstation.md#7-受影响范围与开场核对)）。正文、初始选项和初始状态值里都可以含主角填写项的占位符，格式为 `{{protagonist.<项目名>}}`，开局时一并替换成玩家填写的值（[回合循环 §10](./turn-loop.md#10-开场)） |
 | `opening_candidates` | 仅草稿有：候选开场 |
@@ -53,6 +54,8 @@ work_versions (
 | `wizardStep` | 仅草稿有：向导停在哪一步，`background`、`plan` 或 `opening` |
 
 **标题和简介是作品的展示信息，不属于版本。** 它们只用来在作品库和路线列表里辨认作品，所以存在 `works` 上，不随版本复制。作者随时可以修改，改完作品库和所有路线立即显示新的；写入不计入 `content_rev`，也不需要“应用到新开局”。游玩时的上下文不包含它们（[回合循环 §3](./turn-loop.md#3-上下文哪些直接给哪些让模型查)），所以改名不影响任何路线里的故事。
+
+**默认画风也存在 `works` 上，同样不属于版本。** 每局在开局时就把画风写进开局行并锁定（§3），所以改默认画风只影响之后的新开局，不影响任何已有的路线。它不计入 `content_rev`：不会让已确认的方案回到未确认，也不需要发布就对新开局生效（[插图与出图服务 §6.3](./image.md#63-画风)）。
 
 **为什么这些放在 JSON 里。** 它们由向导和工作站整块读写，从不按名字查询，而且只属于某一个版本。人物、地点、事实、状态栏定义则放进下面的表，因为回合循环的只读工具要把它们和游玩中产生的行一起查询。
 
@@ -88,6 +91,7 @@ playthroughs (
   kind          TEXT NOT NULL,     -- play | trial
   protagonist   JSON,              -- 玩家这次填写的主角项目
   cast          JSON,              -- 每局生成模式下本局确定的人物；只在开场提交前暂存，供失败后重试。开场提交时写入实体表，并清空这一列
+  illustration  JSON NOT NULL,     -- 本局的插图设置：画风 style、主角是否入画 protagonistInFrame、主角形象 protagonistAppearance。开局时写入，之后不再改；主角形象由 AI 补写时只写这一次。迁移时，已有的开局补上作品的默认画风、主角不入画、没有主角形象
   root_turn_id  TEXT,              -- 开场回合；开场生成失败时为空，重试时沿用这一行
   created_at
 )
@@ -102,6 +106,7 @@ turns (
   options       JSON NOT NULL,          -- 下一步的推荐行动
   scene         JSON NOT NULL,          -- 这一回合结束时的地点、在场者、故事时间
   ending        INTEGER NOT NULL DEFAULT 0,
+  illustrate_para INTEGER,              -- narrator 标记的高潮段号；开场固定为 0，表示第一段之前；不画为空
   status        TEXT NOT NULL,          -- committed | candidate
   created_at
 )
@@ -153,7 +158,7 @@ entities (
   id            TEXT NOT NULL,
   kind          TEXT NOT NULL,     -- character | place | item | group | other
   name          TEXT NOT NULL,     -- 真名，叙述者视角
-  profile       JSON,              -- 档案：身份、习惯、说话方式、关系边界……
+  profile       JSON,              -- 档案：身份、习惯、说话方式、关系边界……；人物另有形象 appearance，只写此刻看得见的样子
   is_protagonist INTEGER NOT NULL DEFAULT 0,
   cast_slot     TEXT,              -- 每局生成的人物对应哪个人物位置
   origin_turn_id TEXT REFERENCES turns ON DELETE CASCADE,  -- 空 = 作者设定；开场 = 本局生成；其他 = 游玩中出现
@@ -278,6 +283,7 @@ state_values (
 | 秘密 | `secret` 事实，`data.title` 是无剧透的标题，`data.reveal` 是揭晓条件原文。秘密可以来自作者设定，也可以由 narrator 在游玩中创造（[回合循环 §5](./turn-loop.md#5-提交一回合propose_turn-与-ask_clarification)）。一开始就知情的角色，用同一来源的 `knowledge` 行表示；主角得知秘密时，追加一条带出处的 `knowledge` |
 | 称呼 | 真名在 `entities.name`；主角知道的称呼是 `entity_names` 中 `holder_id` 为主角的行，例如“撑伞的女人”，得知真名后再追加一条 |
 | 关键场面已触发 | 写一条 `scene_hit` 事实，`key` 是场面编号，出处是发生的那一段 |
+| 人物的样子变了 | 写一条 `trait` 事实，`key` 是 `appearance`，`statement` 是此刻看得见的新样子，出处是发生变化的那一段。当前形象取路线上最新的这一条，没有时用档案里的形象（[插图与出图服务 §6.1](./image.md#61-形象)） |
 | 新增状态栏目 | 写一条 `state_defs`，`origin_turn_id` 指向新增它的回合；作者标为幕后的信息，在新栏目里同样设为 `hidden` |
 
 **同名不等于同一个人。** 查人物时，同时结合称呼、当前场景和已有的关系来判断。同名的多个实体会全部作为候选返回，由调用方区分（见[回合循环 §4](./turn-loop.md#4-只读工具)）。
@@ -357,13 +363,15 @@ BEGIN DELETE FROM prose_fts WHERE turn_id = old.id; END;
 | `chat_threads`、`chat_messages`、`card_claims`、`jobs` | [创作工作站 §13](./author-workstation.md#13-数据表) |
 | `llm_calls`：模型调用记录 | [LLM 端点 §9](./llm-endpoints.md#9-调用记录) |
 | `app_settings`：外观与阅读偏好 | [主题与 token §9](./theme.md#9-外观偏好与切换) |
+| `illustrations`、`portraits`：插图与立绘 | [插图与出图服务 §9.2](./image.md#92-表) |
+| `image_calls`：出图调用记录 | [插图与出图服务 §11](./image.md#11-调用记录与诊断) |
 
 ## 8. 删除
 
 SQLite 默认不执行外键约束。core 打开每个数据库连接时都执行 `PRAGMA foreign_keys = ON`，下面的级联删除才会生效。
 
-- **删除作品：** 外键级联删除它的所有版本；版本下的开局、回合、路线、存档，以及作者设定和游玩产生的故事事实，都随版本删除；对话和生成任务随作品删除。正文的索引行由回合删除触发器清掉。
-- **删除候选：** 挂在它上面的事实、称呼、知情、状态值、摘要随外键删除，索引行由触发器删除。
+- **删除作品：** 外键级联删除它的所有版本；版本下的开局、回合、路线、存档，以及作者设定和游玩产生的故事事实，都随版本删除；对话和生成任务随作品删除。正文的索引行由回合删除触发器清掉。插图和立绘的记录随外键删除，`images/` 下这部作品和它各局的图片目录由删除后的清理整个删掉（[插图与出图服务 §9.4](./image.md#94-清理)）。
+- **删除候选：** 挂在它上面的事实、称呼、知情、状态值、摘要随外键删除，索引行由触发器删除。候选不画插图，所以没有图片要清理。
 - **试玩：** 试玩快照和它的试玩进度一起保留，随作品一起删除，不单独提供删除。
 - **被替换下来的原版回合不删除**，因为旧存档可能还指向它。
 

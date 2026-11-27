@@ -23,8 +23,9 @@ client 不包含任何桌面专属代码，core 也可以脱离桌面独立运�
 | --- | --- |
 | `apps/desktop` | Electron 主进程：窗口、菜单、更新，负责启动 core |
 | `apps/client` | React 客户端 |
-| `packages/core` | core：作品、回合循环、创作工作站、故事事实、LLM 调用 |
+| `packages/core` | core：作品、回合循环、创作工作站、故事事实、LLM 与出图服务的调用、插图 |
 | `packages/contracts` | client、core、desktop 共用的接口类型和 schema |
+| `plugins` | 插件：实现 Unwritten 协议的独立服务，例如在 Colab 上运行的 ComfyUI 出图服务 |
 | `docs` | 设计文档 |
 
 主要技术：TypeScript 7、Electron、React + Base UI、oRPC、Hono、Drizzle + SQLite、pi-ai。完整的选型和目录结构见[技术选型](docs/tech-stack.md)。

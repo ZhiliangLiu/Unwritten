@@ -25,17 +25,23 @@
 | [第一个里程碑](./milestone-1.md) | 模型设置、创作和续玩的交付范围与验收条件 |
 | [第二个里程碑](./milestone-2.md) | 故事事实与推送拉取、界面打磨、按用途的生成参数的交付范围与验收条件 |
 | [第三个里程碑](./milestone-3.md) | 桌面外壳与本机安装包、作者设定向导及其在游玩中的兑现的交付范围与验收条件 |
+| [插图与出图服务](./image.md) | 出图服务的配置与协议、人物形象与立绘、插图的生成流程、图片的存储与交付 |
+| [插件](./plugins.md) | 插件是什么、和 core 的边界、插件协议的共同规则、插件的义务、仓库里的插件 |
+| [ComfyUI 插件与 Colab 部署](./comfyui-plugin.md) | ComfyUI 插件的模型、工作流、包装服务与安全，以及在 Colab 上经 Tailscale 部署 |
+| [第四个里程碑](./milestone-4.md) | 插图、人物形象、出图服务与 ComfyUI 插件的交付范围与验收条件 |
 
 ## 1. 四个组成部分
 
 | 部分 | 负责什么 | 不负责什么 |
 | --- | --- | --- |
 | **client** | 所有界面：作品库、创作向导、工作站面板、游玩阅读页、设置。它是一个纯 web 应用 | 不访问数据库、文件或模型服务；不写桌面专属的代码分支 |
-| **core** | 全部业务逻辑：作品与版本、回合循环、创作工作站、故事事实与可见性、LLM 调用、配置文件。对外提供 HTTP 接口（调用与事件流），同时把 client 的构建产物发给浏览器 | 不依赖 Electron。和 desktop 之间只有一条进程消息通道（§2.3），没有 desktop 也能独立运行 |
+| **core** | 全部业务逻辑：作品与版本、回合循环、创作工作站、故事事实与可见性、LLM 与出图服务的调用、插图、配置文件。对外提供 HTTP 接口（调用与事件流），同时把 client 的构建产物发给浏览器 | 不依赖 Electron。和 desktop 之间只有一条进程消息通道（§2.3），没有 desktop 也能独立运行 |
 | **contracts** | client、core、desktop 之间共用的契约：client 与 core 之间的接口类型与校验 schema，以及 core 与 desktop 之间的进程消息类型（§2.3） | 不含业务逻辑 |
 | **desktop** | Electron 外壳：单实例、窗口、菜单、外部链接、原生外观；负责启动并看护 core | 不含业务逻辑；和 core 之间只用 §2.3 的进程消息通道 |
 
 依赖方向是 client → contracts ← core，desktop 也只依赖 contracts 里的进程消息类型。desktop 只负责启动 core，并打开 core 提供的地址。client 和 desktop 都不导入 core 的任何代码。
+
+**插件不是第五个组成部分。** 插件是实现了 Unwritten 协议的独立服务，和模型服务一样由 core 调用，不载入任何组成部分，也不和它们共享代码（[插件](./plugins.md)）。
 
 **为什么这样分。** 以后可能会有 web 客户端。只要 client 是纯 web 应用、只通过 contracts 和 core 通信，做 web 版时就只需把 core 当作普通服务运行，再把同一份 client 发给浏览器，不必另做一套界面或接口。这个分法参照了 thinkrail：它的 `apps/web`、`packages/server`、`packages/contracts`、`apps/desktop` 分别对应这里的 client、core、contracts、desktop，桌面外壳只承载同一份 web 客户端（thinkrail `apps/desktop/SPEC.md`）。
 
@@ -86,14 +92,15 @@ core 只监听回环地址。不过本机的其他程序，以及浏览器里打
 
   ```
   default-src 'self'; script-src 'self' 'nonce-<本次 nonce>'; style-src 'self'; connect-src 'self';
-  img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
+  img-src 'self' data: blob:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'
   ```
 
   - 唯一的内联脚本是首屏前解析外观的那一段，它带本次的 nonce（[主题与 token §9](./theme.md#9-外观偏好与切换)）。
+  - `img-src` 允许 `blob:`，因为插图和立绘要带令牌取回：`<img src>` 带不了 `Authorization` 请求头，client 先用带令牌的请求取回图片，再转成 blob URL 显示（[插图与出图服务 §10](./image.md#10-交给-client)）。
   - 样式只来自构建出的 CSS 文件，所以 `style-src` 不需要 `'unsafe-inline'`。组件的 `style` 属性只用来设置 CSS 自定义属性，React 通过 CSSOM（`element.style.setProperty`）写入，不受 `style-src` 限制；HTML 里的 `style` 属性和 `setAttribute('style', …)` 才会被拦。
   - 这套策略由 core 下发，只在生产构建里生效。开发时页面由 Vite 提供，不带这套策略，所以内容安全策略相关的验收用生产构建做。
 - **AI 输出与用户内容一律按纯文本渲染。** 正文、选项、作者设定、玩家输入、模型返回的错误信息都靠 React 默认的转义来显示，不经过 `dangerouslySetInnerHTML` 或 `innerHTML`。AI 的输出可能受提示注入影响，一旦被当成 HTML 执行，攻击代码就能拿到内存里的令牌，并调用 core 的全部接口。
-- **API key 只在 core 里。** client 只能知道某个端点有没有配置 key，见 [LLM 端点 §3](./llm-endpoints.md#3-key-的来源与保护)。
+- **API key 只在 core 里。** client 只能知道某个端点或出图服务有没有配置 key，见 [LLM 端点 §3](./llm-endpoints.md#3-key-的来源与保护)。出图服务的地址同样只在 core 里。
 
 ### 2.2 core 独立运行
 
@@ -136,14 +143,18 @@ core 用 `process.parentPort` 是否存在判断自己是否由 desktop 启动�
 | `play` | 开局、回合树、路线、存档、回合循环 |
 | `authoring` | 创作向导、生成任务、工作站的对话与提案卡 |
 | `llm` | providers.json、对 pi-ai 的封装、用途分配、调用记录 |
+| `image` | 出图服务的配置与探测、两种出图协议的客户端、按服务排队、返回数据的校验、出图调用记录，见[插图与出图服务 §5](./image.md#5-image-模块) |
+| `illustration` | 何时画插图、镜头描述、人物立绘、图片文件的存储与清理 |
+| `net` | 全部外发请求的统一出口：不跟随重定向、时间上限、取消 |
 | `log` | 本机运行事件和性能记录的校验与写入，见[运行诊断与性能记录](./diagnostics.md) |
 | `events` | 进程内事件总线：各模块发布变更通知，事件流过程订阅后推给 client |
 | `api` | Hono 应用：令牌与 Host 校验、静态文件、挂载契约的实现 |
 
-两条硬规则：
+三条硬规则：
 
-1. **读取故事事实只能通过 `story` 模块。** 回合循环的只读工具、工作站的只读工具、client 的状态栏和手记，都调用同一套投影函数。防剧透的规则全部写在投影里，绕过它就会泄露信息。
+1. **读取故事事实只能通过 `story` 模块。** 回合循环的只读工具、工作站的只读工具、client 的状态栏和手记，以及插图的镜头描述，都调用同一套投影函数。防剧透的规则全部写在投影里，绕过它就会泄露信息。
 2. **只有 `llm` 模块导入 pi-ai。** pi-ai 更新很快，把它限制在一个模块里，升级时只需要改这一处。
+3. **只有 `image` 模块认识出图协议，所有外发请求都经过 `net` 模块。** 加一种出图协议只改 `image`；不跟随重定向的规则只写在 `net` 一处（[LLM 端点 §3](./llm-endpoints.md#3-key-的来源与保护)）。
 
 ## 5. 技术选型
 
@@ -160,6 +171,7 @@ core 使用 desktop 传进来的数据目录，桌面版的数据目录是 Elect
   library.db        作品库：全部作品、版本、路线、对话
   providers.json    LLM 端点与 key；macOS、Linux 上文件权限为 0600，Windows 上依赖用户目录的访问控制
   diagnostics.db    core、client 与 desktop 的运行事件和性能样本
+  images/           插图和立绘的图片文件，按开局和作品分目录（插图与出图服务 §9）
 ```
 
 作品库与诊断库的迁移分别在 `packages/core/src/store/migrations/` 和 `packages/core/src/log/migrations/`。core 打开各库时按编号执行对应的迁移。
