@@ -105,7 +105,7 @@ performance_samples (
 | `opening.cast` | 开始生成本局人物 | 人物写入开局，或失败 |
 | `opening.validate`、`opening.commit` | 开始校验一次开场提案；开始提交 | 同 `turn.validate`、`turn.commit` |
 | `story.status` | 开始读取一条路线的状态栏 | 主角视角的状态栏可用。附显示中与已了结的栏目数 |
-| `illustration.queue`、`illustration.total` | 插图入队；开始处理 | 开始处理；文件写入并提交、失败或中断。总耗时附参考人物数和是否现画了立绘 |
+| `illustration.queue`、`illustration.total` | 插图入队；开始处理 | 开始处理；文件写入并提交、失败或中断。总耗时附参考人物数和是否现画了参考图 |
 | `illustration.shot` | 开始写镜头描述 | 镜头描述校验通过并写入，或失败 |
 | `image.generate` | `image` 模块向出图服务提交一张图 | 取回并校验完图片，或失败、超时、取消。附协议、质量档和参考图张数，`call_id` 关联 `image_calls` |
 | `desktop.core_ready` | desktop 启动 core | 收到 `ready`、`start-failed`、超时或进程退出。`attempt` 是本次启动的第几次尝试 |
