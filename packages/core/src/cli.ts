@@ -24,7 +24,7 @@ function parsePort(raw: string | undefined): number {
   return port;
 }
 
-function parseOrigin(raw: string | undefined): string | null {
+export function parseOrigin(raw: string | undefined): string | null {
   if (raw === undefined) return null;
   let url: URL;
   try {

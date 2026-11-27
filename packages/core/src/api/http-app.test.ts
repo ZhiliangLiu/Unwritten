@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_APPEARANCE } from '@unwritten/contracts';
+import { DEFAULT_APPEARANCE, DEFAULT_WORK_SETTINGS } from '@unwritten/contracts';
 import { createLogger, type Logger } from '../log/logger.ts';
 import { createEventBus } from '../events/bus.ts';
 import type { Services } from '../services.ts';
@@ -34,6 +34,9 @@ function fakeServices(overrides: Partial<Services> = {}): Services {
         throw new Error('not used');
       },
       saveDraft: () => {
+        throw new Error('not used');
+      },
+      setWizardStep: () => {
         throw new Error('not used');
       },
       delete: () => {
@@ -85,6 +88,21 @@ function fakeServices(overrides: Partial<Services> = {}): Services {
       adoptPreview: () => {
         throw new Error('not used');
       },
+      generatePlan: () => {
+        throw new Error('not used');
+      },
+      adoptStalePlan: () => {
+        throw new Error('not used');
+      },
+      updatePlanItem: () => {
+        throw new Error('not used');
+      },
+      removePlanItem: () => {
+        throw new Error('not used');
+      },
+      confirmPlan: () => {
+        throw new Error('not used');
+      },
       recoverInterrupted: () => 0,
       whenIdle: async () => {},
     },
@@ -99,6 +117,21 @@ function fakeServices(overrides: Partial<Services> = {}): Services {
         throw new Error('not used');
       },
       getJournal: () => {
+        throw new Error('not used');
+      },
+      getStartInfo: () => {
+        throw new Error('not used');
+      },
+      start: () => {
+        throw new Error('not used');
+      },
+      getPlaythrough: () => {
+        throw new Error('not used');
+      },
+      retryOpening: () => {
+        throw new Error('not used');
+      },
+      getStatus: () => {
         throw new Error('not used');
       },
       recoverInterrupted: () => 0,
@@ -312,7 +345,7 @@ describe('createHttpApp', () => {
           body,
           headers: headers({ 'content-type': 'application/json' }),
         });
-      const input = { workId, baseContentRev: 0, background: bodyMarker };
+      const input = { workId, baseContentRev: 0, background: bodyMarker, settings: DEFAULT_WORK_SETTINGS };
       const failure = await request('works/saveDraft', JSON.stringify({ json: input }));
       expect(failure.status).toBe(507);
       const { json } = (await failure.json()) as { json: { code: string; data: { diagnosticId: string } } };

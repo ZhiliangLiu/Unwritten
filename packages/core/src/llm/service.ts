@@ -93,7 +93,7 @@ function purposeViews(state: ProvidersState): PurposeView[] {
       const found = foundModel(state, effectiveModel!);
       if (!found || found.endpoint.api !== 'openai-completions') {
         problem = 'model_missing';
-      } else if (purpose === 'narrator' && found.model.tools === false) {
+      } else if ((purpose === 'narrator' || purpose === 'author_chat') && found.model.tools === false) {
         problem = 'no_tools';
       }
     }

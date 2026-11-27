@@ -41,7 +41,7 @@ export function buildJournal(p: StoryProjection, routeId: string): JournalView {
     if (!name) continue;
     const lines: JournalLine[] = [];
     for (const fact of p.facts) {
-      if (!['trait', 'relation', 'promise', 'event'].includes(fact.kind)) continue;
+      if (!['trait', 'relation', 'promise', 'event', 'secret'].includes(fact.kind)) continue;
       if (fact.subjectId !== entity.id && fact.objectId !== entity.id) continue;
       const line = lineOf(p, fact);
       if (line) lines.push(line);
@@ -60,7 +60,7 @@ export function buildJournal(p: StoryProjection, routeId: string): JournalView {
 
   const events: JournalLine[] = [];
   for (const fact of p.facts) {
-    if (fact.kind !== 'event') continue;
+    if (fact.kind !== 'event' && !(fact.kind === 'secret' && fact.subjectId === null)) continue;
     const line = lineOf(p, fact);
     if (line) events.push(line);
   }

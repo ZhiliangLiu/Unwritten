@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   check,
+  foreignKey,
   index,
   integer,
   primaryKey,
@@ -10,10 +11,16 @@ import {
   uniqueIndex,
   type AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
-import { ENTITY_KINDS, KNOWLEDGE_LEVELS, type Appearance } from '@unwritten/contracts';
+import {
+  ENTITY_KINDS,
+  KNOWLEDGE_LEVELS,
+  STATE_DISPLAYS,
+  type Appearance,
+  type StateConfig,
+} from '@unwritten/contracts';
 import type {
-  PreviewJobInput,
-  PreviewJobResult,
+  JobInput,
+  JobResult,
   StoredAction,
   StoredOption,
   StoredScene,
@@ -149,8 +156,8 @@ export const jobs = sqliteTable(
       .references(() => works.id, { onDelete: 'cascade' }),
     kind: text('kind', { enum: ['plan', 'opening', 'title_blurb', 'trial_extract', 'preview'] }).notNull(),
     status: text('status', { enum: ['running', 'done', 'failed'] }).notNull(),
-    input: text('input', { mode: 'json' }).$type<PreviewJobInput>().notNull(),
-    result: text('result', { mode: 'json' }).$type<PreviewJobResult>(),
+    input: text('input', { mode: 'json' }).$type<JobInput>().notNull(),
+    result: text('result', { mode: 'json' }).$type<JobResult>(),
     error: text('error'),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
@@ -255,6 +262,51 @@ export const knowledge = sqliteTable(
     sourcePara: integer('source_para'),
   },
   (table) => [index('knowledge_fact_idx').on(table.versionId, table.factId)],
+);
+
+export const stateDefs = sqliteTable(
+  'state_defs',
+  {
+    versionId: text('version_id')
+      .notNull()
+      .references(() => workVersions.id, { onDelete: 'cascade' }),
+    id: text('id').notNull(),
+    key: text('key').notNull(),
+    label: text('label').notNull(),
+    display: text('display', { enum: STATE_DISPLAYS }).notNull(),
+    config: text('config', { mode: 'json' }).$type<StateConfig>().notNull(),
+    hidden: integer('hidden').notNull().default(0),
+    reveal: text('reveal'),
+    originTurnId: text('origin_turn_id').references(() => turns.id, { onDelete: 'cascade' }),
+    rev: integer('rev').notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.versionId, table.id] }),
+    index('state_defs_origin_idx').on(table.versionId, table.originTurnId),
+  ],
+);
+
+export const stateValues = sqliteTable(
+  'state_values',
+  {
+    versionId: text('version_id')
+      .notNull()
+      .references(() => workVersions.id, { onDelete: 'cascade' }),
+    turnId: text('turn_id')
+      .notNull()
+      .references(() => turns.id, { onDelete: 'cascade' }),
+    stateDefId: text('state_def_id').notNull(),
+    value: text('value'),
+    visible: integer('visible').notNull(),
+    closed: integer('closed').notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.versionId, table.turnId, table.stateDefId] }),
+    foreignKey({
+      columns: [table.versionId, table.stateDefId],
+      foreignColumns: [stateDefs.versionId, stateDefs.id],
+    }).onDelete('cascade'),
+  ],
 );
 
 export const turnSummaries = sqliteTable('turn_summaries', {

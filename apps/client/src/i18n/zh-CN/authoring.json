@@ -1,5 +1,10 @@
 {
   "page": { "heading": "写背景" },
+  "steps": { "label": "创作步骤", "background": "背景", "plan": "方案", "opening": "开场" },
+  "opening": {
+    "heading": "开场",
+    "intro": "按确认后的方案写出的开场。采用后存入作品库，玩家点「开始故事」就从这里读起。"
+  },
   "background": {
     "label": "故事背景",
     "placeholder": "例如：末班渡轮停航前，你遇见了一个坚持等下一班船的人。",
@@ -27,6 +32,171 @@
       "placeholder": "例如：路人的名字和口音可以现造，这个镇的街道名不能改。"
     }
   },
+  "settings": {
+    "intro": "每一节都可以留空。写了的部分 AI 会照着写，没写的由 AI 先拟，你在方案里再看。",
+    "section": {
+      "world": {
+        "heading": "世界",
+        "help": "时代、地点、这个世界的规矩。",
+        "placeholder": "例如：海边小镇，只在夜里通电。"
+      },
+      "protagonist": {
+        "heading": "玩家主角",
+        "help": "主角是谁、和谁有什么关系、一开始知道什么。",
+        "placeholder": "例如：刚到镇上的邮差，谁也不认识。"
+      },
+      "cast": {
+        "heading": "主要人物",
+        "help": "人物的习惯、关系边界、希望发展的感情线。",
+        "placeholder": "例如：守灯人话少，从不提自己的过去。"
+      },
+      "secrets": {
+        "heading": "秘密与知情",
+        "help": "谁知道什么，玩家凭什么能发现。",
+        "placeholder": "例如：守灯人知道上一任邮差为什么离开，拿到旧信才会说。"
+      },
+      "opening": { "heading": "开场", "help": "开场可以让 AI 起草，按你写的情境写，或直接用你的原文。" },
+      "actions": {
+        "heading": "行动与提示",
+        "help": "行动更偏交谈、观察还是取舍。",
+        "placeholder": "例如：多给交谈的选项，少给打斗。"
+      },
+      "scenes": {
+        "heading": "关键场面与结局",
+        "help": "满足什么条件时发生什么，什么时候结束。都可以不写。",
+        "placeholder": "例如：主角第一次独自登上灯塔顶时，守灯人讲起旧事。三封旧信都送到时故事结束。"
+      },
+      "status": {
+        "heading": "初始状态栏",
+        "help": "玩家要留意哪些事，每一栏用数字、阶段、清单还是文字。",
+        "placeholder": "例如：潮位用 0 到 10 米的数字；送出的旧信用清单。"
+      }
+    },
+    "protagonist": {
+      "fieldsHeading": "留给玩家填写的项目",
+      "fieldsHelp": "开局时会问玩家这些。玩家留空时用默认值。",
+      "fieldName": "项目名",
+      "defaultValue": "默认值",
+      "remove": "删除「{{name}}」",
+      "add": "添加填写项",
+      "addLimit": "最多 {{count}} 项",
+      "nameField": "哪一项是主角的名字",
+      "nameFieldNone": "没有",
+      "nameInvalid": "项目名不能含空格、句点或花括号",
+      "nameDuplicate": "已经有同名的项目"
+    },
+    "cast": { "modeLabel": "主要人物", "mode": { "fixed": "固定主要角色", "per_run": "每次新开局生成" } },
+    "opening": {
+      "modeLabel": "开场怎么写",
+      "mode": { "ai": "AI 起草", "situation": "按我写的情境", "author_text": "用我的原文" },
+      "text": { "ai": "对开场的要求（可选）", "situation": "开场的情境", "author_text": "开场原文" },
+      "placeholder": {
+        "ai": "例如：从主角下船那一刻写起。",
+        "situation": "例如：雨夜，主角站在灯塔门口，门从里面锁着。",
+        "author_text": "直接写开场正文，段落之间空一行。"
+      },
+      "insert": "插入填写项"
+    },
+    "actions": {
+      "hintsLabel": "推荐行动",
+      "hints": { "actions_only": "只显示行动", "known_consequences": "提醒已知后果" }
+    }
+  },
+  "plan": {
+    "generate": "生成故事方案",
+    "regenerate": "重新生成方案",
+    "running": "正在生成故事方案",
+    "done": "故事方案已生成",
+    "failed": "故事方案没有生成成功，请重试",
+    "heading": "故事方案",
+    "intro": "这是 AI 对这个故事的理解。标着「AI 补全」的是它替你拟的，可以直接改。",
+    "source": { "author": "作者", "ai": "AI 补全", "author_confirmed": "作者确认" },
+    "summary": {
+      "identity": "玩家身份",
+      "tone": "基调",
+      "situation": "开场处境",
+      "world": "世界",
+      "public_setting": "公开设定"
+    },
+    "group": {
+      "summary": "摘要",
+      "entities": "人物与地点",
+      "secrets": "幕后",
+      "state": "状态栏",
+      "scenes": "关键场面",
+      "ending": "结束条件"
+    },
+    "entityKind": { "character": "人物", "place": "地点", "item": "物品", "group": "组织", "other": "其他" },
+    "entity": {
+      "role": { "protagonist": "主角", "cast": "主要人物", "other": "其他" },
+      "knownAs": "主角称作：{{name}}",
+      "slot": "人物位置：{{role}}",
+      "encounter": "相遇样例：{{text}}"
+    },
+    "secret": {
+      "hiddenBadge": "幕后",
+      "knowers": "知情：{{names}}",
+      "reveal": "揭晓条件：{{text}}",
+      "show": "查看幕后设定",
+      "hide": "收起幕后设定",
+      "foldedTitle": "幕后已折叠 · {{count}} 条",
+      "foldedHelp": "点「查看幕后设定」才会显示具体内容。",
+      "expandedTitle": "幕后已展开",
+      "expandedHelp": "玩家看不到这些内容，只能在故事里慢慢发现。",
+      "titleLine": "秘密 · {{title}}",
+      "statement": "真相：{{text}}"
+    },
+    "state": {
+      "display": { "number": "数字", "stage": "阶段", "list": "清单", "text": "文字" },
+      "range": "范围 {{min}} 到 {{max}}",
+      "unit": "单位：{{unit}}",
+      "stages": "阶段：{{stages}}",
+      "initial": "开局：{{value}}",
+      "hidden": "幕后栏目"
+    },
+    "scene": { "once": "只发生一次", "repeat": "可以重复发生" },
+    "ending": { "folded": "已写结束条件", "none": "开放式，没有结束条件" },
+    "item": { "edit": "修改", "editLabel": "修改「{{title}}」", "remove": "删除", "save": "保存", "cancel": "取消" },
+    "remove": {
+      "title": "删除这一项？",
+      "description": "删除之后，重新生成方案时 AI 可能会再拟一项。",
+      "confirm": "删除"
+    },
+    "edit": { "invalid": "这一项的内容不完整，或超出了长度" },
+    "field": {
+      "text": "内容",
+      "name": "名字",
+      "knownAs": "主角称作",
+      "profile": "档案",
+      "slotRole": "人物位置",
+      "encounter": "相遇样例",
+      "entityKind": "种类",
+      "role": "身份",
+      "title": "标题",
+      "statement": "真相",
+      "reveal": "揭晓条件",
+      "knowers": "知情的人",
+      "label": "栏目名",
+      "display": "显示方式",
+      "min": "最小值",
+      "max": "最大值",
+      "unit": "单位",
+      "stages": "阶段（用 | 隔开）",
+      "hidden": "幕后栏目",
+      "initial": "开局值",
+      "condition": "条件",
+      "outcome": "发生什么",
+      "once": "只发生一次"
+    },
+    "conflict": { "heading": "两条设定互相矛盾", "first": "第一条", "second": "第二条", "impact": "影响：{{text}}" },
+    "stale": "生成方案的时候你改过设定，这份方案基于修改前的内容。",
+    "adoptStale": "仍然采用",
+    "confirm": "确认方案，生成开场",
+    "confirmed": "方案已确认",
+    "staleTitle": "这份方案基于修改前的设定",
+    "confirmDisabled": { "empty": "还没有方案", "running": "方案还在生成" }
+  },
+  "placeholder": { "token": "「{{name}}」" },
   "preview": {
     "generate": "生成开场预览",
     "running": "正在写开场",
@@ -37,10 +207,23 @@
     "options": "推荐行动",
     "adopt": "采用开场并存入作品库",
     "stale": "已过期",
-    "staleHelp": "背景改过了，这份预览基于旧的背景。请重新生成后再采用。"
+    "staleHelp": "背景改过了，这份预览基于旧的背景。请重新生成后再采用。",
+    "regenerate": "重新生成开场",
+    "hint": "提醒：{{text}}",
+    "initialState": "开局状态",
+    "initialHidden": "开局时不显示",
+    "review": {
+      "heading": "这些句子需要先改",
+      "prose": "第 {{index}} 段",
+      "option": "第 {{index}} 个推荐行动",
+      "hardcoded_name": "写死了主角的名字，改成填写项",
+      "unknown_placeholder": "用了作者没留的填写项"
+    },
+    "adoptBlocked": "先改好上面的句子，才能采用"
   },
   "cast": {
     "heading": "出场人物",
+    "headingOpening": "开场里新出现的",
     "protagonist": "主角",
     "knownAs": "主角称作：{{name}}"
   },

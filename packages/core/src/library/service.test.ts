@@ -1,12 +1,13 @@
 import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { EMPTY_WORK_ANCHORS } from '@unwritten/contracts';
+import { DEFAULT_WORK_SETTINGS, EMPTY_WORK_ANCHORS } from '@unwritten/contracts';
 import { createEventBus } from '../events/bus.ts';
-import type { Logger } from '../log/logger.ts';
+import type { LogEvent, Logger } from '../log/logger.ts';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
-import { openDatabase } from '../store/db.ts';
+import { openDatabase, type Database } from '../store/db.ts';
 import { indexTurnProse } from '../store/prose-index.ts';
+import type { VersionMeta } from '../store/meta.ts';
 import { createLibraryService, workLabel } from './service.ts';
 
 const logger: Logger = {
@@ -18,7 +19,59 @@ const logger: Logger = {
 
 const workId = '00000000-0000-4000-8000-000000000001';
 
-function setup() {
+function draft(contentRev: number, background: string, anchors: typeof EMPTY_WORK_ANCHORS) {
+  return { contentRev, background, anchors, settings: DEFAULT_WORK_SETTINGS, wizardStep: 'background', plan: null };
+}
+
+function recordingLogger(): { logger: Logger; events: LogEvent[] } {
+  const events: LogEvent[] = [];
+  return {
+    events,
+    logger: {
+      record(event) {
+        events.push(event);
+      },
+      sample() {},
+      async flush() {},
+      async close() {},
+    },
+  };
+}
+
+function storedMeta(db: Database, id: string): VersionMeta {
+  const row = db.get<{ meta: string }>(sql`select meta from work_versions where work_id = ${id} and kind = 'draft'`);
+  return JSON.parse(row!.meta) as VersionMeta;
+}
+
+function publishWork(db: Database, id: string, publishedId: string) {
+  const now = Date.now();
+  db.run(sql`update works set published_id = ${publishedId} where id = ${id}`);
+  db.run(
+    sql`insert into work_versions (id, work_id, kind, content_rev, meta, created_at, updated_at)
+        values (${publishedId}, ${id}, 'published', 1, '{"background":"雨夜修钟铺"}', ${now}, ${now})`,
+  );
+}
+
+function addPlay(
+  db: Database,
+  input: { playthroughId: string; versionId: string; turnId: string; routeId: string; updatedAt: number },
+) {
+  db.run(
+    sql`insert into playthroughs (id, version_id, kind, root_turn_id, created_at)
+        values (${input.playthroughId}, ${input.versionId}, 'play', ${input.turnId}, ${input.updatedAt})`,
+  );
+  db.run(
+    sql`insert into turns (id, playthrough_id, depth, prose, options, scene, status, created_at)
+        values (${input.turnId}, ${input.playthroughId}, 0, '渡口的灯还亮着', '[]',
+                '{"place":"渡口","time":"夜里","present":[]}', 'committed', ${input.updatedAt})`,
+  );
+  db.run(
+    sql`insert into routes (id, playthrough_id, head_turn_id, created_at, updated_at)
+        values (${input.routeId}, ${input.playthroughId}, ${input.turnId}, ${input.updatedAt}, ${input.updatedAt})`,
+  );
+}
+
+function setup(options: { logger?: Logger } = {}) {
   const temp = makeTempDataDir();
   const opened = openDatabase(join(temp.dir, 'library.db'));
   const bus = createEventBus();
@@ -26,7 +79,7 @@ function setup() {
     dataDir: temp.dir,
     db: opened.db,
     bus,
-    logger,
+    logger: options.logger ?? logger,
     shutdown: new AbortController().signal,
   });
   return { temp, opened, service, bus };
@@ -46,23 +99,48 @@ describe('createLibraryService', () => {
     const { temp, opened, service } = setup();
     try {
       const created = service.create({ workId });
-      expect(created.draft).toEqual({ contentRev: 0, background: '', anchors: EMPTY_WORK_ANCHORS });
+      expect(created.draft).toEqual(draft(0, '', EMPTY_WORK_ANCHORS));
       const anchors = {
         narrationDirective: '用第二人称，句子短。',
         contentPolicy: '不写血腥场面。',
         improvisationScope: '路人的名字可以现造。',
       };
-      const saved = service.saveDraft({ workId, baseContentRev: 0, background: '雨夜修钟铺', anchors });
+      const saved = service.saveDraft({
+        workId,
+        baseContentRev: 0,
+        background: '雨夜修钟铺',
+        anchors,
+        settings: DEFAULT_WORK_SETTINGS,
+      });
       expect(saved.contentRev).toBe(1);
-      expect(service.get({ workId }).draft).toEqual({ contentRev: 1, background: '雨夜修钟铺', anchors });
-      expect(service.saveDraft({ workId, baseContentRev: 1, background: '雨夜修钟铺', anchors }).contentRev).toBe(1);
-      expect(() => service.saveDraft({ workId, baseContentRev: 0, background: '另一个' })).toThrow();
-      expect(service.saveDraft({ workId, baseContentRev: 1, background: '另一个', anchors }).contentRev).toBe(2);
+      expect(service.get({ workId }).draft).toEqual(draft(1, '雨夜修钟铺', anchors));
+      expect(
+        service.saveDraft({
+          workId,
+          baseContentRev: 1,
+          background: '雨夜修钟铺',
+          anchors,
+          settings: DEFAULT_WORK_SETTINGS,
+        }).contentRev,
+      ).toBe(1);
+      expect(() =>
+        service.saveDraft({ workId, baseContentRev: 0, background: '另一个', settings: DEFAULT_WORK_SETTINGS }),
+      ).toThrow();
+      expect(
+        service.saveDraft({
+          workId,
+          baseContentRev: 1,
+          background: '另一个',
+          anchors,
+          settings: DEFAULT_WORK_SETTINGS,
+        }).contentRev,
+      ).toBe(2);
       const edited = service.saveDraft({
         workId,
         baseContentRev: 2,
         background: '另一个',
         anchors: { ...anchors, contentPolicy: '不写血腥场面和对白里的脏话。' },
+        settings: DEFAULT_WORK_SETTINGS,
       });
       expect(edited.contentRev).toBe(3);
       expect(service.create({ workId }).draft.contentRev).toBe(3);
@@ -79,11 +157,147 @@ describe('createLibraryService', () => {
       const second = '00000000-0000-4000-8000-000000000002';
       service.create({ workId: first });
       service.create({ workId: second });
-      service.saveDraft({ workId: second, baseContentRev: 0, background: '第二部' });
+      service.saveDraft({ workId: second, baseContentRev: 0, background: '第二部', settings: DEFAULT_WORK_SETTINGS });
       const list = service.list();
       expect(list[0]?.id).toBe(second);
       expect(list[0]?.status).toBe('draft');
       expect(list[0]?.label).toBe('第二部');
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('保存补充设定只给改了的节加修订号', () => {
+    const recorder = recordingLogger();
+    const { temp, opened, service } = setup({ logger: recorder.logger });
+    try {
+      service.create({ workId });
+      const first = service.saveDraft({
+        workId,
+        baseContentRev: 0,
+        background: '雨夜修钟铺',
+        settings: { ...DEFAULT_WORK_SETTINGS, world: { text: '雾港' } },
+      });
+      expect(first.contentRev).toBe(1);
+      const second = service.saveDraft({
+        workId,
+        baseContentRev: 1,
+        background: '雨夜修钟铺',
+        settings: {
+          ...DEFAULT_WORK_SETTINGS,
+          world: { text: '雾港' },
+          cast: { text: '', mode: 'per_run' },
+        },
+      });
+      expect(second.contentRev).toBe(2);
+      const meta = storedMeta(opened.db, workId);
+      expect(meta.settings?.cast.rev).toBe(1);
+      expect(meta.settings?.world.rev).toBe(1);
+      expect(meta.settings?.secrets.rev).toBe(0);
+      const saved = recorder.events.filter((event) => event.event === 'work.draft.saved');
+      expect(saved.map((event) => event.data)).toEqual([
+        { contentRev: 1, sections: ['world'] },
+        { contentRev: 2, sections: ['cast'] },
+      ]);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('设定没变不加修订号', () => {
+    const { temp, opened, service } = setup();
+    try {
+      service.create({ workId });
+      const settings = { ...DEFAULT_WORK_SETTINGS, world: { text: '雾港' } };
+      expect(service.saveDraft({ workId, baseContentRev: 0, background: '', settings }).contentRev).toBe(1);
+      expect(service.saveDraft({ workId, baseContentRev: 1, background: '', settings }).contentRev).toBe(1);
+      const meta = storedMeta(opened.db, workId);
+      expect(meta.settings?.world).toEqual({ text: '雾港', rev: 1 });
+      expect(meta.settings?.cast).toEqual({ text: '', mode: 'fixed', rev: 0 });
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('切换向导步骤不改修订号', () => {
+    const { temp, opened, service } = setup();
+    try {
+      service.create({ workId });
+      const saved = service.saveDraft({
+        workId,
+        baseContentRev: 0,
+        background: '雨夜修钟铺',
+        settings: DEFAULT_WORK_SETTINGS,
+      });
+      const before = opened.db.get<{ updated_at: number }>(sql`select updated_at from works where id = ${workId}`);
+      service.setWizardStep({ workId, step: 'plan' });
+      const work = service.get({ workId });
+      expect(work.draft.wizardStep).toBe('plan');
+      expect(work.draft.contentRev).toBe(saved.contentRev);
+      expect(storedMeta(opened.db, workId).wizardStep).toBe('plan');
+      expect(
+        opened.db.get<{ updated_at: number }>(sql`select updated_at from works where id = ${workId}`)?.updated_at,
+      ).toBe(before?.updated_at);
+      expect(service.setWizardStep({ workId, step: 'plan' })).toEqual({});
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('作品库卡片指向最近游玩的路线', () => {
+    const { temp, opened, service } = setup();
+    try {
+      const otherWorkId = '00000000-0000-4000-8000-000000000002';
+      service.create({ workId });
+      service.create({ workId: otherWorkId });
+      const publishedId = '00000000-0000-4000-8000-000000000010';
+      const otherPublishedId = '00000000-0000-4000-8000-000000000020';
+      publishWork(opened.db, workId, publishedId);
+      publishWork(opened.db, otherWorkId, otherPublishedId);
+      addPlay(opened.db, {
+        playthroughId: '00000000-0000-4000-8000-000000000011',
+        versionId: publishedId,
+        turnId: '00000000-0000-4000-8000-000000000012',
+        routeId: '00000000-0000-4000-8000-000000000013',
+        updatedAt: 1_000,
+      });
+      addPlay(opened.db, {
+        playthroughId: '00000000-0000-4000-8000-000000000014',
+        versionId: publishedId,
+        turnId: '00000000-0000-4000-8000-000000000015',
+        routeId: '00000000-0000-4000-8000-000000000016',
+        updatedAt: 2_000,
+      });
+      addPlay(opened.db, {
+        playthroughId: '00000000-0000-4000-8000-000000000021',
+        versionId: otherPublishedId,
+        turnId: '00000000-0000-4000-8000-000000000022',
+        routeId: '00000000-0000-4000-8000-000000000023',
+        updatedAt: 3_000,
+      });
+      const summaries = service.list();
+      expect(summaries.find((summary) => summary.id === workId)?.routeId).toBe('00000000-0000-4000-8000-000000000016');
+      expect(summaries.find((summary) => summary.id === otherWorkId)?.routeId).toBe(
+        '00000000-0000-4000-8000-000000000023',
+      );
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('发布了但还没开局时没有路线', () => {
+    const { temp, opened, service } = setup();
+    try {
+      service.create({ workId });
+      publishWork(opened.db, workId, '00000000-0000-4000-8000-000000000010');
+      const summary = service.list().find((item) => item.id === workId);
+      expect(summary?.routeId).toBeNull();
+      expect(summary?.hasProgress).toBe(false);
     } finally {
       opened.close();
       temp.cleanup();

@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { serve } from '@hono/node-server';
+import type { StartFailureReason } from '@unwritten/contracts/desktop';
 import packageJson from '../package.json' with { type: 'json' };
 import type { CliOptions } from './cli.ts';
 import { createEventBus } from './events/bus.ts';
@@ -21,7 +22,9 @@ export interface RunningCore {
   close(): Promise<void>;
 }
 
-type StartupFailure = 'data_locked' | 'port_in_use' | 'data_dir' | 'startup';
+export type CoreStartOptions = CliOptions & { token?: string };
+
+type StartupFailure = StartFailureReason;
 
 export class CoreStartupError extends Error {
   readonly reason: StartupFailure;
@@ -34,7 +37,7 @@ export class CoreStartupError extends Error {
   }
 }
 
-export async function startCore(options: CliOptions, factories: ServiceFactories): Promise<RunningCore> {
+export async function startCore(options: CoreStartOptions, factories: ServiceFactories): Promise<RunningCore> {
   const startupStarted = performance.now();
   const logger = createLogger({ dataDir: options.dataDir, level: options.logLevel, appVersion: packageJson.version });
   let opened: ReturnType<typeof openDatabase> | null = null;
@@ -112,7 +115,7 @@ export async function startCore(options: CliOptions, factories: ServiceFactories
     });
 
     stage = 'client_assets';
-    const token = randomBytes(32).toString('base64url');
+    const token = options.token ?? randomBytes(32).toString('base64url');
     const assets = loadClientAssets(options.clientDir);
     if (!assets) logger.record({ level: 'warn', module: 'core', event: 'client.assets.missing' });
 

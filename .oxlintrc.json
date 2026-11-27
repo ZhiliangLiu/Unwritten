@@ -36,6 +36,21 @@
       }
     },
     {
+      "files": ["apps/desktop/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              { "name": "@unwritten/contracts", "message": "desktop 只导入 @unwritten/contracts/desktop" },
+              { "name": "@unwritten/core", "message": "desktop 不导入 core，只通过进程消息通道通信" }
+            ],
+            "patterns": [{ "group": ["@unwritten/core/*"], "message": "desktop 不导入 core" }]
+          }
+        ]
+      }
+    },
+    {
       "files": ["packages/core/src/**"],
       "rules": {
         "no-restricted-imports": [

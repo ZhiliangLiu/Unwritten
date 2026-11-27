@@ -18,6 +18,7 @@ export type Contract = typeof contract;
 export * from './errors.ts';
 export * from './events.ts';
 export * from './schemas/appearance.ts';
+export * from './schemas/authoring.ts';
 export * from './schemas/common.ts';
 export * from './schemas/llm.ts';
 export * from './schemas/log.ts';

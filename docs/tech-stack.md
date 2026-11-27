@@ -56,7 +56,7 @@ desktop 的主进程代码只有几百行：开窗口、启动和看护 core、�
 
 client 和 core 的构建产物都放进安装包的资源目录：窗口不直接加载 client 的文件，而是由 core 通过 HTTP 提供。打包前，`apps/desktop/scripts/stage.mjs` 构建 core 和 client，用 `pnpm deploy --prod --config.node-linker=hoisted` 把 core 连同运行依赖放进暂存目录（扁平的 `node_modules`，没有符号链接），删掉 `node_modules/.bin`，再复制 client 的构建产物；electron-builder 用 `extraResources` 把两个目录放到 `resources/core` 和 `resources/client`。core 依赖的 pi-ai 会按需导入多家服务商的 SDK，所以 core 不打成单文件。
 
-pnpm 默认不运行依赖的安装脚本，而 Electron 本体是安装脚本下载的，所以 `pnpm-workspace.yaml` 的 `allowBuilds` 放行 `electron`。依赖版本遵守发布满两周的约定，写在 catalog 里。
+Electron 45 的 npm 包不再用 postinstall 下载本体，而是在首次运行 `electron` 时下载。desktop 的 `postinstall` 显式运行 `install-electron`，所以 `pnpm install` 结束后 `node_modules/electron/dist` 已经就位，`allowBuilds` 不需要为 electron 放行。依赖版本遵守发布满两周的约定，写在 catalog 里。
 
 ## 5. client
 

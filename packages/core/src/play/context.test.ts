@@ -1,14 +1,15 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
-import { seedNorthCape, seedStory } from '../test-support/story-fixtures.ts';
+import { seedLighthouseTown, seedNorthCape, seedStory } from '../test-support/story-fixtures.ts';
 import { ancestorChain } from './chain.ts';
 import { openDatabase, type Database } from '../store/db.ts';
 import { createCodeBook } from '../story/codebook.ts';
 import { loadProjection } from '../story/projection.ts';
 import { estimateTokens } from '../llm/budget.ts';
 import { buildNarratorContext } from './context.ts';
-import type { WorkAnchors } from '@unwritten/contracts';
+import { DEFAULT_WORK_SETTINGS, type WorkAnchors, type WorkSettings } from '@unwritten/contracts';
+import type { KeyScene } from '../store/meta.ts';
 
 function projectionFor(db: Database, versionId: string, headTurnId: string) {
   const chain = ancestorChain(db, headTurnId).map((turn) => ({
@@ -21,15 +22,36 @@ function projectionFor(db: Database, versionId: string, headTurnId: string) {
   return loadProjection(db, { versionId, chain });
 }
 
-function contextFor(db: Database, versionId: string, headTurnId: string, contextWindow: number, anchors?: WorkAnchors) {
+function contextFor(
+  db: Database,
+  versionId: string,
+  headTurnId: string,
+  contextWindow: number,
+  overrides: { anchors?: WorkAnchors; settings?: WorkSettings; ending?: string; keyScenes?: KeyScene[] } = {},
+) {
   const projection = projectionFor(db, versionId, headTurnId);
   return buildNarratorContext({
     meta: {
       background: '雨下了三天，你在北岬等一班开往南岸的渡轮。',
-      plan: { items: [{ id: 'public_setting', text: '你是来北岬送信的邮差，渡轮因风雨停航。', source: 'ai' }] },
+      plan: {
+        items: [
+          {
+            kind: 'summary',
+            key: 'public_setting',
+            id: 'public_setting',
+            text: '你是来北岬送信的邮差，渡轮因风雨停航。',
+            source: 'ai',
+          },
+        ],
+        conflicts: [],
+        confirmedRev: null,
+      },
       narration: { language: 'zh-CN' },
-      anchors,
+      ending: overrides.ending,
+      keyScenes: overrides.keyScenes,
+      anchors: overrides.anchors,
     },
+    settings: overrides.settings ?? DEFAULT_WORK_SETTINGS,
     projection,
     codebook: createCodeBook(projection),
     action: { text: '问撑伞的女人叫什么名字', optionIndex: null },
@@ -44,6 +66,7 @@ function indexContext(db: Database, versionId: string, headTurnId: string, conte
   const codebook = createCodeBook(projection);
   const result = buildNarratorContext({
     meta: { background: '', narration: { language: 'zh-CN' } },
+    settings: DEFAULT_WORK_SETTINGS,
     projection,
     codebook,
     action: { text: '一', optionIndex: null },
@@ -97,9 +120,11 @@ describe('buildNarratorContext', () => {
     try {
       const seeded = seedNorthCape(opened.db);
       const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 32_768, {
-        narrationDirective: '用第二人称，句子短。',
-        contentPolicy: '不写血腥场面。',
-        improvisationScope: '路人的名字可以现造。',
+        anchors: {
+          narrationDirective: '用第二人称，句子短。',
+          contentPolicy: '不写血腥场面。',
+          improvisationScope: '路人的名字可以现造。',
+        },
       });
       expect(result.ok).toBe(true);
       if (result.ok) {
@@ -121,10 +146,12 @@ describe('buildNarratorContext', () => {
     const opened = openDatabase(join(temp.dir, 'library.db'));
     try {
       const seeded = seedNorthCape(opened.db);
-      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1400, {
-        narrationDirective: '长'.repeat(1500),
-        contentPolicy: '',
-        improvisationScope: '',
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1709, {
+        anchors: {
+          narrationDirective: '长'.repeat(1500),
+          contentPolicy: '',
+          improvisationScope: '',
+        },
       });
       expect(result).toEqual({ ok: false, code: 'work_setting_too_long', anchorTokens: 1500 });
     } finally {
@@ -154,7 +181,7 @@ describe('buildNarratorContext', () => {
           { entity: 'c', name: '丙', holder: 'lin', originTurn: 0, para: 1 },
         ],
       });
-      const { result } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 860);
+      const { result } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 1169);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.indexEntities).toBe(4);
@@ -185,7 +212,7 @@ describe('buildNarratorContext', () => {
         ],
         entities: [{ key: 'lin', kind: 'character', name: '主角', protagonist: true }],
       });
-      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1240);
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1549);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.prompt).toContain('【更早的回合】');
@@ -212,7 +239,7 @@ describe('buildNarratorContext', () => {
         ],
         entities: [{ key: 'lin', kind: 'character', name: '主角', protagonist: true }],
       });
-      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1240);
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1549);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.summaryLines).toBe(0);
@@ -239,11 +266,152 @@ describe('buildNarratorContext', () => {
         ],
         names: [{ entity: 'included', name: '被列出的人', holder: 'lin', originTurn: 0, para: 1 }],
       });
-      const { result, codebook } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 800);
+      const { result, codebook } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 1109);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(codebook.resolveEntity('被列出的人').ok).toBe(true);
         expect(codebook.resolveEntity('被挤掉的人').ok).toBe(false);
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('状态栏、秘密、场面、结束条件进入上下文', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    try {
+      const seeded = seedStory(opened.db, {
+        turns: [{ prose: '开场', presentKeys: ['keeper'] }],
+        entities: [
+          { key: 'lin', kind: 'character', name: '主角', protagonist: true },
+          { key: 'keeper', kind: 'character', name: '守灯人' },
+        ],
+        facts: [
+          {
+            key: 'secret',
+            kind: 'secret',
+            subject: 'keeper',
+            statement: '灯塔下面停着一条旧船',
+            data: { title: '旧船', reveal: '主角问起时' },
+            para: 1,
+          },
+        ],
+        stateDefs: [{ key: '潮位', label: '潮位', display: 'number', config: { min: 0, max: 10, unit: '米' } }],
+        stateValues: [{ state: '潮位', turn: 0, value: '3', visible: true }],
+      });
+      const settings: WorkSettings = {
+        ...DEFAULT_WORK_SETTINGS,
+        actions: { text: '', hints: 'known_consequences' },
+      };
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 32_768, {
+        settings,
+        ending: '三封旧信都送到收件人手里',
+        keyScenes: [{ id: 'scene-1', condition: '主角第一次独自登上灯塔顶', outcome: '守灯人讲起旧事', once: true }],
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.prompt).toContain('【行动提示】\n提醒已知后果：');
+        expect(result.prompt).toContain('【结束条件】\n三封旧信都送到收件人手里');
+        expect(result.prompt).toContain('【状态栏】');
+        expect(result.prompt).toContain('潮位（key 潮位，数字 0 到 10 米）= 3');
+        expect(result.prompt).toContain('【和在场者有关的秘密】');
+        expect(result.prompt).toContain('秘密「旧船」');
+        expect(result.prompt).toContain('【未触发的关键场面】');
+        expect(result.prompt).toContain('S1：条件：主角第一次独自登上灯塔顶');
+        expect(result.stateLines).toBe(1);
+        expect(result.secretLines).toBe(1);
+        expect(result.sceneLines).toBe(1);
+        expect(result.sceneCodes).toEqual([{ code: 'S1', id: 'scene-1', once: true }]);
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('已触发的一次性场面不再列出', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const sceneId = seeded.ids['scene:towerTop'] ?? '';
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 32_768, {
+        ending: '三封旧信都送到收件人手里',
+        keyScenes: [{ id: sceneId, condition: '主角第一次独自登上灯塔顶', outcome: '林潮讲起上一任邮差', once: true }],
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.prompt).toContain('【状态栏】');
+        expect(result.prompt).not.toContain('【未触发的关键场面】');
+        expect(result.sceneLines).toBe(0);
+        expect(result.sceneCodes).toEqual([]);
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('和在场者无关的秘密不直接给', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    try {
+      const seeded = seedStory(opened.db, {
+        turns: [{ prose: '开场', presentKeys: ['keeper'] }],
+        entities: [
+          { key: 'lin', kind: 'character', name: '主角', protagonist: true },
+          { key: 'keeper', kind: 'character', name: '守灯人' },
+          { key: 'stranger', kind: 'character', name: '外来人' },
+        ],
+        facts: [
+          {
+            key: 'related',
+            kind: 'secret',
+            subject: 'keeper',
+            statement: '灯油快用完了',
+            data: { title: '灯油', reveal: '灯灭时' },
+            para: 1,
+          },
+          {
+            key: 'unrelated',
+            kind: 'secret',
+            subject: 'stranger',
+            statement: '钥匙埋在井里',
+            data: { title: '钥匙', reveal: '有人找钥匙时' },
+            para: 1,
+          },
+        ],
+      });
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 32_768);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.prompt).toContain('灯油快用完了');
+        expect(result.prompt).not.toContain('钥匙埋在井里');
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('幕后栏目标明不显示给玩家', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    try {
+      const seeded = seedStory(opened.db, {
+        turns: [{ prose: '开场' }],
+        entities: [{ key: 'lin', kind: 'character', name: '主角', protagonist: true }],
+        stateDefs: [{ key: '真名', label: '真名', display: 'text', hidden: true }],
+        stateValues: [{ state: '真名', turn: 0, value: '阿岚', visible: false }],
+      });
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 32_768);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        const line = result.prompt.split('\n').find((candidate) => candidate.includes('key 真名'));
+        expect(line).toContain('幕后');
+        expect(line).toContain('目前不显示给玩家');
       }
     } finally {
       opened.close();
@@ -261,10 +429,21 @@ describe('buildNarratorContext', () => {
         meta: {
           background: '雨下了三天，你在北岬等一班开往南岸的渡轮。',
           plan: {
-            items: [{ id: 'public_setting', text: '你是来北岬送信的邮差，渡轮因风雨停航。', source: 'ai' }],
+            items: [
+              {
+                kind: 'summary',
+                key: 'public_setting',
+                id: 'public_setting',
+                text: '你是来北岬送信的邮差，渡轮因风雨停航。',
+                source: 'ai',
+              },
+            ],
+            conflicts: [],
+            confirmedRev: null,
           },
           narration: { language: 'zh-CN' },
         },
+        settings: DEFAULT_WORK_SETTINGS,
         projection,
         codebook: createCodeBook(projection),
         action: { text: '问撑伞的女人叫什么名字', optionIndex: null },
@@ -273,7 +452,7 @@ describe('buildNarratorContext', () => {
         toolSchemaText: 'schema',
       });
       expect(result.ok).toBe(true);
-      if (result.ok) expect(estimateTokens(result.prompt)).toBe(1056);
+      if (result.ok) expect(estimateTokens(result.prompt)).toBe(1145);
     } finally {
       opened.close();
       temp.cleanup();

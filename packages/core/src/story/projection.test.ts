@@ -2,10 +2,10 @@ import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
-import { seedNorthCape, seedStory } from '../test-support/story-fixtures.ts';
+import { seedLighthouseTown, seedNorthCape, seedStory } from '../test-support/story-fixtures.ts';
 import { ancestorChain } from '../play/chain.ts';
 import { openDatabase, type Database } from '../store/db.ts';
-import { loadProjection, protagonistNameOf } from './projection.ts';
+import { loadProjection, protagonistNameOf, sceneHitIds, stateAt, stateDefByKey } from './projection.ts';
 
 function load(db: Database, versionId: string, headTurnId: string) {
   const chain = ancestorChain(db, headTurnId).map((turn) => ({
@@ -150,6 +150,41 @@ describe('loadProjection', () => {
       const seeded = seedNorthCape(opened.db);
       opened.db.run(sql`delete from entities where version_id = ${seeded.versionId} and id = ${seeded.ids.lin}`);
       expect(() => load(opened.db, seeded.versionId, seeded.headTurnId)).toThrow('protagonist entity missing');
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+});
+
+describe('loadProjection 作者设定与状态栏', () => {
+  it('没有回合时只投影作者设定', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const projection = loadProjection(opened.db, { versionId: seeded.versionId, chain: [] });
+      expect(projection.headTurnId).toBe('');
+      expect(projection.entities.get(seeded.ids.linchao ?? '')?.name).toBe('林潮');
+      expect(projection.stateDefs.size).toBe(4);
+      expect(projection.stateValues).toEqual([]);
+      expect(projection.facts.map((fact) => fact.kind)).toEqual(['secret']);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('状态值和已触发的场面按链投影', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const projection = load(opened.db, seeded.versionId, seeded.headTurnId);
+      const trust = stateDefByKey(projection, '信任');
+      expect(trust?.label).toBe('信任');
+      expect(stateAt(projection, trust?.id ?? '', 0)?.value).toBe('陌生');
+      expect(stateAt(projection, trust?.id ?? '', 1)?.value).toBe('相识');
+      expect(stateAt(projection, trust?.id ?? '', 1)?.visible).toBe(true);
+      expect(sceneHitIds(projection).has(seeded.ids['scene:towerTop'] ?? '')).toBe(true);
     } finally {
       opened.close();
       temp.cleanup();

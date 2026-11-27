@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ValidatedChangesSchema, type ValidatedChanges } from './types.ts';
+import { EMPTY_CHANGES, ValidatedChangesSchema, type ValidatedChanges } from './types.ts';
 
 describe('ValidatedChanges', () => {
   it('能往返 JSON', () => {
     const changes: ValidatedChanges = {
+      ...EMPTY_CHANGES,
       entities: [
         {
           line: 1,
@@ -13,6 +14,7 @@ describe('ValidatedChanges', () => {
           profile: '渡口的守夜人',
           para: 1,
           protagonist: false,
+          slot: null,
         },
       ],
       names: [{ line: 2, entity: { existing: 'e' }, name: '守夜人', holder: { created: 1 }, para: 1 }],

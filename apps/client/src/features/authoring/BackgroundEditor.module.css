@@ -10,12 +10,6 @@
 
 .anchorsSummary {
   cursor: pointer;
-  font-family: var(--uw-typography-label-font-family);
-  font-size: var(--uw-typography-label-font-size);
-  font-weight: var(--uw-typography-label-font-weight);
-  line-height: var(--uw-typography-label-line-height);
-  letter-spacing: var(--uw-typography-label-letter-spacing);
-  color: var(--uw-color-text);
 }
 
 .anchorsBody {
@@ -24,6 +18,16 @@
 }
 
 .anchorsHelp {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.settingsIntro {
   margin: 0;
   font-family: var(--uw-typography-caption-font-family);
   font-size: var(--uw-typography-caption-font-size);

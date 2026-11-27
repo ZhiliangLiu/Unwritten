@@ -145,7 +145,7 @@
 | D25 | 结局 | 作品写了结束条件才接受 `ending: "true"`；`RouteView` 加 `ended`。完结后游玩页不显示行动输入，显示「故事到这里结束了」和「重新开局」 | 由 client 判断：client 不知道作品有没有结束条件 |
 | D26 | 关键场面怎样引用 | 上下文里给未触发的场面排短编号 `S1`、`S2`…，`scene_hit` 写这个编号，core 在本次请求内映射回场面 id | 写场面 id：模型永远见不到真实 id（[回合循环 §3](../docs/turn-loop.md#3-上下文哪些直接给哪些让模型查)） |
 | D27 | 幕后折叠的状态 | 只是创作页的界面状态，不写库，每次打开创作页都是折叠的 | 存进 `chat_messages.anchor`：工作站还没做 |
-| D28 | 版本号 | `electron@45.2.3`、`electron-builder@26.18.0`、`shell-env@4.0.3`。45.5.0 发布不满两周；pnpm 默认不跑 electron 的安装脚本，要在 `allowBuilds` 里放行 | 用最新版：违反发布满两周的约定 |
+| D28 | 版本号 | `electron@45.2.3`、`electron-builder@26.18.0`、`shell-env@4.0.3`。45.5.0 发布不满两周；Electron 45 的包没有 postinstall，desktop 的 `postinstall` 显式运行 `install-electron` | 用最新版：违反发布满两周的约定 |
 
 T00 在维护者确认后把 D1–D28 写进设计文档。
 
@@ -160,7 +160,7 @@ T00 在维护者确认后把 D1–D28 写进设计文档。
 | 现有 core 的构建产物能直接跑在 utilityProcess 里 | `pnpm --filter @unwritten/core build` 后 fork `packages/core/dist/main.js --data-dir <临时目录>` | 打印 `UNWRITTEN_CORE_URL=…`；`diagnostics.db` 里依次有 `store.migrated`、`story.backfill`、`llm.config.loaded`、`recovery.interrupted`、`client.assets.missing`、`core.started`、`core.stopped`。`child.kill()` 后 core 走了正常退出 |
 | utilityProcess 能直接跑 `.ts` 源码 | fork 一个带类型标注的 `.ts` 文件 | 正常运行并回消息 |
 | `pnpm deploy` 能得到可运行的 core | `pnpm --filter @unwritten/core deploy --prod --config.node-linker=hoisted <目录>`，再 `node <目录>/dist/main.js --data-dir <临时目录>` | 退出码 0；`node_modules` 约 130 MB、62 个顶层目录，除 `.bin` 外没有符号链接；core 正常打印地址 |
-| pnpm 默认不跑 electron 的安装脚本 | 临时目录 `pnpm add electron@45.2.3` 后看 `node_modules/electron/dist` | 目录不存在，手动跑 `node node_modules/electron/install.js` 后才有 |
+| Electron 45 不在安装时下载本体 | 临时目录 `pnpm add electron@45.2.3` 后看 `node_modules/electron/dist`，再运行 `pnpm exec electron --version` | 第一次目录不存在；运行后 `dist/Electron.app` 存在 |
 
 ---
 ## 2. 贯穿全局的约定
@@ -326,7 +326,8 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 | 位置 | 改什么 |
 | --- | --- |
 | `pnpm-workspace.yaml` 的 `catalog` | 加 `electron: 45.2.3`、`electron-builder: 26.18.0`、`shell-env: 4.0.3`，按字母顺序插入 |
-| `pnpm-workspace.yaml` 的 `allowBuilds` | 加 `electron: true`（否则不会下载 Electron 本体，§1.5） |
+| `pnpm-workspace.yaml` 的 `allowBuilds` | 不加 `electron`：Electron 45 的包没有 postinstall，`apps/desktop` 的 `postinstall` 显式运行 `install-electron` |
+| `apps/desktop/package.json` 的 `scripts.postinstall` | 写 `install-electron`，让 `pnpm install` 后 `node_modules/electron/dist` 就位 |
 | `apps/desktop/package.json` 的 `devDependencies` | `electron`、`electron-builder`、`shell-env`、`@types/node`、`tsdown`、`typescript`、`vitest`，都写 `"catalog:"`；`@unwritten/contracts` 写 `"workspace:*"` 放进 `dependencies` |
 | `e2e/package.json` 的 `devDependencies` | 不加。Electron 端到端测试用 `createRequire` 从 `apps/desktop` 解析 Electron 的路径（T08） |
 | `docs/tech-stack.md` | 由 T00 写版本、`allowBuilds` 和打包方式；`electron-updater` 那一行改成“签名之后再装”的推迟说明 |
@@ -436,9 +437,11 @@ W9   T28 真实模型走查与收口（依赖 T27）
 | 文件 | 作用 | 归属 |
 | --- | --- | --- |
 | `package.json` 的 `exports` | 加 `"./desktop": "./src/desktop.ts"` | T02 |
+| `tsconfig.json` 的 `types` | 测试用 Node 内置模块 | T10 |
 | `src/desktop.ts`、`src/desktop.test.ts` | 进程消息类型与校验 | T02 |
 | `src/errors.ts` | 四个新错误码 | T10 |
 | `src/schemas/authoring.ts`、`src/schemas/authoring.test.ts` | 新建：补充设定、主角填写项、方案、方案任务视图、向导步骤 | T10 |
+| `src/schemas/llm.test.ts` | `author_chat` 可以用于测试连接 | T10 |
 | `src/schemas/works.ts` | `WorkDetail.draft` 加设定、方案、步骤；`SaveDraftInput` 加 `settings`；方案相关过程的输入输出；预览加 `needsReview`、`state`；选项加 `hint` | T10 → T26 |
 | `src/schemas/play.ts` | 选项加 `hint`；`RouteView` 加 `ended`；开局、开局请求、状态栏视图 | T10 |
 | `src/schemas/llm.ts` | `PURPOSES` 加 `author_chat` | T10 |
@@ -456,8 +459,10 @@ W9   T28 真实模型走查与收口（依赖 T27）
 | `src/app.ts` | `startCore` 接受外部令牌；启动失败时把诊断编号交给调用方（已有 `CoreStartupError`） | T03 → T26 |
 | `src/cli.ts` | `CliOptions` 加 `token: string \| null`，命令行模式下恒为 `null` | T03 |
 | `src/errors.ts` | `HTTP_STATUS` 加四个码 | T10 |
+| `src/llm/service.ts` | `purposeViews` 把 `author_chat` 不支持工具调用标成 `no_tools` | T10 |
 | `src/services.ts` | 新服务方法：`LibraryService.setWizardStep`、`AuthoringService` 的方案方法、`PlayService.start/getPlaythrough/getStartInfo/retryOpening/getStatus` | T11 |
-| `src/api/router.ts` | 挂上全部新过程 | T11 |
+| `src/api/router.ts` | 挂上全部新过程（T10 先挂临时 handler） | T10 → T11 |
+| `tsdown.config.ts` | `noExternal` 加 `@unwritten/contracts/desktop`，打包后的 core 不再引用 TS 源码 | T07 |
 | `src/store/meta.ts` | `VersionMeta` 加 `settings`、新的 `plan`、`castSlots`、`keyScenes`、`ending`、`wizardStep`、`opening.initialState`、`opening.createdIds`、`opening.template`；方案任务的输入与结果；按任务种类取输入和结果的函数 | T11 → T17（`PreviewJobResultSchema` 加 `initialState`、`slots`） |
 | `src/store/plan.ts`、`plan.test.ts` | 新建：`readPlan(meta)`、`readSettings(meta)`、`readPublicSetting(meta)`、`isPlanConfirmed(meta, contentRev)` | T11 |
 | `src/store/schema.ts` | `state_defs`、`state_values` 两张表；`facts.kind` 的枚举加 `secret`、`scene_hit`；`jobs` 的 `input`、`result` 类型改为联合 | T11（jobs 类型）→ T12 |
@@ -486,7 +491,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
 | `src/play/context.ts`、`narrator-prompt.ts`、`propose-turn-tool.ts` | 上下文加秘密、状态栏、场面、结束条件、行动提示；`ending`、`hint` | T19 |
 | `src/test-support/llm-steps.ts` | 加 `proposePlanStep`、`proposeCastStep`、`proposeOpeningStep` | T14、T18 |
 | `src/test-support/story-fixtures.ts` | `seedStory` 支持状态栏定义、状态值和秘密 | T16 |
-| `src/app.integration.test.ts` | 采用不再建开局后的适配；补 M3 的集成用例 | T17（标 `it.todo`）→ T18（恢复）→ T26（新增） |
+| `src/app.integration.test.ts` | 采用不再建开局后的适配；补 M3 的集成用例 | T10（类型断言）→ T17（标 `it.todo`）→ T18（恢复）→ T26（新增） |
 
 ### 4.4 `apps/desktop`（全部新建）
 
@@ -515,12 +520,12 @@ W9   T28 真实模型走查与收口（依赖 T27）
 | `src/i18n/zh-CN/settings.json`、`src/features/settings/labels.ts`、`labels.test.ts` | `author_chat` 的名称与说明 | T10 |
 | `src/i18n/zh-CN/authoring.json` | 向导文案 | T21、T22（同一波次，各自只加附录 A.2 里自己那一块的键，合并时两块并存）→ T23 |
 | `src/features/authoring/SettingsSections.tsx`、`ProtagonistFieldsEditor.tsx`、`settings-labels.ts` 及样式、测试 | 新建：补充设定八节、主角填写项 | T21 |
-| `src/features/authoring/BackgroundEditor.tsx`、`BackgroundEditor.test.tsx`、`draft.ts` | 草稿带上补充设定；生成方案 | T21 |
+| `src/features/authoring/BackgroundEditor.tsx`、`BackgroundEditor.test.tsx`、`draft.ts` | 草稿带上补充设定；生成方案 | T10（缓存字段）→ T21 |
 | `src/features/authoring/PlanPanel.tsx`、`PlanItemCard.tsx`、`PlanItemEditor.tsx`、`PlanConflicts.tsx`、`plan-labels.ts` 及样式、测试 | 新建：方案面板 | T22 |
 | `src/features/authoring/placeholder-text.tsx` 及测试 | 新建：把占位符渲染成标签 | T22 |
 | `src/features/authoring/PreviewPanel.tsx`、`CastList.tsx` | 预览显示提醒、初始状态、待处理的句子 | T23 |
 | `src/features/authoring/WizardSteps.tsx` 及样式、测试 | 新建：步骤导航 | T23 |
-| `src/features/authoring/AuthoringPage.tsx`、`AuthoringPage.test.tsx` | 按步骤装配 | T21（只改 `BackgroundEditor` 那一处调用）→ T23 |
+| `src/features/authoring/AuthoringPage.tsx`、`AuthoringPage.test.tsx` | 按步骤装配 | T21/T22（最小接线与断言）→ T23 |
 | `src/features/authoring/PublishedPanel.tsx` | 「开始故事」指向开局页 | T23 |
 | `src/features/play/StartPage.tsx`、`OpeningPendingPage.tsx` 及样式、测试 | 新建：开局页、开场生成中 | T24 |
 | `src/features/library/WorkCard.tsx` | 「开始故事」指向开局页；「重新开局」 | T24 |
@@ -531,6 +536,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
 | `src/features/play/EndedPanel.tsx` 及样式、测试 | 新建：完结 | T25 |
 | `src/features/play/OptionList.tsx`、`PlayPage.tsx`、`PlayPage.test.tsx` | 提醒、状态栏、完结 | T25 |
 | `src/shared/api/query.ts` | 加 `startInfo`、`playthrough`、`status` 三个查询键 | T24 |
+| `src/shared/lib/log.ts` | `ClientSample` 加 `client.plan_visible` | T21 |
 | `src/app/App.tsx` | 事件分发加 `playthrough.updated`；`turn.committed` 时让 `status` 失效 | T24 |
 | `src/features/library/LibraryPage.test.tsx`、`authoring/AuthoringPage.test.tsx`、`play/PlayPage.test.tsx` 的假数据函数 | 补新字段的默认值 | T10 → 各自的页面任务 |
 
@@ -847,7 +853,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
 
 **步骤。**
 
-- [ ] 1. `pnpm-workspace.yaml`：按 §2.10 在 `catalog` 里按字母顺序加三行，在 `allowBuilds` 里加 `electron: true`。
+- [ ] 1. `pnpm-workspace.yaml`：按 §2.10 在 `catalog` 里按字母顺序加三行；`allowBuilds` 不加 `electron`。`apps/desktop/package.json` 的 `scripts.postinstall` 写 `install-electron`。
 - [ ] 2. 新建 `apps/desktop/package.json`：
 
   ```json
@@ -861,6 +867,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
     "engines": { "node": ">=24" },
     "scripts": {
       "build": "tsdown",
+      "postinstall": "install-electron",
       "dev": "tsdown && UNWRITTEN_DEV_CLIENT_ORIGIN=http://localhost:5173 UNWRITTEN_USER_DATA_DIR=../../.data electron .",
       "start": "tsdown && electron .",
       "stage": "node scripts/stage.mjs",
@@ -898,7 +905,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
   });
   ```
 
-- [ ] 4. 在仓库根目录跑 `pnpm install > "${TMPDIR:-/tmp}/uw-install.txt" 2>&1; echo $?`，退出码 0；然后确认 `apps/desktop/node_modules/electron/dist` 存在（§1.5：没放行时这个目录不会出现）。不存在就停下来汇报，不要手动跑 `install.js` 蒙混过去。
+- [ ] 4. 在仓库根目录跑 `pnpm install > "${TMPDIR:-/tmp}/uw-install.txt" 2>&1; echo $?`，退出码 0；然后确认 `apps/desktop/node_modules/electron/dist` 存在。Electron 45 的包本身没有 postinstall，desktop 的 `postinstall` 会调用 `install-electron`；如果它没有运行，先检查 `apps/desktop/package.json`，不要用 `node_modules/electron/install.js` 手动补。
 - [ ] 5. `src/paths.ts`：
 
   ```ts
@@ -1252,7 +1259,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
 
 **依赖。** T06。
 
-**拥有的文件。** `apps/desktop/scripts/stage.mjs`、`apps/desktop/electron-builder.yml`；`.gitignore` 里加两行。
+**拥有的文件。** `apps/desktop/scripts/stage.mjs`、`apps/desktop/electron-builder.yml`、`apps/desktop/build/icon.svg`、`icon-simple.svg`、`icon-dark.svg`、`icon-light.png`、`icon-dark.png`、`icon.icns`；`packages/core/tsdown.config.ts` 的 `noExternal` 一处；`.gitignore` 里加两行。
 
 **先读。** 本文 §1.4 D8、§1.5；`packages/core/tsdown.config.ts` 的 `copy`（迁移目录在 `dist/migrations`、`dist/diagnostic-migrations`）；electron-builder 26 的配置项：`extraResources`、`mac.identity`、`electronFuses`（查不到时用 Context7 查 electron-builder 的文档）。
 
@@ -1265,6 +1272,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
   3. 删掉 `stage/core` 下除 `dist`、`node_modules`、`package.json` 以外的所有条目，再删 `stage/core/node_modules/.bin`。
   4. `cpSync(join(repo, 'apps/client/dist'), join(stage, 'client'), { recursive: true })`。
   5. 逐个检查 `core/dist/main.js`、`core/dist/migrations`、`core/dist/diagnostic-migrations`、`client/index.html` 存在，缺哪个就 `process.stderr.write` 一行写明缺什么，`process.exit(1)`。
+- [ ] 2.5 `packages/core/tsdown.config.ts` 的 `noExternal` 加上 `@unwritten/contracts/desktop`。只写包根时，deploy 后的 core 会保留 `from "@unwritten/contracts/desktop"`，Node 不允许在 `node_modules` 下擦除 `.ts` 类型，打包产物起不来。
 - [ ] 3. `electron-builder.yml`：
 
   ```yaml
@@ -1276,10 +1284,12 @@ W9   T28 真实模型走查与收口（依赖 T27）
     - dist/**
     - package.json
   extraResources:
-    - from: .stage/core
-      to: core
-    - from: .stage/client
-      to: client
+    - from: .stage
+      to: .
+    - from: build/icon-light.png
+      to: icon-light.png
+    - from: build/icon-dark.png
+      to: icon-dark.png
   asar: true
   npmRebuild: false
   mac:
@@ -1287,6 +1297,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
       - dir
       - dmg
     identity: null
+    icon: build/icon.icns
     category: public.app-category.entertainment
   electronFuses:
     runAsNode: false
@@ -1313,7 +1324,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
 **完成判据。**
 
 - 步骤 4 的退出码 0，步骤 5 的四条都有读数。
-- 突变：在 `stage.mjs` 里删掉复制 client 的那一步，`pnpm --filter @unwritten/desktop stage` 必须以非 0 退出，并在 stderr 写明缺 `client/index.html`。
+- 突变：在 `stage.mjs` 里删掉复制 client 的那一步，`pnpm --filter @unwritten/desktop run stage` 必须以非 0 退出，并在 stderr 写明缺 `client/index.html`。
 - `git status --short` 里没有 `.stage/`、`release/` 下的文件。
 
 ### T08 Electron 端到端
@@ -1372,7 +1383,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
   - `core 意外退出后重启，进度不丢`：
     1. 打开应用，等作品库出现；新建一个作品、写一句背景，等到「已保存」。
     2. `holdDialogs(app)`。
-    3. 取 core 的进程号：`app.evaluate(({ app: electronApp }) => electronApp.getAppMetrics().find((metric) => metric.type === 'Utility' && metric.serviceName === 'core')?.pid)`，断言是数字。
+    3. 取 core 的进程号：`app.evaluate(({ app: electronApp }) => electronApp.getAppMetrics().find((metric) => metric.type === 'Utility' && metric.name === 'core')?.pid)`，断言是数字。Electron 实测 `serviceName` 是 `node.mojom.NodeService`，`name` 才是 `core`。
     4. `process.kill(pid, 'SIGKILL')`；`expect.poll(() => dialogs(app))` 长度变为 1。
     5. 在 desktop 重启 core 之前，用 `spawn(process.execPath, [corePath, '--data-dir', dataDir])` 起一个独立的 core 占住数据目录，等它打印 `UNWRITTEN_CORE_URL=`。
     6. `releaseDialog(app)`（点「重启」）；第二个对话框出现，`message` 含“数据目录”，`detail` 匹配 UUID 的正则。
@@ -1384,13 +1395,13 @@ W9   T28 真实模型走查与收口（依赖 T27）
 **注意事项。**
 
 - 不要在测试里给 desktop 加任何“测试模式”的分支。对话框靠 `app.evaluate` 在运行时替换，这要求 T05 的 `showDialog` 每次调用时才取 `dialog.showMessageBox`。
-- `getAppMetrics()` 的 `serviceName` 来自 T05 的 `fork` 选项 `serviceName: 'core'`。取不到时先确认这一点。
+- `getAppMetrics()` 的 `name` 是 T05 的 `fork` 选项 `serviceName: 'core'` 在 Electron 里的实际字段；`serviceName` 是 `node.mojom.NodeService`。取不到时先确认这一点。
 - 第二个实例拿不到单实例锁会立刻退出，`electron.launch` 可能因此直接 reject。把第二次 `launchDesktop` 包在 `try/catch` 里：reject 本身就是预期结果之一；resolve 了就再等它的进程退出。两种情况都要断言第一个应用仍然只有一个窗口。
 - 第 3 步的用例比较长，失败时用 `trace: 'retain-on-failure'` 留下的 trace 排查，不要拆掉中间的断言。
 
 **完成判据。**
 
-- `pnpm e2e` 退出码 0，本文件四条用例全部通过。
+- `pnpm --filter @unwritten/e2e exec playwright test tests/desktop.spec.ts` 退出码 0，本文件四条用例全部通过。`pnpm e2e` 里旧创作流程的三条失败由 T27 更新旧 spec，T08 不负责。
 - 突变一：删掉 `main.ts` 里 `core.onAppearanceChanged(...)` 这一行（不要注释掉，代码里不许写注释），`外观偏好同步到原生主题` 必须红。测完用编辑器把这一行加回来。
 - 突变二：把 `main.ts` 的 `requestSingleInstanceLock()` 判断改成恒为真，`第二次启动只聚焦已有窗口` 必须红。
 - 突变三：把 `main.ts` 的 `handleCrash` 改成直接 `app.quit()`，`core 意外退出后重启，进度不丢` 必须红。
@@ -1403,7 +1414,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
 
 **依赖。** T00。
 
-**拥有的文件。** `packages/contracts/src/schemas/authoring.ts`、`authoring.test.ts`（新建）；`packages/contracts/src/errors.ts`、`schemas/works.ts`、`schemas/play.ts`、`schemas/llm.ts` 的 `PURPOSES`、`schemas/log.ts`、`events.ts`、`procedures/works.ts`、`procedures/play.ts`、`index.ts`；`packages/core/src/errors.ts` 的 `HTTP_STATUS`；`apps/client/src/i18n/zh-CN/errors.json`；`apps/client/src/features/settings/labels.ts`、`labels.test.ts` 和 `apps/client/src/i18n/zh-CN/settings.json` 里 `author_chat` 的键。另外，**只为让类型检查通过**，允许在下列位置补新字段的默认值，不改任何逻辑：`packages/core/src/library/service.ts` 的 `getWork`、`packages/core/src/play/service.ts` 的 `turnView` 与 `getRoute`、`packages/core/src/authoring/preview-tool.ts` 的 `parsePreviewArgs` 返回值、`packages/core/src/authoring/service.ts` 的 `adoptPreview` 返回值，以及 `apps/client/src/features/library/LibraryPage.test.tsx`、`authoring/AuthoringPage.test.tsx`、`play/PlayPage.test.tsx` 里构造假数据的函数。
+**拥有的文件。** `packages/contracts/src/schemas/authoring.ts`、`authoring.test.ts`（新建）；`packages/contracts/src/desktop.ts` 之外的 contracts 入口；`packages/contracts/src/errors.ts`、`schemas/works.ts`、`schemas/play.ts`、`schemas/llm.ts` 的 `PURPOSES`、`schemas/log.ts`、`events.ts`、`procedures/works.ts`、`procedures/play.ts`、`index.ts`；`packages/contracts/tsconfig.json` 的 `types`（测试用 Node 内置模块）；`packages/contracts/src/schemas/llm.test.ts`；`packages/core/src/errors.ts` 的 `HTTP_STATUS`；`packages/core/src/api/router.ts` 的 11 个临时 handler；`packages/core/src/llm/service.ts` 的 `purposeViews`；`apps/client/src/i18n/zh-CN/errors.json`；`apps/client/src/features/settings/labels.ts`、`labels.test.ts` 和 `apps/client/src/i18n/zh-CN/settings.json` 里 `author_chat` 的键。另外，**只为让类型检查通过**，允许在下列位置补新字段的默认值，不改任何逻辑：`packages/core/src/library/service.ts` 的 `getWork`、`packages/core/src/play/service.ts` 的 `turnView` 与 `getRoute`、`packages/core/src/authoring/preview-tool.ts` 的 `parsePreviewArgs` 返回值、`packages/core/src/authoring/service.ts` 的 `adoptPreview` 返回值、`apps/client/src/features/authoring/BackgroundEditor.tsx` 的查询缓存写回，以及 `apps/client/src/features/library/LibraryPage.test.tsx`、`authoring/AuthoringPage.test.tsx`、`play/PlayPage.test.tsx`、`packages/core/src/app.integration.test.ts`、`packages/core/src/library/service.test.ts` 里构造假数据或非空断言的地方。
 
 **先读。** [创作流程 §2–3](../docs/authoring-flow.md#2-写背景只补自己在意的设置)；[数据模型 §2](../docs/data-model.md#2-作品与版本)、[§4](../docs/data-model.md#4-故事事实)；本文 §1.4 D10–D27、§2.1、§2.3；现有 `schemas/works.ts`、`schemas/play.ts`、`schemas/story.ts`、`schemas/common.ts`、`procedures/*.ts`、`events.ts`、`schemas/log.ts`。
 
@@ -1489,9 +1500,10 @@ W9   T28 真实模型走查与收口（依赖 T27）
 - [ ] 6. `events.ts`：加 `z.object({ type: z.literal('playthrough.updated'), playthroughId: UuidSchema, requestId: UuidSchema, status: TurnRequestStatusSchema })`。
 - [ ] 7. `procedures/works.ts` 加：`generatePlan`（`GeneratePlanInput` → `PlanJobView`）、`adoptStalePlan`（→ `SaveDraftOutput`）、`updatePlanItem`（→ `SaveDraftOutput`）、`removePlanItem`（→ `SaveDraftOutput`）、`confirmPlan`（→ `SaveDraftOutput`）、`setWizardStep`（→ `z.object({})`）。`procedures/play.ts` 加：`getStartInfo`（`WorkIdInput` → `StartInfo`）、`start`（`StartPlaythroughInput` → `PlaythroughView`）、`getPlaythrough`（`PlaythroughIdInput` → `PlaythroughView`）、`retryOpening`（`RetryOpeningInput` → `PlaythroughView`）、`getStatus`（`RouteIdInput` → `StatusView`）。
 - [ ] 8. `errors.ts` 加 §2.3 的四个码；`packages/core/src/errors.ts` 的 `HTTP_STATUS` 加对应状态；`apps/client/src/i18n/zh-CN/errors.json` 照抄附录 A.1。
+- [ ] 8.1 `packages/core/src/api/router.ts` 给十一个新过程各挂一个临时 handler，直接 `throw appError('internal', 'not implemented: <服务>.<方法>')`。`implement(contract).router(...)` 要求全部过程都有 handler，不加这一步 T10 的 `pnpm typecheck` 不会绿。T11 把这些 handler 换成服务调用。
 - [ ] 9. `index.ts` 加 `export * from './schemas/authoring.ts';`。
 - [ ] 10. `author_chat` 的 client 文案：`labels.ts` 的 `PURPOSE_LABEL_KEYS`、`PURPOSE_HELP_KEYS` 加 `author_chat`；`settings.json` 加附录 A.5 的两个键；`labels.test.ts` 里 `expect(PURPOSES.length).toBe(3)` 改成 `toBe(4)`。
-- [ ] 11. 跑 `pnpm typecheck`，按报错在“拥有的文件”允许的位置补默认值：`getWork` 补 `settings: DEFAULT_WORK_SETTINGS`、`wizardStep: 'background'`、`plan: null`、`latestPlanJob: null`；`turnView` 的 `options` 映射成 `{ text, hint: null }`；`getRoute` 补 `ended: false`；`parsePreviewArgs` 的 `preview` 补 `needsReview: []`、`initialState: []`，`options` 补 `hint: null`；client 三个测试的假数据函数补同样的默认值。**只补默认值**，后续任务会写真实现。
+- [ ] 11. 跑 `pnpm typecheck`，按报错在“拥有的文件”允许的位置补默认值：`getWork` 补 `settings: DEFAULT_WORK_SETTINGS`、`wizardStep: 'background'`、`plan: null`、`latestPlanJob: null`；`turnView` 的 `options` 映射成 `{ text, hint: null }`；`getRoute` 补 `ended: false`；`parsePreviewArgs` 的 `preview` 补 `needsReview: []`、`initialState: []`，`options` 补 `hint: null`；`BackgroundEditor` 的查询缓存写回保留 `draft` 的新字段；client 三个测试的假数据函数、`app.integration.test.ts` 的非空断言、`library/service.test.ts` 的草稿期望补同样的默认值。**只补默认值或类型断言**，后续任务会写真实现。
 - [ ] 12. 新建 `schemas/authoring.test.ts`：
   - `主角填写项的名字不能含花括号、点和空白`：`'名字'` 通过；`'主角.名'`、`'a b'`、`'{x}'` 失败。
   - `最多一个填写项是主角名`：两项 `isName: true` 失败；一项通过（阳性对照）。
@@ -1612,7 +1624,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
   - `坏掉的方案项被丢弃，其余保留`。
   - 如果第 2 步重写了 `protagonist` 的存储 schema：`存储与契约对填写项的规则一致`（同一组非法输入两边都拒绝，同一组合法输入两边都接受）。
 
-**接线点。** 十一个新过程各一行，`grep -c "handler(" packages/core/src/api/router.ts` 比改动前多 11。
+**接线点。** 十一个新过程各一行 handler（T10 已挂临时 handler，本任务把它们换成服务调用，handler 数不再增加）。`grep -c "handler(" packages/core/src/api/router.ts` 与 T10 完成后相同；`grep -rn "not implemented:" packages/core/src/api/router.ts` 零命中。
 
 **注意事项。**
 
@@ -2080,7 +2092,7 @@ W9   T28 真实模型走查与收口（依赖 T27）
 - 突变二：把 writer 里清单的 `mergeListItems` 换成只写本回合的条目，`清单只交一个新条目时保留原来的两项` 必须红。
 - 突变三：去掉 `scene_hit` 的 `once` 检查，`只发生一次的场面不能再触发` 必须红。
 - 突变四：把 `status.ts` 里 `history` 的 `visible` 过滤去掉，`来历不含隐藏期间的值` 必须红。
-- `grep -rnE "from '\.\./(llm|api|play|authoring)/" packages/core/src/story` 零命中。
+- `grep -rnE "from '\.\./(llm|api|play|authoring)/" packages/core/src/story --glob '!*.test.ts'` 零命中。存量测试里的跨模块导入不是本任务引入的，不删。`grep -rnE "from '\.\./(llm|api|play|authoring)/" packages/core/src/story` 在测试里仍有存量命中。
 
 ---
 ### T17 core：按方案生成开场预览，采用只发布
@@ -3411,12 +3423,22 @@ W9   T28 真实模型走查与收口（依赖 T27）
 | --- | --- | --- |
 | 范围 | M3 = 桌面外壳（本机能跑，不签名、不发布、不做自动更新）+ 作者设定向导全部补充设定 | 维护者在规划时选定；签名与自动更新随发布一起重估 |
 | D1–D28 | 按推荐项执行 | 维护者整体确认，未逐项改选；任何一项改选时，先改本文 §1.4，再由 T00 改对应的设计文档 |
+| D27 幕后折叠 | 折叠时列出秘密的无剧透标题 | 维护者选定；与[创作工作站 §6](../docs/author-workstation.md#6-工具)一致，不采用 Figma 只显示条数的画法。T22 按标题实现；后续若改回条数，先改设计文档再改 T22 |
 
 ### 6.2 波次读数
 
 | 波次 | 集成分支提交 | `pnpm typecheck` | `pnpm lint` | `pnpm test` | 文档链接 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- |
 | W0 · T00、T01 | worktree `m3-t00-docs`（未提交） | — | — | — | 通过 | 只改 docs；三遍审计第 1、2 遍零命中，第 3 遍命中 1 处，是契约值 `DESKTOP_LOG_BUFFER_MAX`（64），保留 |
+| W1 · T02、T10 | worktree `m3-w1`（未合并） | 通过 | 通过 | 通过 | 通过 | T10 增加 11 个临时路由 handler；T11 替换为服务调用，handler 数不再增加 |
+| W2 · T03、T04、T11 | worktree `m3-w1`（未合并） | 通过 | 通过 | 通过 | 通过 | Electron 45 无 postinstall，desktop 的 `postinstall` 显式跑 `install-electron`；`allowBuilds` 不再放行 electron |
+| W3 · T05、T12、T13、T21、T22、T24 | worktree `m3-w1`（未合并） | 通过 | 通过 | 通过 | 通过 | T21/T22 共用 `authoring.json`，同一会话顺序实现；T21/T22 最小改了 `AuthoringPage` 的接线，T23 接管 |
+| W4 · T06、T14、T15、T16、T23、T25 | worktree `m3-w1`（未合并） | 通过 | 通过 | 通过 | 通过 | T06 开发模式实测 core/窗口/诊断样本；T14+T15 同一会话顺序做；T16 给 `keyScenes`/`parentStates` 留默认值 |
+| W5 · T07、T08、T17、T19 | worktree `m3-w1`（未合并） | 通过 | 通过 | 通过 | 通过 | T07 包内 core 修复 `noExternal` 后可运行；T08 的 `tests/desktop.spec.ts` 四条全过，根 `pnpm e2e` 仍有三条旧流程待 T27；应用图标与单实例已验 |
+| W6 · T18 | worktree `m3-w1`（未合并） | 通过 | 通过 | 通过 | 通过 | 固定人物/每局生成都接通；`not implemented` 零命中 |
+| W7 · T26 | worktree `m3-w1`（未合并） | 通过 | 通过 | 通过 | 通过 | `SaveDraftInput.settings` 必填、`WorkDetail.routeId` 删除；集成用例 5 条新增 |
+| W8 · T27 | worktree `m3-w1`（未合并） | 通过 | 通过 | 通过 | 通过 | `pnpm e2e` 18 passed（含 Electron 4 条、M3 6 条）；axe 前固定等 700ms 避开入场过渡 |
+| W9 · T28 | worktree `m3-w1`（未合并） | — | — | — | — | 真实模型走查和 VoiceOver 依赖维护者环境，未运行；包内应用启动与诊断已人工验证 |
 
 ### 6.2a W0 · T01 Figma 校准记录
 
@@ -3441,7 +3463,7 @@ Figma 文件 Prototype 页新增 section “Milestone 3 · 作者设定”和 �
 | 方案每项右边是铅笔图标按钮，没有行内「删除」 | 改 T22 第 3、4 步：删除放进编辑表单 |
 | 来源徽标都是中性色，只靠文字区分 | 改 T22 第 1 步 |
 | 方案按“摘要、人物与地点、状态栏、关键场面、幕后”分组；幕后是一张折叠控制卡 | 改 T22 第 3、6 步，附录 A.2 加 `group.summary`、`secret.foldedTitle` 等键 |
-| 稿子折叠时只写“幕后已折叠 · 2 条”，不列标题 | 保留本文写法：折叠时列出无剧透标题，因为[创作工作站 §6](../docs/author-workstation.md#6-工具)规定折叠时给标题；稿子是简化画法 |
+| 稿子折叠时只写“幕后已折叠 · 2 条”，不列标题 | 维护者确认保留本文写法：折叠时列出无剧透标题，因为[创作工作站 §6](../docs/author-workstation.md#6-工具)规定折叠时给标题；稿子是简化画法 |
 | 开场步骤的卡片顺序、待改句子卡在预览之后、采用不可用的原因在按钮左边 | 改 T23 第 3、4 步，附录 A.2 加 `opening.intro`、`cast.headingOpening` |
 | 开局页、生成中、失败页都有 `h2` 和说明 | 改 T24 第 4、5 步，附录 A.4 加 `start.heading`、`openingRequest.pendingHelp`、`keptCast` |
 | 状态栏的来历是锚在栏目上的气泡，整个栏目可点；阶段写“第 1 步，共 4 步”；数字写“7 / 10”；已了结写“已了结 1 项：…”；进行中的清单条目只有图标 | 改 T25 第 2–4 步（来历用 Base UI 的 Popover；进行中加视觉隐藏文字），附录 A.4 改 `step`、`closed`，加 `ofMax`、`historyTitle`、`historyCurrent`、`historyNote` |
@@ -3451,11 +3473,74 @@ Figma 文件 Prototype 页新增 section “Milestone 3 · 作者设定”和 �
 
 | 任务 | 突变 | 结果（红 / 绿） | 全绿时的归因与处置 |
 | --- | --- | --- | --- |
+| T02 | `StartMessageSchema` 的 `z.strictObject` 改成 `z.object` | 红 | 缺字段仍被拒；多余字段需要 `strictObject` 才拒 |
+| T02 | `desktop.core_exited` 的 `phase` 改成 `z.string()` | 红 | 用例的 `phase: 'stopping'` 被接受 |
+| T10 | `protagonist` 的 `isName` 上限从 1 改成 2 | 红 | 两个 `isName` 的设定通过校验 |
+| T10 | `PURPOSES` 改回三项 | 红 | contracts 的 `author_chat` 用例与 client 的 `labels.test.ts` 同时红 |
+| T03 | 外观转发改成 `if (false)` | 红 | `外观变化转发给 desktop` 失败 |
+| T03 | 写 desktop 事件时 `module: 'desktop'` 改成 `'core'` | 红 | 诊断库查询找不到 `module = 'desktop'` |
+| T03 | 去掉 `waitForStart` 的 `settled` 守卫 | 绿（未变红） | Promise 只接受第一次 `resolve`；第二次启动消息的解析和计数没有可观测面，也没有第二道守卫。按 §0.6 记录，判据不改 |
+| T11 | 删掉 `readPlan` 的旧项转换分支 | 红 | `旧的公开设定项读作 summary` 失败；恢复后 4 passed |
+| T04 | `stopping` 退出也调 `onUnexpectedExit` | 红 | `主动停止不算意外退出` 失败 |
+| T04 | `attach` 删掉先发 dropped 的分支 | 红 | `缓存满了计数，连接时先发 dropped` 失败 |
+| T04 | 删掉 `onExit` 的 `child !== current` 比对 | 红 | `旧子进程的退出不影响新的一次启动` 失败（30 秒超时） |
+| T13 | 八节全部无条件 `rev + 1` | 红 | `保存补充设定只给改了的节加修订号` 失败 |
+| T13 | `setWizardStep` 顺带 `contentRev + 1` | 红 | `切换向导步骤不改修订号` 失败 |
+| T05 | 显示菜单加 `{ role: 'reload' }` | 红 | `菜单里没有原地刷新` 失败 |
+| T05 | `decideNavigation` 只排除 `file:` | 红 | `javascript:alert(1)` 被判成 external |
+| T05 | 删掉 `startup.reason.data_locked` | 红 | `每个键都能取到文字` 抛未知键 |
+| T12 | 删掉 `copyAuthorSetting` 中 `state_defs` 的 `origin_turn_id is null` | 红 | “只复制作者设定的行”失败 |
+| T12 | 去掉 `state_defs_key_by_origin` 唯一索引 | 红 | `state_defs 同一来源下 key 唯一` 失败 |
+| T12 | 删掉 `checkStateValue` 数字范围检查 | 红 | `数字值按范围拒绝` 失败 |
+| T24 | 开局 id 改成每次提交时生成 | 红 | `提交失败后重试沿用同一个开局 id` 失败 |
+| T24 | `WorkCard` 在 `routeId` 为空时仍链游玩页 | 红 | `可玩但没开过局的作品指向开局页` 失败 |
+| T21 | 去掉“有错误不调用 onChange” | 红 | `名字不合规时不上报`、`重名时不上报并提示` 失败 |
+| T21 | 删掉 `plan_visible` 的同一 jobId 守卫 | 红 | 同 jobId 再渲染会重复上报 |
+| T22 | 秘密默认展开 | 红 | `秘密默认折叠`、`折叠时只列出秘密的标题` 失败 |
+| T22 | 来源徽标只留颜色 | 红 | `来源用文字标出` 等失败 |
+| T14 | 受保护同名实体丢弃删掉 | 红 | `受保护的项优先` 失败 |
+| T14 | `contentRev` 比较改恒真 | 红 | `生成期间改过草稿时不覆盖` 失败 |
+| T14 | 冲突只核对 `first` | 红（调整夹具后） | 第一次夹具把假原话放在 `first` 未变红；移到 `second` 后红 |
+| T15 | 去掉 `clearAuthorSetting` | 红 | `重复确认会重写，不会累加` 失败 |
+| T15 | `per_run` 也写实体 | 红 | `每局生成的人物写成人物位置` 失败 |
+| T15 | `updatePlanItem` 保持原 `source` | 红 | `改一项后来源变成作者` 失败 |
+| T16 | 阶段视图塞入全部 stages | 红 | `阶段栏目只给已到达的阶段名` 失败 |
+| T16 | writer 清单只写本回合条目 | 红 | `清单只交一个新条目时保留原来的两项` 失败 |
+| T16 | 去掉 `scene_hit` once 检查 | 红 | `只发生一次的场面不能再触发` 失败 |
+| T16 | history 去掉 `visible` 过滤 | 红 | `来历不含隐藏期间的值` 失败 |
+| T23 | 确认后不调 `generatePreview` | 红 | `只写背景一路点到开场` 失败 |
+| T23 | 去掉 `aria-current` | 红 | `当前步骤用 aria-current 标出` 失败 |
+| T25 | `ended` 时仍渲染行动区 | 红 | `完结后不显示行动输入，提供重新开局` 失败 |
+| T25 | 删掉 `App.tsx` 的 status 失效 | 红 | `回合提交后重新读取状态栏` 失败 |
+| T25 | 去掉进行中标项的 `VisuallyHidden` | 红 | `进行中的清单条目有可读的状态文字` 失败 |
+| T17 | 删掉 `adoptPreview` 的 `copyAuthorSetting` | 红 | `采用只发布，不建开局` 失败 |
+| T17 | `placeholderPolicy` 写死 `'reject'` | 红 | `作者原文开场写死主角名时拒绝采用` 失败 |
+| T17 | 人物位置“正好一行”改成“至少一行” | 红 | `每个人物位置正好一个人物` 失败 |
+| T19 | `endingAllowed` 写死 true | 红 | `没有结束条件时不能完结` 失败 |
+| T19 | 不过滤已触发一次性场面 | 红 | `已触发的一次性场面不再列出` 失败 |
+| T19 | `writeChanges` 传空 `parentStates` | 红 | `清单第二回合追加条目，第一回合的条目还在` 失败 |
+| T08 | 删掉 `core.onAppearanceChanged(...)` | 红 | `外观偏好同步到原生主题` 失败 |
+| T08 | 单实例锁判断改恒真 | 红 | 第二次启动没有退出，已有窗口用例失败 |
+| T08 | `handleCrash` 改成直接 `app.quit()` | 红 | `core 意外退出后重启，进度不丢` 失败 |
+| T07 | 删掉 `stage.mjs` 复制 client 的步骤 | 红 | `run stage` 非 0，stderr 缺 `client/index.html` |
+| T18 | 跳过“cast 已有” | 红 | `开场失败后重试沿用已生成的人物` 失败 |
+| T18 | 删掉占位符替换 | 红 | `固定人物的开局不调模型，占位符换成玩家填的名字` 失败 |
+| T18 | 删掉“每个键必须是填写项”检查 | 红 | `传了作品没有的填写项被拒` 失败 |
+| T26 | `confirmPlan` 不写 `state_defs` | 红 | `作者设定的秘密、栏目、场面在游玩中兑现` 失败（失败点在预览校验） |
+| T27 | `PreviewPanel` 采用按钮去掉 `blocked` 禁用 | 红 | `作者原文写死主角名时不能采用` 在 `toBeDisabled` 失败 |
 
 ### 6.4 欠账与不适用
 
 | 项 | 类型（欠账 / 不适用） | 为什么现在做不了 | 补上需要什么 |
 | --- | --- | --- | --- |
+| 幕后折叠时只显示条数，还是列出秘密的无剧透标题 | 待裁定 | Figma 只显示“幕后已折叠 · N 条”，[创作工作站 §6](../docs/author-workstation.md#6-工具)和 T22 要求列出标题 | 维护者选定。保留标题不需要改文档；改成条数要同步 docs/author-workstation §6、T22 和附录 A.2 |
+| T17 采用每局生成人物的预览时，`meta.opening.presentIds` 会引用未写进发布版本的示例人物 id | 欠账 | D22 要求带 `slot` 的预览人物不写成作者设定，T17 仍用 `createdIds` 解析 `presentIds` | 在 T17 采用时对带 `slot` 的行跳过 scene 引用，或把模板的 scene 只留名字、不留 id |
+| T17 没有标出作者原文里写死的“每局生成人物”名字 | 欠账 | T17 的 `forbiddenNames` 只含主角名和默认值，[创作工作站 §7](../docs/author-workstation.md#7-受影响范围与开场核对)要求也标出每局生成人物 | 在 `author_text` 模式下把预览人物的名字加入 `forbiddenNames`，或明确缩减 §7 的范围 |
+| T12 的 `grep` 判据包含存量测试里的跨模块导入 | 已处置 | 判据原文写“零命中”，但现有 `*.test.ts` 里有 10 条存量命中；T12 新建文件零命中 | 判据已改为排除 `*.test.ts`；存量测试不动 |
+| T22 方案编辑表单不能改秘密的主体和知情者 | 欠账 | `SecretForm` 只编辑标题、真相和揭晓条件，`plan.field.knowers` 因此未使用 | T22 补实体多选，或由维护者确认这次不需要改这两项 |
+| T14 `adoptStalePlan` 无法按名字去重秘密/关键场面 | 欠账 | 规范只给实体、栏目、结束条件的同名规则；秘密和场面没有名称身份，生成期间改过它们时可能留下新旧两份 | 维护者定：按 `statement`/`condition` 去重，或接受重复并在界面提示 |
+| T21 把 `<h2>` 放进 `<summary>` | 已处置 | 为了过标题大纲测试；HTML 的 `summary` 内容模型不允许标题 | T23 装配步骤 `h2` 后，折叠标题已改回纯文本 |
+| Electron 45 不在 `pnpm install` 时下载本体 | 已处置 | 原任务按旧版 postinstall 写；45.2.3 的 npm 包没有 postinstall，首次运行 `electron` 才下载 | desktop 的 `postinstall` 显式运行 `install-electron`；`docs/tech-stack.md`、§2.10、§1.5 和 T04 已同步 |
 | core 一次都没启动成功时，desktop 自己的事件留不下 | 已知限制（D3） | desktop 不能导入 core，又不能另写一份诊断库 | 如果要补，另设计一个 desktop 自己的落盘位置，需要维护者裁定是否违反“诊断只进 diagnostics.db” |
 | 真实模型能否稳定交出合格的方案、开场和状态变化 | 机器验不了 | 自动化只证明校验和提交 | T28 人工走查 |
 | 读屏走查 | 机器验不了 | 同上 | T28 用 VoiceOver |

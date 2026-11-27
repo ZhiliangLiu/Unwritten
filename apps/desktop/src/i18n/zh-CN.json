@@ -1,0 +1,48 @@
+{
+  "app": { "name": "Unwritten" },
+  "menu": {
+    "about": "关于 Unwritten",
+    "hide": "隐藏 Unwritten",
+    "hideOthers": "隐藏其他",
+    "unhide": "全部显示",
+    "quit": "退出 Unwritten",
+    "edit": "编辑",
+    "undo": "撤销",
+    "redo": "重做",
+    "cut": "剪切",
+    "copy": "拷贝",
+    "paste": "粘贴",
+    "selectAll": "全选",
+    "view": "显示",
+    "resetZoom": "实际大小",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "fullscreen": "进入全屏幕",
+    "devTools": "开发者工具",
+    "window": "窗口",
+    "minimize": "最小化",
+    "close": "关闭窗口"
+  },
+  "startup": {
+    "title": "Unwritten 没能启动",
+    "reason": {
+      "data_locked": "数据目录正被另一个 Unwritten 使用。关掉另一个之后再试。",
+      "port_in_use": "需要的端口已经被占用。",
+      "data_dir": "数据目录打不开。检查磁盘空间和权限。",
+      "startup": "启动时出了错。",
+      "timeout": "启动太久没有完成。",
+      "exited": "启动过程中意外停止了。"
+    },
+    "diagnostic": "诊断编号：{{id}}",
+    "noDiagnostic": "没有诊断编号。",
+    "retry": "重试",
+    "quit": "退出"
+  },
+  "crash": {
+    "title": "Unwritten 停止了工作",
+    "message": "已经保存的进度都在。正在写的那一段会显示为未完成，可以重试。",
+    "detail": "重启后会回到作品库。",
+    "restart": "重启",
+    "quit": "退出"
+  }
+}

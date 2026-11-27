@@ -17,12 +17,10 @@ export function PublishedPanel({ work }: { work: WorkDetail }) {
       {title ? <h3 className={styles.title}>{title}</h3> : null}
       {blurb ? <p className={styles.blurb}>{blurb}</p> : null}
       <div className={styles.actions}>
-        {work.routeId ? (
-          <Link className={buttonClassName('primary')} to='/play/$routeId' params={{ routeId: work.routeId }}>
-            <Icon icon={Play} size='sm' />
-            {t('authoring:published.play')}
-          </Link>
-        ) : null}
+        <Link className={buttonClassName('primary')} to='/works/$workId/start' params={{ workId: work.id }}>
+          <Icon icon={Play} size='sm' />
+          {t('authoring:published.play')}
+        </Link>
         <Link className={buttonClassName('text')} to='/'>
           {t('authoring:published.back')}
         </Link>

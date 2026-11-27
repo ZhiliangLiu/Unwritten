@@ -45,6 +45,24 @@ export function createRouter(services: Services) {
       adoptPreview: base.works.adoptPreview.handler(({ input, context }) =>
         context.services.authoring.adoptPreview(input),
       ),
+      generatePlan: base.works.generatePlan.handler(({ input, context }) =>
+        context.services.authoring.generatePlan(input),
+      ),
+      adoptStalePlan: base.works.adoptStalePlan.handler(({ input, context }) =>
+        context.services.authoring.adoptStalePlan(input),
+      ),
+      updatePlanItem: base.works.updatePlanItem.handler(({ input, context }) =>
+        context.services.authoring.updatePlanItem(input),
+      ),
+      removePlanItem: base.works.removePlanItem.handler(({ input, context }) =>
+        context.services.authoring.removePlanItem(input),
+      ),
+      confirmPlan: base.works.confirmPlan.handler(({ input, context }) =>
+        context.services.authoring.confirmPlan(input),
+      ),
+      setWizardStep: base.works.setWizardStep.handler(({ input, context }) =>
+        context.services.library.setWizardStep(input),
+      ),
       delete: base.works.delete.handler(({ input, context }) => context.services.library.delete(input)),
     },
     play: {
@@ -52,6 +70,13 @@ export function createRouter(services: Services) {
       submitAction: base.play.submitAction.handler(({ input, context }) => context.services.play.submitAction(input)),
       retry: base.play.retry.handler(({ input, context }) => context.services.play.retry(input)),
       getJournal: base.play.getJournal.handler(({ input, context }) => context.services.play.getJournal(input)),
+      getStartInfo: base.play.getStartInfo.handler(({ input, context }) => context.services.play.getStartInfo(input)),
+      start: base.play.start.handler(({ input, context }) => context.services.play.start(input)),
+      getPlaythrough: base.play.getPlaythrough.handler(({ input, context }) =>
+        context.services.play.getPlaythrough(input),
+      ),
+      retryOpening: base.play.retryOpening.handler(({ input, context }) => context.services.play.retryOpening(input)),
+      getStatus: base.play.getStatus.handler(({ input, context }) => context.services.play.getStatus(input)),
     },
     settings: {
       get: base.settings.get.handler(({ context }) => context.services.settings.get()),

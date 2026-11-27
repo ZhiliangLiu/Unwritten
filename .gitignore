@@ -49,3 +49,6 @@ Thumbs.db
 
 # Vitest 浏览器附件
 .vitest/
+
+apps/desktop/.stage/
+apps/desktop/release/

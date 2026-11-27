@@ -11,4 +11,7 @@ export const queryKeys = {
   llm: ['llm'] as const,
   settings: ['settings'] as const,
   journal: (routeId: string) => ['journal', routeId] as const,
+  startInfo: (workId: string) => ['startInfo', workId] as const,
+  playthrough: (playthroughId: string) => ['playthrough', playthroughId] as const,
+  status: (routeId: string) => ['status', routeId] as const,
 };

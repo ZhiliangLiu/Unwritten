@@ -5,7 +5,11 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { startFakeOpenAiServer } from '../../packages/core/src/test-support/fake-openai-server.ts';
-import { proposePreviewStep, proposeTurnStep } from '../../packages/core/src/test-support/llm-steps.ts';
+import {
+  proposePlanStep,
+  proposePreviewStep,
+  proposeTurnStep,
+} from '../../packages/core/src/test-support/llm-steps.ts';
 
 const corePath = fileURLToPath(new URL('../../packages/core/dist/main.js', import.meta.url));
 
@@ -88,6 +92,7 @@ test('开场人物进入手记', async ({ page }) => {
     await page.getByRole('button', { name: '新建故事' }).click();
     await page.getByRole('textbox', { name: /故事背景/ }).fill('雨夜修钟铺');
     server.enqueue(
+      proposePlanStep(),
       proposePreviewStep({
         title: '雨夜修钟铺',
         blurb: '一个雨夜，你在钟铺里等一个人。',
@@ -99,10 +104,12 @@ test('开场人物进入手记', async ({ page }) => {
         language: 'zh-CN',
         present: ['撑伞的女人'],
         changes:
-          '{"type":"new_entity","kind":"character","name":"守夜人","known_as":"","profile":"","para":"1","protagonist":"true"}\n{"type":"new_entity","kind":"character","name":"沈岚","known_as":"撑伞的女人","profile":"带着黑伞","para":"1"}',
+          '{"type":"new_entity","kind":"character","name":"沈岚","known_as":"撑伞的女人","profile":"带着黑伞","para":"1"}',
       }),
     );
-    await page.getByRole('button', { name: '生成开场预览' }).click();
+    await page.getByRole('button', { name: '生成故事方案' }).click();
+    await expect(page.getByRole('heading', { name: '故事方案' })).toBeVisible();
+    await page.getByRole('button', { name: '确认方案，生成开场' }).click();
     await expect(page.getByText('撑伞的女人')).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: '采用开场并存入作品库' }).click();
     await page.getByRole('link', { name: '开始故事' }).click();
@@ -163,6 +170,7 @@ test('键盘选择推荐行动，组字时不提交', async ({ page }) => {
     await page.getByRole('button', { name: '新建故事' }).click();
     await page.getByRole('textbox', { name: /故事背景/ }).fill('雨夜修钟铺');
     server.enqueue(
+      proposePlanStep(),
       proposePreviewStep({
         title: '雨夜修钟铺',
         blurb: '一个雨夜，你在钟铺里等一个人。',
@@ -174,7 +182,9 @@ test('键盘选择推荐行动，组字时不提交', async ({ page }) => {
         language: 'zh-CN',
       }),
     );
-    await page.getByRole('button', { name: '生成开场预览' }).click();
+    await page.getByRole('button', { name: '生成故事方案' }).click();
+    await expect(page.getByRole('heading', { name: '故事方案' })).toBeVisible();
+    await page.getByRole('button', { name: '确认方案，生成开场' }).click();
     await page.getByRole('button', { name: '采用开场并存入作品库' }).click({ timeout: 20_000 });
     await page.getByRole('link', { name: '开始故事' }).click();
     await expect(page.getByRole('group', { name: '推荐行动' })).toBeVisible();

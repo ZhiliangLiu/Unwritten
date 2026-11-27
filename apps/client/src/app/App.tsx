@@ -55,6 +55,10 @@ export function App() {
             }
             if (event.type === 'turn.committed') {
               void queryClient.invalidateQueries({ queryKey: queryKeys.journal(event.routeId) });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.status(event.routeId) });
+            }
+            if (event.type === 'playthrough.updated') {
+              void queryClient.invalidateQueries({ queryKey: queryKeys.playthrough(event.playthroughId) });
             }
             if (event.type === 'settings.changed') {
               applyAppearance(event.appearance);

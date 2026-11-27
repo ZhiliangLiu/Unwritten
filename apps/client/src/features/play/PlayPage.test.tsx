@@ -3,21 +3,36 @@ import type {
   JournalView,
   RetryInput,
   RouteView,
+  StatusView,
   SubmitActionInput,
   TurnRequestView,
   TurnView,
 } from '@unwritten/contracts';
-import { describe, expect, it } from 'vitest';
+import { render } from 'vitest-browser-react';
+import { describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
+import { App } from '../../app/App.tsx';
+import { router } from '../../app/router.tsx';
 import { queryKeys } from '../../shared/api/query.ts';
 import { isMacPlatform } from '../../shared/hooks/usePlatform.ts';
 import { createFakeApi } from '../../shared/test/fake-api.ts';
+import type { FakeApiCall } from '../../shared/test/fake-api.ts';
 import { expectNoAxeViolations } from '../../shared/test/axe.ts';
 import { expectHeadingOutline } from '../../shared/test/heading-outline.ts';
+import { initTestI18n } from '../../shared/test/i18n.ts';
 import { renderRoute } from '../../shared/test/render.tsx';
 import play from '../../i18n/zh-CN/play.json';
 import { ENTITY_KIND_LABEL_KEYS, KNOWLEDGE_LEVEL_LABEL_KEYS } from './JournalSubject.tsx';
 import { paragraphAnchorId } from './anchors.ts';
+
+const clientMock = vi.hoisted(() => ({ api: null as unknown }));
+
+vi.mock('../../shared/api/client.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../shared/api/client.ts')>();
+  return { ...actual, createApiClient: () => clientMock.api };
+});
+
+initTestI18n();
 
 const routeId = '2f1d5c4a-8b7e-4a3f-9c2d-1e0f9a8b7c6d';
 const workId = '6a5b4c3d-2e1f-4a9b-8c7d-6e5f4a3b2c1d';
@@ -29,7 +44,11 @@ function makeTurn(overrides: Partial<TurnView> = {}): TurnView {
     depth: 1,
     action: { text: '把船票放在柜台上', optionIndex: 1 },
     paragraphs: ['雾还没散。', '守夜人提起那只空鸟笼。'],
-    options: [{ text: '问下一班船什么时候来' }, { text: '看看窗外的雾' }, { text: '把鸟笼接过来' }],
+    options: [
+      { text: '问下一班船什么时候来', hint: null },
+      { text: '看看窗外的雾', hint: null },
+      { text: '把鸟笼接过来', hint: null },
+    ],
     createdAt: 1,
     ...overrides,
   };
@@ -48,6 +67,7 @@ function makeRoute(turns: TurnView[], pending: TurnRequestView | null = null): R
     headTurnId: turns[turns.length - 1]!.id,
     turns,
     pending,
+    ended: false,
   };
 }
 
@@ -68,12 +88,15 @@ function makeRequest(overrides: Partial<TurnRequestView> = {}): TurnRequestView 
 interface PlayState {
   route: RouteView;
   journal: JournalView;
+  status?: StatusView;
 }
 
 async function renderPlay(initial: PlayState) {
   const fake = createFakeApi({
     'play.getRoute': () => initial.route,
     'play.getJournal': () => initial.journal,
+    'play.getStatus': () =>
+      initial.status ?? { routeId, headTurnId: initial.route.headTurnId, columns: [], closed: [] },
     'play.submitAction': (input) => makeRequest({ id: (input as SubmitActionInput).requestId }),
     'play.retry': (input) => makeRequest({ id: (input as RetryInput).requestId, attempts: 2 }),
     'log.client': () => undefined,
@@ -92,6 +115,38 @@ async function waitFor(check: () => boolean, timeout = 3_000): Promise<void> {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+interface TestEvent {
+  type: 'turn.committed';
+  routeId: string;
+}
+
+function createEventStream() {
+  const pending: TestEvent[] = [];
+  const waiting: Array<(result: IteratorResult<TestEvent>) => void> = [];
+  const iterator: AsyncIterableIterator<TestEvent> = {
+    [Symbol.asyncIterator]() {
+      return this;
+    },
+    next() {
+      const event = pending.shift();
+      if (event) return Promise.resolve({ done: false as const, value: event });
+      return new Promise<IteratorResult<TestEvent>>((resolve) => waiting.push(resolve));
+    },
+  };
+  return {
+    iterator,
+    push(event: TestEvent) {
+      const resolve = waiting.shift();
+      if (resolve) resolve({ done: false as const, value: event });
+      else pending.push(event);
+    },
+  };
+}
+
+function statusCalls(calls: FakeApiCall[]): FakeApiCall[] {
+  return calls.filter((call) => call.path === 'play.getStatus');
 }
 
 function pressMod(key: string, composing = false): void {
@@ -470,5 +525,57 @@ describe('游玩页', () => {
     )?.input as { outcome: string; requestId: string };
     expect(sample.outcome).toBe('error');
     expect(sample.requestId).toBe(requestId);
+  });
+
+  it('路线刚完结时宣告一次', async () => {
+    const turn = opening();
+    const state: PlayState = { route: makeRoute([turn]), journal: journalView([turn]) };
+    const { queryClient } = await renderPlay(state);
+    expect(liveRegion().textContent).toBe('');
+
+    state.route = { ...makeRoute([turn]), ended: true };
+    await queryClient.invalidateQueries({ queryKey: queryKeys.route(routeId) });
+    await waitFor(() => liveRegion().textContent === '故事到这里结束了');
+    expect(liveRegion().textContent).toBe('故事到这里结束了');
+
+    await queryClient.setQueryData(queryKeys.route(routeId), { ...state.route, workTitle: '雾港的末班船 · 2' });
+    await sleep(20);
+    expect(liveRegion().textContent).toBe('故事到这里结束了');
+  });
+
+  it('完结后不显示行动输入，提供重新开局', async () => {
+    const turn = opening();
+    const playScreen = await renderPlay({
+      route: { ...makeRoute([turn]), ended: true },
+      journal: journalView([turn]),
+    });
+    await waitFor(() => playScreen.container.textContent?.includes('故事到这里结束了') ?? false);
+    expect(playScreen.container.querySelector('textarea')).toBeNull();
+    expect(playScreen.getByRole('link', { name: '重新开局' }).element()).toBeTruthy();
+  });
+
+  it('回合提交后重新读取状态栏', async () => {
+    initTestI18n();
+    const route = makeRoute([opening()]);
+    const stream = createEventStream();
+    const fake = createFakeApi({
+      'play.getRoute': () => route,
+      'play.getStatus': () => ({ routeId, headTurnId: route.headTurnId, columns: [], closed: [] }),
+      'events.subscribe': () => stream.iterator,
+      'log.client': () => undefined,
+    });
+    clientMock.api = fake.api;
+    await router.navigate({ to: '/play/$routeId', params: { routeId } });
+    window.location.hash = 'token=test';
+    const screen = await render(<App />);
+
+    await vi.waitFor(() => expect(statusCalls(fake.calls).length).toBeGreaterThan(0));
+    await sleep(200);
+    const before = statusCalls(fake.calls).length;
+    stream.push({ type: 'turn.committed', routeId });
+    await vi.waitFor(() => expect(statusCalls(fake.calls).length).toBe(before + 1));
+    expect(statusCalls(fake.calls)).toHaveLength(before + 1);
+    await screen.unmount();
+    clientMock.api = null;
   });
 });

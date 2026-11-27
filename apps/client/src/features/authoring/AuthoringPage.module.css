@@ -2,3 +2,17 @@
   display: grid;
   gap: var(--uw-space-8);
 }
+
+.step {
+  display: grid;
+  gap: var(--uw-space-4);
+}
+
+.stepHeading {
+  margin: 0;
+  font-family: var(--uw-typography-section-title-font-family);
+  font-size: var(--uw-typography-section-title-font-size);
+  font-weight: var(--uw-typography-section-title-font-weight);
+  line-height: var(--uw-typography-section-title-line-height);
+  letter-spacing: var(--uw-typography-section-title-letter-spacing);
+}

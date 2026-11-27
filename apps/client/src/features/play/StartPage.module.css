@@ -1,0 +1,34 @@
+.section {
+  display: grid;
+  gap: var(--uw-space-4);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--uw-typography-page-title-font-family);
+  font-size: var(--uw-typography-page-title-font-size);
+  font-weight: var(--uw-typography-page-title-font-weight);
+  line-height: var(--uw-typography-page-title-line-height);
+  letter-spacing: var(--uw-typography-page-title-letter-spacing);
+}
+
+.intro {
+  margin: 0;
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  line-height: var(--uw-typography-body-line-height);
+  letter-spacing: var(--uw-typography-body-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.form {
+  display: grid;
+  gap: var(--uw-space-5);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--uw-space-3);
+}

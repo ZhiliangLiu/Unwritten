@@ -18,6 +18,10 @@ const routeId = '00000000-0000-4000-8000-000000000005';
 const requestId = '00000000-0000-4000-8000-000000000006';
 const protagonistId = '00000000-0000-4000-8000-000000000007';
 const shenId = '00000000-0000-4000-8000-000000000008';
+const secondRequestId = '00000000-0000-4000-8000-000000000009';
+const tideId = '00000000-0000-4000-8000-000000000010';
+const lettersId = '00000000-0000-4000-8000-000000000011';
+const sceneId = '00000000-0000-4000-8000-000000000012';
 
 const meta = {
   background: '雨夜修钟铺',
@@ -37,7 +41,7 @@ const turnArgs = {
   ending: 'false',
 };
 
-function setup() {
+function setup(metaOverrides: Record<string, unknown> = {}) {
   const temp = makeTempDataDir();
   const opened = openDatabase(join(temp.dir, 'library.db'));
   const now = Date.now();
@@ -47,7 +51,7 @@ function setup() {
   );
   opened.db.run(
     sql`insert into work_versions (id, work_id, kind, content_rev, source_rev, meta, created_at, updated_at)
-        values (${versionId}, ${workId}, 'published', 1, 1, ${JSON.stringify(meta)}, ${now}, ${now})`,
+        values (${versionId}, ${workId}, 'published', 1, 1, ${JSON.stringify({ ...meta, ...metaOverrides })}, ${now}, ${now})`,
   );
   opened.db.run(
     sql`insert into entities (version_id, id, kind, name, profile, is_protagonist)
@@ -77,6 +81,24 @@ function setup() {
   opened.db.run(
     sql`insert into routes (id, playthrough_id, head_turn_id, created_at, updated_at)
         values (${routeId}, ${playthroughId}, ${rootTurnId}, ${now}, ${now})`,
+  );
+  opened.db.run(
+    sql`insert into state_defs (version_id, id, key, label, display, config, hidden, rev)
+        values (${versionId}, ${tideId}, '潮位', '潮位', 'number',
+                ${JSON.stringify({ min: 0, max: 10, unit: '米', stages: [] })}, 0, 0)`,
+  );
+  opened.db.run(
+    sql`insert into state_defs (version_id, id, key, label, display, config, hidden, rev)
+        values (${versionId}, ${lettersId}, '旧信', '旧信', 'list',
+                ${JSON.stringify({ min: null, max: null, unit: null, stages: [] })}, 0, 0)`,
+  );
+  opened.db.run(
+    sql`insert into state_values (version_id, turn_id, state_def_id, value, visible, closed)
+        values (${versionId}, ${rootTurnId}, ${tideId}, '1', 1, 0)`,
+  );
+  opened.db.run(
+    sql`insert into state_values (version_id, turn_id, state_def_id, value, visible, closed)
+        values (${versionId}, ${rootTurnId}, ${lettersId}, '[]', 1, 0)`,
   );
   const llm = createScriptedLlm();
   const events: LogEvent[] = [];
@@ -308,6 +330,195 @@ describe('createPlayService', () => {
       ).toHaveLength(1);
       expect(opened.db.all(sql`select * from prose_fts where prose_fts match '点亮了'`).length).toBeGreaterThan(0);
       expect(summary.enqueued[0]?.turnId).toBe(route.headTurnId);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('回合提交状态变化，状态栏查询看得到', async () => {
+    const { temp, opened, llm, play, samples } = setup();
+    try {
+      const changes = changeLines({ type: 'state', key: '潮位', value: '3', visible: 'true' });
+      llm.enqueue({ args: { ...turnArgs, changes } });
+      play.submitAction({
+        requestId,
+        routeId,
+        expectedHeadTurnId: rootTurnId,
+        action: { text: '推门', optionIndex: null },
+      });
+      await play.whenIdle();
+      const status = play.getStatus({ routeId });
+      const tide = status.columns.find((column) => column.label === '潮位');
+      expect(tide?.value).toEqual({ display: 'number', value: 3, min: 0, max: 10, unit: '米', previous: 1 });
+      expect(tide?.changed).toBe(true);
+      expect(samples.find((sample) => sample.metric === 'story.status')?.data).toEqual({ columns: 2, closed: 0 });
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('完结后路线显示已完结，不能再提交行动', async () => {
+    const { temp, opened, llm, play } = setup({ ending: '三封旧信都送到收件人手里' });
+    try {
+      llm.enqueue({ args: { ...turnArgs, ending: 'true' } });
+      play.submitAction({
+        requestId,
+        routeId,
+        expectedHeadTurnId: rootTurnId,
+        action: { text: '推门', optionIndex: null },
+      });
+      await play.whenIdle();
+      const route = play.getRoute({ routeId });
+      expect(route.ended).toBe(true);
+      let code: string | undefined;
+      try {
+        play.submitAction({
+          requestId: secondRequestId,
+          routeId,
+          expectedHeadTurnId: route.headTurnId,
+          action: { text: '再推一次门', optionIndex: null },
+        });
+      } catch (error) {
+        code = (error as { code?: string }).code;
+      }
+      expect(code).toBe('invalid_input');
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('回合里创造的秘密，主角得知前不进手记', async () => {
+    const { temp, opened, llm, play } = setup();
+    try {
+      const changes = changeLines({
+        type: 'secret',
+        subject: '@2',
+        title: '黑伞的来历',
+        statement: '那把黑伞是上一任邮差留下的',
+        reveal: '主角问起时',
+        knowers: '@2',
+        para: '1',
+      });
+      llm.enqueue({ args: { ...turnArgs, changes } });
+      play.submitAction({
+        requestId,
+        routeId,
+        expectedHeadTurnId: rootTurnId,
+        action: { text: '推门', optionIndex: null },
+      });
+      await play.whenIdle();
+      const journal = play.getJournal({ routeId });
+      const subject = journal.subjects.find((candidate) => candidate.name === '撑伞的女人');
+      expect(subject?.lines.some((line) => line.text.includes('上一任邮差留下'))).toBe(false);
+      expect(
+        opened.db.all(sql`select * from facts where kind = 'secret' and statement = '那把黑伞是上一任邮差留下的'`),
+      ).toHaveLength(1);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('触发关键场面后同一路线不能再触发', async () => {
+    const { temp, opened, llm, play, events } = setup({
+      keyScenes: [{ id: sceneId, condition: '主角独自推开门', outcome: '门后有灯', once: true }],
+    });
+    try {
+      const first = changeLines({ type: 'scene_hit', scene: 'S1', para: '1' });
+      llm.enqueue({ args: { ...turnArgs, changes: first } });
+      play.submitAction({
+        requestId,
+        routeId,
+        expectedHeadTurnId: rootTurnId,
+        action: { text: '推门', optionIndex: null },
+      });
+      await play.whenIdle();
+      const firstHeadId = play.getRoute({ routeId }).headTurnId;
+      expect(opened.db.all(sql`select * from facts where kind = 'scene_hit' and key = ${sceneId}`)).toHaveLength(1);
+
+      llm.enqueue({ args: { ...turnArgs, changes: first } });
+      play.submitAction({
+        requestId: secondRequestId,
+        routeId,
+        expectedHeadTurnId: firstHeadId,
+        action: { text: '再推一次门', optionIndex: null },
+      });
+      await play.whenIdle();
+      expect(events.filter((event) => event.event === 'turn.changes.rejected')).toHaveLength(1);
+      expect(play.getRoute({ routeId }).headTurnId).toBe(firstHeadId);
+      expect(opened.db.all(sql`select * from facts where kind = 'scene_hit' and key = ${sceneId}`)).toHaveLength(1);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('清单第二回合追加条目，第一回合的条目还在', async () => {
+    const { temp, opened, llm, play } = setup();
+    try {
+      llm.enqueue({
+        args: {
+          ...turnArgs,
+          changes: changeLines({ type: 'state_item', key: '旧信', item: '第一封', status: 'open' }),
+        },
+      });
+      play.submitAction({
+        requestId,
+        routeId,
+        expectedHeadTurnId: rootTurnId,
+        action: { text: '推门', optionIndex: null },
+      });
+      await play.whenIdle();
+      const firstHeadId = play.getRoute({ routeId }).headTurnId;
+
+      llm.enqueue({
+        args: {
+          ...turnArgs,
+          changes: changeLines({ type: 'state_item', key: '旧信', item: '第二封', status: 'open' }),
+        },
+      });
+      play.submitAction({
+        requestId: secondRequestId,
+        routeId,
+        expectedHeadTurnId: firstHeadId,
+        action: { text: '再推一次门', optionIndex: null },
+      });
+      await play.whenIdle();
+      const column = play.getStatus({ routeId }).columns.find((candidate) => candidate.label === '旧信');
+      expect(column?.value).toEqual({
+        display: 'list',
+        items: [
+          { item: '第一封', status: 'open', change: null },
+          { item: '第二封', status: 'open', change: 'new' },
+        ],
+      });
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('提醒被保存并返回给 client', async () => {
+    const { temp, opened, llm, play } = setup({
+      settings: { actions: { text: '', hints: 'known_consequences' } },
+    });
+    try {
+      const options = '{"text":"走进雨里","hint":"雨里有人回头看你"}\n{"text":"关上门"}';
+      llm.enqueue({ args: { ...turnArgs, options } });
+      play.submitAction({
+        requestId,
+        routeId,
+        expectedHeadTurnId: rootTurnId,
+        action: { text: '推门', optionIndex: null },
+      });
+      await play.whenIdle();
+      expect(play.getRoute({ routeId }).turns[1]?.options[0]).toEqual({
+        text: '走进雨里',
+        hint: '雨里有人回头看你',
+      });
     } finally {
       opened.close();
       temp.cleanup();

@@ -52,7 +52,7 @@ describe('llm schemas', () => {
       }).success,
     ).toBe(true);
     expect(TestConnectionInputSchema.safeParse({ purpose: 'narrator' }).success).toBe(true);
-    expect(TestConnectionInputSchema.safeParse({ purpose: 'author_chat' }).success).toBe(false);
+    expect(TestConnectionInputSchema.safeParse({ purpose: 'author_chat' }).success).toBe(true);
   });
 
   it('思考档位与写法的取值', () => {

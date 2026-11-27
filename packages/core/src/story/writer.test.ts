@@ -3,10 +3,11 @@ import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
-import { seedStory } from '../test-support/story-fixtures.ts';
+import { seedLighthouseTown, seedStory } from '../test-support/story-fixtures.ts';
 import { ancestorChain } from '../play/chain.ts';
 import { openDatabase, type Database } from '../store/db.ts';
-import { loadProjection, knowledgeOf } from './projection.ts';
+import { loadProjection, knowledgeOf, stateAt, stateDefByKey } from './projection.ts';
+import { parseListValue } from './state.ts';
 import { allocateEntityIds, writeChanges, type WriteChangesInput } from './writer.ts';
 import { EMPTY_CHANGES, type ValidatedChanges } from './types.ts';
 
@@ -43,6 +44,7 @@ describe('writeChanges', () => {
         ],
       });
       const changes: ValidatedChanges = {
+        ...EMPTY_CHANGES,
         entities: [
           {
             line: 1,
@@ -52,6 +54,7 @@ describe('writeChanges', () => {
             profile: '看守',
             para: 1,
             protagonist: false,
+            slot: null,
           },
         ],
         names: [],
@@ -230,6 +233,7 @@ describe('writeChanges', () => {
             profile: '邮差',
             para: 1,
             protagonist: true,
+            slot: null,
           },
           {
             line: 2,
@@ -239,6 +243,7 @@ describe('writeChanges', () => {
             profile: '带着黑伞',
             para: 1,
             protagonist: false,
+            slot: null,
           },
         ],
         names: [{ line: 3, entity: { created: 2 }, name: '沈岚', holder: { created: 1 }, para: 1 }],
@@ -288,6 +293,7 @@ describe('writeChanges', () => {
             profile: '',
             para: 1,
             protagonist: false,
+            slot: null,
           },
         ],
         facts: [
@@ -317,6 +323,201 @@ describe('writeChanges', () => {
       });
       const row = opened.db.get<{ data: string }>(sql`select data from facts where statement = '主角信任沈岚'`);
       expect(row ? JSON.parse(row.data).via : null).toBe(createdIds.get(1));
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+});
+
+function appendTurn(db: Database, seeded: ReturnType<typeof seedLighthouseTown>): string {
+  const id = randomUUID();
+  db.run(
+    sql`insert into turns (id, playthrough_id, parent_id, depth, prose, options, scene, status, created_at)
+        values (${id}, ${seeded.playthroughId}, ${seeded.headTurnId}, 3, '又过了一天。', '[]',
+                '{"place":"码头","time":"夜里","present":[],"presentIds":[]}', 'committed', ${Date.now()})`,
+  );
+  return id;
+}
+
+function parentStatesAt(db: Database, versionId: string, headTurnId: string) {
+  const projection = projectionAt(db, versionId, headTurnId);
+  const headDepth = projection.chain.at(-1)?.depth ?? -1;
+  const states = new Map<string, { value: string | null; visible: boolean; closed: boolean }>();
+  for (const def of projection.stateDefs.values()) {
+    const value = stateAt(projection, def.id, headDepth);
+    if (value) states.set(def.id, { value: value.value, visible: value.visible, closed: value.closed });
+  }
+  return states;
+}
+
+describe('writeChanges 状态栏与秘密', () => {
+  it('清单只交一个新条目时保留原来的两项', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const turnId = appendTurn(opened.db, seeded);
+      const changes: ValidatedChanges = {
+        ...EMPTY_CHANGES,
+        stateItems: [
+          {
+            line: 1,
+            stateDef: { existing: seeded.ids['state:旧信'] ?? '' },
+            item: '第二封',
+            status: 'open',
+          },
+        ],
+      };
+      write(opened.db, {
+        changes,
+        createdIds: new Map(),
+        turnId,
+        versionId: seeded.versionId,
+        entityVersionIds: [],
+        entityOrigin: 'turn',
+        protagonistId: seeded.ids.protagonist ?? null,
+        parentPresentIds: [],
+        parentStates: parentStatesAt(opened.db, seeded.versionId, seeded.headTurnId),
+      });
+      const row = opened.db.get<{ value: string; visible: number }>(
+        sql`select value, visible from state_values
+            where turn_id = ${turnId} and state_def_id = ${seeded.ids['state:旧信']}`,
+      );
+      expect(parseListValue(row?.value ?? null)).toEqual([
+        { item: '第一封', status: 'done' },
+        { item: '第二封', status: 'open' },
+      ]);
+      expect(row?.visible).toBe(1);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('只交条目时沿用父回合的显示状态', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const turnId = appendTurn(opened.db, seeded);
+      const changes: ValidatedChanges = {
+        ...EMPTY_CHANGES,
+        stateItems: [
+          {
+            line: 1,
+            stateDef: { existing: seeded.ids['state:旧信'] ?? '' },
+            item: '第三封',
+            status: 'open',
+          },
+        ],
+      };
+      write(opened.db, {
+        changes,
+        createdIds: new Map(),
+        turnId,
+        versionId: seeded.versionId,
+        entityVersionIds: [],
+        entityOrigin: 'turn',
+        protagonistId: seeded.ids.protagonist ?? null,
+        parentPresentIds: [],
+        parentStates: parentStatesAt(opened.db, seeded.versionId, seeded.headTurnId),
+      });
+      const row = opened.db.get<{ visible: number; closed: number }>(
+        sql`select visible, closed from state_values
+            where turn_id = ${turnId} and state_def_id = ${seeded.ids['state:旧信']}`,
+      );
+      expect(row?.visible).toBe(1);
+      expect(row?.closed).toBe(0);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('秘密的知情者展开成确认知情', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const turnId = appendTurn(opened.db, seeded);
+      const changes: ValidatedChanges = {
+        ...EMPTY_CHANGES,
+        secrets: [
+          {
+            line: 1,
+            subject: { existing: seeded.ids.linchao ?? '' },
+            title: '第三封信',
+            statement: '第三封信藏在灯塔的灯室里',
+            reveal: '主角找到第三封旧信时',
+            knowers: [{ existing: seeded.ids.linchao ?? '' }],
+            para: 1,
+          },
+        ],
+      };
+      write(opened.db, {
+        changes,
+        createdIds: new Map(),
+        turnId,
+        versionId: seeded.versionId,
+        entityVersionIds: [],
+        entityOrigin: 'turn',
+        protagonistId: seeded.ids.protagonist ?? null,
+        parentPresentIds: [],
+        parentStates: parentStatesAt(opened.db, seeded.versionId, seeded.headTurnId),
+      });
+      const projection = projectionAt(opened.db, seeded.versionId, turnId);
+      const fact = projection.facts.find(
+        (candidate) => candidate.kind === 'secret' && candidate.statement === '第三封信藏在灯塔的灯室里',
+      );
+      expect(fact?.data?.title).toBe('第三封信');
+      const records = fact ? knowledgeOf(projection, fact.id) : [];
+      expect(records).toEqual([expect.objectContaining({ holderId: seeded.ids.linchao, level: 'confirmed' })]);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('新增栏目写进定义和状态值', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const turnId = appendTurn(opened.db, seeded);
+      const changes: ValidatedChanges = {
+        ...EMPTY_CHANGES,
+        newStates: [
+          {
+            line: 1,
+            key: '天气',
+            label: '天气',
+            display: 'text',
+            config: { min: null, max: null, unit: null, stages: [] },
+            hidden: false,
+          },
+        ],
+        states: [
+          {
+            line: 2,
+            stateDef: { created: 1 },
+            value: '雨停了',
+            visible: true,
+            closed: null,
+          },
+        ],
+      };
+      write(opened.db, {
+        changes,
+        createdIds: new Map(),
+        turnId,
+        versionId: seeded.versionId,
+        entityVersionIds: [],
+        entityOrigin: 'turn',
+        protagonistId: seeded.ids.protagonist ?? null,
+        parentPresentIds: [],
+        parentStates: parentStatesAt(opened.db, seeded.versionId, seeded.headTurnId),
+      });
+      const projection = projectionAt(opened.db, seeded.versionId, turnId);
+      const def = stateDefByKey(projection, '天气');
+      expect(def?.label).toBe('天气');
+      expect(stateAt(projection, def?.id ?? '', 3)?.value).toBe('雨停了');
     } finally {
       opened.close();
       temp.cleanup();

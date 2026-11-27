@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
-import { seedNorthCape } from '../test-support/story-fixtures.ts';
+import { seedLighthouseTown, seedNorthCape, type SeededStory } from '../test-support/story-fixtures.ts';
 import { changeLines } from '../test-support/llm-steps.ts';
 import { ancestorChain } from '../play/chain.ts';
 import { openDatabase, type Database } from '../store/db.ts';
@@ -26,7 +26,12 @@ function setup() {
   return { temp, opened };
 }
 
-function turnContext(db: Database, versionId: string, headTurnId: string, parentPresentIds?: string[]): ChangesContext {
+function turnContext(
+  db: Database,
+  versionId: string,
+  headTurnId: string,
+  options?: { parentPresentIds?: string[]; keyScenes?: Array<{ code: string; id: string; once: boolean }> },
+): ChangesContext {
   const chain = ancestorChain(db, headTurnId).map((turn) => ({
     id: turn.id,
     depth: turn.depth,
@@ -43,7 +48,8 @@ function turnContext(db: Database, versionId: string, headTurnId: string, parent
     projection,
     codebook,
     paragraphCount: 2,
-    parentPresentIds: parentPresentIds ?? presentIdsAtHead(projection),
+    parentPresentIds: options?.parentPresentIds ?? presentIdsAtHead(projection),
+    keyScenes: options?.keyScenes ?? [],
   };
 }
 
@@ -57,11 +63,12 @@ describe('parseChanges', () => {
     const { temp, opened } = setup();
     try {
       const seeded = seedNorthCape(opened.db);
-      const result = parseChanges('{"type":"state"}', turnContext(opened.db, seeded.versionId, seeded.headTurnId));
+      const result = parseChanges('{"type":"mood"}', turnContext(opened.db, seeded.versionId, seeded.headTurnId));
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.errors[0]).toContain('第 1 行 changes：不支持的类型 state');
+        expect(result.errors[0]).toContain('第 1 行 changes：不支持的类型 mood');
         expect(result.errors[0]).toContain('scene');
+        expect(result.errors[0]).toContain('state');
       }
     } finally {
       opened.close();
@@ -253,7 +260,9 @@ describe('parseChanges', () => {
     const { temp, opened } = setup();
     try {
       const seeded = seedNorthCape(opened.db);
-      const context = turnContext(opened.db, seeded.versionId, seeded.headTurnId, [seeded.ids.shen ?? '']);
+      const context = turnContext(opened.db, seeded.versionId, seeded.headTurnId, {
+        parentPresentIds: [seeded.ids.shen ?? ''],
+      });
       const rejected = parseChanges(
         '{"type":"knowledge","fact":"#1","holder":"@3","level":"confirmed","para":"1"}',
         context,
@@ -608,6 +617,290 @@ describe('parseChanges', () => {
       );
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.errors.length).toBeGreaterThanOrEqual(3);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+});
+
+function lighthouseContext(
+  db: Database,
+  seeded: SeededStory,
+  keyScenes: Array<{ code: string; id: string; once: boolean }> = [],
+): ChangesContext {
+  return turnContext(db, seeded.versionId, seeded.headTurnId, { keyScenes });
+}
+
+function lighthouseOpening(db: Database, seeded: SeededStory): ChangesContext {
+  const chain = ancestorChain(db, seeded.headTurnId).map((turn) => ({
+    id: turn.id,
+    depth: turn.depth,
+    action: turn.action,
+    prose: turn.prose,
+    scene: turn.scene,
+  }));
+  const projection = loadProjection(db, { versionId: seeded.versionId, chain });
+  const codebook = createCodeBook(projection);
+  for (const entity of projection.entities.values()) codebook.entityCode(entity.id);
+  for (const fact of projection.facts) codebook.factCode(fact.id);
+  return { mode: 'opening', projection, codebook, paragraphCount: 1, parentPresentIds: [], keyScenes: [] };
+}
+
+describe('parseChanges 新类型', () => {
+  it('新增栏目通过校验后带回配置', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const result = parseChanges(
+        '{"type":"new_state","key":"天气","label":"天气","display":"text","hidden":"false"}',
+        lighthouseContext(opened.db, seeded),
+      );
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.newStates).toHaveLength(1);
+        expect(result.value.newStates[0]?.key).toBe('天气');
+        expect(result.value.newStates[0]?.hidden).toBe(false);
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('新增栏目和已有栏目重名被拒绝', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const result = parseChanges(
+        '{"type":"new_state","key":"潮位","label":"潮位","display":"number"}',
+        lighthouseContext(opened.db, seeded),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.errors.some((error) => error.includes('栏目 潮位 已经存在。'))).toBe(true);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('每回合最多新增三个栏目', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const result = parseChanges(
+        changeLines(
+          { type: 'new_state', key: '甲', label: '甲', display: 'text' },
+          { type: 'new_state', key: '乙', label: '乙', display: 'text' },
+          { type: 'new_state', key: '丙', label: '丙', display: 'text' },
+          { type: 'new_state', key: '丁', label: '丁', display: 'text' },
+        ),
+        lighthouseContext(opened.db, seeded),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.errors).toContain('changes：每回合最多新增 3 个栏目。');
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('写状态值时按栏目校验并规范化', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const result = parseChanges(
+        '{"type":"state","key":"潮位","value":" 3.50 ","visible":"true","closed":"false"}',
+        lighthouseContext(opened.db, seeded),
+      );
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.states[0]).toMatchObject({ value: '3.5', visible: true, closed: false });
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('状态值超出范围被拒绝', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const result = parseChanges('{"type":"state","key":"潮位","value":"12"}', lighthouseContext(opened.db, seeded));
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.errors.some((error) => error.includes('值超出了 min 到 max 的范围。'))).toBe(true);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('找不到栏目时列出可用的栏目', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const result = parseChanges('{"type":"state","key":"风向","value":"北"}', lighthouseContext(opened.db, seeded));
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        const message = result.errors.join('\n');
+        expect(message).toContain('找不到栏目 风向');
+        expect(message).toContain('潮位');
+        expect(message).toContain('真名');
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('幕后栏目不能设为显示', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const result = parseChanges(
+        '{"type":"state","key":"真名","value":"林潮","visible":"true"}',
+        lighthouseContext(opened.db, seeded),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.errors.some((error) => error.includes('幕后栏目 真名 不能设为显示。'))).toBe(true);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('同一个栏目每回合最多一行 state', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const result = parseChanges(
+        changeLines({ type: 'state', key: '潮位', value: '4' }, { type: 'state', key: '潮位', value: '5' }),
+        lighthouseContext(opened.db, seeded),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.errors.some((error) => error.includes('每回合最多一行'))).toBe(true);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('清单条目写进清单一栏，其他栏目拒绝 state_item', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const accepted = parseChanges(
+        '{"type":"state_item","key":"旧信","item":"第二封","status":"open"}',
+        lighthouseContext(opened.db, seeded),
+      );
+      expect(accepted.ok).toBe(true);
+      if (accepted.ok) expect(accepted.value.stateItems[0]).toMatchObject({ item: '第二封', status: 'open' });
+      const rejected = parseChanges(
+        '{"type":"state_item","key":"潮位","item":"第二封","status":"open"}',
+        lighthouseContext(opened.db, seeded),
+      );
+      expect(rejected.ok).toBe(false);
+      if (!rejected.ok) expect(rejected.errors.some((error) => error.includes('潮位 不是清单栏目'))).toBe(true);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('秘密的知情者必须是人', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const accepted = parseChanges(
+        '{"type":"secret","title":"第三封信","statement":"第三封信藏在灯塔里","reveal":"主角找到第三封旧信时","knowers":"守灯人","para":"1"}',
+        lighthouseContext(opened.db, seeded),
+      );
+      expect(accepted.ok).toBe(true);
+      if (accepted.ok) expect(accepted.value.secrets[0]?.knowers).toEqual([{ existing: seeded.ids.linchao }]);
+      const rejected = parseChanges(
+        '{"type":"secret","title":"灯塔的来历","statement":"灯塔是后来修的","knowers":"灯塔","para":"1"}',
+        lighthouseContext(opened.db, seeded),
+      );
+      expect(rejected.ok).toBe(false);
+      if (!rejected.ok) expect(rejected.errors.some((error) => error.includes('灯塔 不是人物'))).toBe(true);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('只发生一次的场面不能再触发', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const scene = { code: 'S1', id: seeded.ids['scene:towerTop'] ?? '', once: true };
+      const result = parseChanges(
+        '{"type":"scene_hit","scene":"S1","para":"1"}',
+        lighthouseContext(opened.db, seeded, [scene]),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors.some((error) => error.includes('关键场面 S1 只发生一次，已经发生过。'))).toBe(true);
+      }
+      const repeatable = parseChanges(
+        '{"type":"scene_hit","scene":"S1","para":"1"}',
+        lighthouseContext(opened.db, seeded, [{ ...scene, once: false }]),
+      );
+      expect(repeatable.ok).toBe(true);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('找不到关键场面时列出未触发的场面', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const scene = { code: 'S1', id: seeded.ids['scene:towerTop'] ?? '', once: true };
+      const result = parseChanges(
+        '{"type":"scene_hit","scene":"S9","para":"1"}',
+        lighthouseContext(opened.db, seeded, [scene]),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.errors.some((error) => error.includes('找不到关键场面 S9'))).toBe(true);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('按方案生成的开场不能再新增主角', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const result = parseChanges(
+        '{"type":"new_entity","kind":"character","name":"另起炉灶的主角","known_as":"","profile":"","para":"1","protagonist":"true"}',
+        lighthouseOpening(opened.db, seeded),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors.some((error) => error.includes('主角已经在作品设定里，不要再新增。'))).toBe(true);
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('开场允许写人物位置，续写拒绝', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedLighthouseTown(opened.db);
+      const line =
+        '{"type":"new_entity","kind":"character","name":"临时的旅人","known_as":"","profile":"","para":"1","slot":"1"}';
+      const opening = parseChanges(line, lighthouseOpening(opened.db, seeded));
+      expect(opening.ok).toBe(true);
+      if (opening.ok) expect(opening.value.entities[0]?.slot).toBe('1');
+      const turn = parseChanges(line, lighthouseContext(opened.db, seeded));
+      expect(turn.ok).toBe(false);
+      if (!turn.ok) expect(turn.errors.some((error) => error.includes('续写时不能写人物位置。'))).toBe(true);
     } finally {
       opened.close();
       temp.cleanup();

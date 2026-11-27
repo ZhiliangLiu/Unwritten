@@ -11,6 +11,13 @@ export type ClientSample =
       jobId: string;
     }
   | {
+      metric: 'client.plan_visible';
+      durationMs: number;
+      outcome: 'ok' | 'error' | 'interrupted';
+      workId?: string;
+      jobId: string;
+    }
+  | {
       metric: 'client.turn_visible';
       durationMs: number;
       outcome: 'ok' | 'error' | 'interrupted';
