@@ -230,9 +230,11 @@ export const LlmLogDetailSchema = LlmLogSummarySchema.extend({
 
 export const LLM_LOG_LIST_LIMIT_MAX = 200;
 
+export const LlmLogCursorSchema = z.object({ createdAt: TimestampSchema, callId: UuidSchema });
+
 export const LlmLogListInputSchema = z.object({
   limit: z.number().int().min(1).max(LLM_LOG_LIST_LIMIT_MAX).default(50),
-  before: TimestampSchema.optional(),
+  before: LlmLogCursorSchema.optional(),
 });
 
 export const LlmLogListSchema = z.object({ items: z.array(LlmLogSummarySchema) });
@@ -270,6 +272,7 @@ export type LlmLogContent = z.infer<typeof LlmLogContentSchema>;
 export type LlmHttpExchange = z.infer<typeof LlmHttpExchangeSchema>;
 export type LlmLogSummary = z.infer<typeof LlmLogSummarySchema>;
 export type LlmLogDetail = z.infer<typeof LlmLogDetailSchema>;
+export type LlmLogCursor = z.infer<typeof LlmLogCursorSchema>;
 export type LlmLogListInput = z.infer<typeof LlmLogListInputSchema>;
 export type LlmLogList = z.infer<typeof LlmLogListSchema>;
 export type LlmLogStatus = z.infer<typeof LlmLogStatusSchema>;

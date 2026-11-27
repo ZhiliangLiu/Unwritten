@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { desc, eq, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
 import { PURPOSES } from '@unwritten/contracts';
 import type {
   AddModelInput,
@@ -443,8 +443,15 @@ export function createLlmService(
         .select(logSummaryColumns)
         .from(llmCallLogs)
         .innerJoin(llmCalls, eq(llmCallLogs.callId, llmCalls.id))
-        .where(input.before === undefined ? undefined : lt(llmCalls.createdAt, input.before))
-        .orderBy(desc(llmCalls.createdAt))
+        .where(
+          input.before === undefined
+            ? undefined
+            : or(
+                lt(llmCalls.createdAt, input.before.createdAt),
+                and(eq(llmCalls.createdAt, input.before.createdAt), lt(llmCalls.id, input.before.callId)),
+              ),
+        )
+        .orderBy(desc(llmCalls.createdAt), desc(llmCalls.id))
         .limit(input.limit)
         .all();
       return { items: rows.map(logSummaryOf) };
