@@ -1,5 +1,7 @@
 {
-  "app": { "name": "Unwritten" },
+  "app": {
+    "name": "Unwritten"
+  },
   "menu": {
     "about": "关于 Unwritten",
     "hide": "隐藏 Unwritten",
@@ -43,6 +45,12 @@
     "message": "已经保存的进度都在。正在写的那一段会显示为未完成，可以重试。",
     "detail": "重启后会回到作品库。",
     "restart": "重启",
+    "quit": "退出"
+  },
+  "renderer": {
+    "title": "Unwritten 的窗口接连出错",
+    "message": "窗口刚重新打开又出错了。已经保存的进度都在。",
+    "reload": "重新打开",
     "quit": "退出"
   }
 }

@@ -1,7 +1,7 @@
 import { START_FAILURE_REASONS } from '@unwritten/contracts/desktop';
 import { describe, expect, it } from 'vitest';
 import type { DesktopStartFailure } from './core-process.ts';
-import { crashDialog, startFailureDialog } from './startup-error.ts';
+import { crashDialog, rendererGoneDialog, startFailureDialog } from './startup-error.ts';
 
 const reasons: DesktopStartFailure[] = [...START_FAILURE_REASONS, 'timeout', 'exited'];
 
@@ -37,5 +37,15 @@ describe('crashDialog', () => {
     expect(dialog.cancelId).toBe(1);
     expect(dialog.buttons[0]).toBe('重启');
     expect(dialog.buttons[1]).toBe('退出');
+  });
+});
+
+describe('rendererGoneDialog', () => {
+  it('窗口接连出错给出重新打开和退出', () => {
+    const dialog = rendererGoneDialog();
+    expect(dialog.message).not.toBe('');
+    expect(dialog.defaultId).toBe(0);
+    expect(dialog.cancelId).toBe(1);
+    expect(dialog.buttons).toEqual(['重新打开', '退出']);
   });
 });

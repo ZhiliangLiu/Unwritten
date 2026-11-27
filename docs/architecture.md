@@ -79,7 +79,7 @@ thinkrail 用的是 Electrobun：主进程是 Bun，core 直接嵌在主进程�
 core 只监听回环地址。不过本机的其他程序，以及浏览器里打开的任何网页，都能尝试访问这个端口，所以要加以下防护：
 
 - **令牌。** 每个 `/api` 请求都必须带 `Authorization: Bearer <令牌>`，事件流也是普通的 HTTP 请求，用同一个请求头鉴权。client 在页面加载时从地址的 `#token=` 读出令牌，只保存在内存里，然后用 `history.replaceState` 从地址栏抹掉。令牌放在 hash 里，是因为 hash 不会随请求发给服务器，也就不会出现在日志里。静态文件（HTML、JS、CSS）不需要令牌。HTML 只注入主题文档所列的外观与阅读枚举；不包含作品、模型配置或凭据。HTML 不使用缓存，构建出的静态资源可按内容指纹缓存。
-- **带令牌的地址是唯一入口。** 令牌不写进任何浏览器存储，所以在生产构建里，刷新页面、从地址栏复制地址再打开，都拿不到令牌。开发构建的例外见 §7。页面加载时地址里没有令牌，client 不发任何 `/api` 请求，只显示一页固定说明：独立运行时请从 core 打印的地址重新打开，桌面版请重启应用。desktop 需要重新加载窗口时（例如渲染进程崩溃后），一律用带令牌的地址重新打开，菜单里也不提供原地刷新。
+- **带令牌的地址是唯一入口。** 令牌不写进任何浏览器存储，所以在生产构建里，刷新页面、从地址栏复制地址再打开，都拿不到令牌。开发构建的例外见 §7。页面加载时地址里没有令牌，client 不发任何 `/api` 请求，只显示一页固定说明：独立运行时请从 core 打印的地址重新打开，桌面版请重启应用。desktop 需要重新加载窗口时（例如渲染进程崩溃后），一律用带令牌的地址重新打开，菜单里也不提供原地刷新。渲染进程崩溃后先自动重开一次；重开后 10 秒内又崩溃，就改弹原生对话框，让用户选重新打开或退出，免得一直崩溃时无限重开。
 - **Host 与 Origin 检查。** `Host` 只接受 `127.0.0.1:<端口>` 或 `localhost:<端口>`，以挡住 DNS 重绑定攻击。带 `Origin` 的请求，`Origin` 必须和页面同源。core 不返回任何 CORS 头。
 - **窗口。** 开启 `contextIsolation` 和 `sandbox`，关闭 `nodeIntegration`，不使用 preload 脚本。窗口不能跳转到其他地址，外部链接一律交给系统浏览器打开。
 - **内容安全策略。** core 返回 `index.html` 时带上 `Content-Security-Policy` 响应头，nonce 每次请求重新生成：
@@ -168,7 +168,7 @@ core 使用 desktop 传进来的数据目录，桌面版的数据目录是 Elect
 
 完整的目录结构见[技术选型 §11](./tech-stack.md#11-目录结构)。
 
-开发时，core 用 `node --watch` 独立运行；client 用 Vite 开发服务器，把 `/api` 代理到 core。代理转发时把 `Host` 和 `Origin` 都改写成 core 的地址：Vite 代理的 `changeOrigin` 只改写 `Host`，`Origin` 要另外设置。core 的 Host 与 Origin 检查（§2.1）不为开发模式开例外，core 里没有只在开发时放行的分支。令牌在请求头里，代理原样转发。desktop 设了环境变量 `UNWRITTEN_DEV_CLIENT_ORIGIN`（只接受回环地址的 http 源）时进入开发模式：core 直接跑 `packages/core/src/main.ts` 源码，监听 Vite 代理写死的 4317 端口，窗口打开 Vite 的地址，令牌照样放在地址的 hash 里传给 client。没有这个变量、也没有打包时，desktop 跑仓库里 core 和 client 的构建产物；打包后跑资源目录里的那一份。desktop 的开发模式和独立运行的 core 抢同一个端口和数据目录，两者不同时运行。开发时的数据目录是仓库下的 `.data/`，它已列入 `.gitignore`，因为里面的 providers.json 含有 key。
+开发时，core 用 `node --watch` 独立运行；client 用 Vite 开发服务器，把 `/api` 代理到 core。代理转发时把 `Host` 和 `Origin` 都改写成 core 的地址：Vite 代理的 `changeOrigin` 只改写 `Host`，`Origin` 要另外设置。core 的 Host 与 Origin 检查（§2.1）不为开发模式开例外，core 里没有只在开发时放行的分支。令牌在请求头里，代理原样转发。desktop 设了环境变量 `UNWRITTEN_DEV_CLIENT_ORIGIN`（只接受回环地址的 http 源，写错时 desktop 在 stderr 说明原因后退出）时进入开发模式：core 直接跑 `packages/core/src/main.ts` 源码，监听 Vite 代理写死的 4317 端口，窗口打开 Vite 的地址，令牌照样放在地址的 hash 里传给 client。没有这个变量、也没有打包时，desktop 跑仓库里 core 和 client 的构建产物；打包后跑资源目录里的那一份。desktop 的开发模式和独立运行的 core 抢同一个端口和数据目录，两者不同时运行。开发时的数据目录是仓库下的 `.data/`，它已列入 `.gitignore`，因为里面的 providers.json 含有 key。
 
 代理改写了 `Origin`，core 的 Origin 检查在开发时就分不清请求来自哪个页面。这一层防护改由 Vite 开发服务器自己的两项默认检查承担：`server.allowedHosts` 只响应 `localhost`、`.localhost` 下的域名和 IP 地址，挡住 DNS 重绑定；`server.cors` 只允许 `localhost`、`127.0.0.1`、`[::1]` 这几类源跨域。所以 Vite 配置里不放宽这两项（例如设成 `true`），也不改 `server.host` 让它监听回环以外的地址。即便如此，本机其他端口上的页面仍然能经过代理发请求，挡住它们的只有令牌。
 

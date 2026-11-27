@@ -2,7 +2,7 @@ import type { CastMode, OpeningMode, Preview } from '@unwritten/contracts';
 import { LanguageTagSchema } from '@unwritten/contracts';
 import { listValueText } from '../story/status.ts';
 import type { OpeningField, OpeningProposal, OpeningProposalContext } from '../story/opening-proposal.ts';
-import { parseOpeningProposal } from '../story/opening-proposal.ts';
+import { fixedTextPlaceholderErrors, parseOpeningProposal } from '../story/opening-proposal.ts';
 import type { ProjStateDef, ValidatedChanges } from '../story/types.ts';
 
 export const PREVIEW_TOOL_NAME = 'propose_preview';
@@ -118,6 +118,12 @@ export function parsePreviewArgs(args: Record<string, unknown>, ctx: OpeningProp
     if (value === null) continue;
     if (!value) fail(name, `参数 ${name} 不能为空`);
     else if (Array.from(value).length > max) fail(name, `参数 ${name} 不能超过 ${max} 个字符`);
+  }
+  for (const [name, value] of required) {
+    if (!value) continue;
+    for (const message of fixedTextPlaceholderErrors(`参数 ${name}`, value, ctx.forbiddenNames)) {
+      fail('placeholder', message);
+    }
   }
   if (language !== null && !LanguageTagSchema.safeParse(language).success) {
     fail('language', '参数 language 必须是合法的语言标签');

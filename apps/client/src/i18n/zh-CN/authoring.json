@@ -198,11 +198,7 @@
   },
   "placeholder": { "token": "「{{name}}」" },
   "preview": {
-    "generate": "生成开场预览",
     "running": "正在写开场",
-    "done": "开场预览已生成",
-    "failed": "开场预览没有生成成功，请重试",
-    "heading": "预览开场",
     "setting": "公开设定",
     "options": "推荐行动",
     "adopt": "采用开场并存入作品库",
@@ -224,7 +220,6 @@
   "cast": {
     "heading": "出场人物",
     "headingOpening": "开场里新出现的",
-    "protagonist": "主角",
     "knownAs": "主角称作：{{name}}"
   },
   "published": { "heading": "已存入作品库", "play": "开始故事", "back": "返回作品库" }
