@@ -15,7 +15,7 @@ export function Page({
   children,
 }: {
   title: string;
-  heading: 'toolbar' | 'content';
+  heading: 'toolbar' | 'content' | 'custom';
   toolbar: { start: PageToolbarStart; titleBadge?: ReactNode; tools?: ReactNode };
   subtitle?: string;
   headerActions?: ReactNode;
@@ -53,7 +53,7 @@ export function Page({
             </div>
             {headerActions ? <div className={styles.headerActions}>{headerActions}</div> : null}
           </header>
-        ) : subtitle ? (
+        ) : heading === 'toolbar' && subtitle ? (
           <p className={styles.subtitle}>{subtitle}</p>
         ) : null}
         {children}

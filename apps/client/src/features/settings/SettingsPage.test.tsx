@@ -18,6 +18,7 @@ import { createFakeApi } from '../../shared/test/fake-api.ts';
 import { expectHeadingOutline } from '../../shared/test/heading-outline.ts';
 import { renderRoute } from '../../shared/test/render.tsx';
 import { applyAppearance } from '../../theme/appearance.ts';
+import { SETTINGS_SECTION_IDS } from './SettingsNav.tsx';
 
 const writer: ModelCapabilities = {
   id: 'writer-model',
@@ -198,6 +199,51 @@ describe('SettingsPage', () => {
     const { container, unmount } = await renderSettings();
     expectHeadingOutline(container);
     await unmount();
+  });
+
+  it('页面标题和分区导航在同一个侧栏里', async () => {
+    const { container, unmount } = await renderSettings();
+    const heading = container.querySelector('h1');
+    const nav = container.querySelector('nav');
+    expect(nav).not.toBeNull();
+    expect(nav?.parentElement).toBe(heading?.parentElement);
+    expect(getComputedStyle(heading!.parentElement!).position).toBe('sticky');
+    await unmount();
+  });
+
+  it('滚动时高亮当前分区，回到顶部恢复第一个分区', async () => {
+    const result = await renderSettings();
+    const { container, unmount } = result;
+    const isCurrent = (name: string) =>
+      result.getByRole('link', { name }).element().getAttribute('aria-current') === 'true';
+
+    window.scrollTo(0, 0);
+    window.dispatchEvent(new Event('scroll'));
+    await waitFor(() => isCurrent('外观'));
+
+    const content = container.querySelector('main > div > div:last-child') as HTMLElement;
+    const filler = document.createElement('div');
+    filler.style.blockSize = '4000px';
+    content.appendChild(filler);
+
+    const scrollToHeading = (id: string) => {
+      const heading = container.querySelector(`#${id} h2`) as HTMLElement;
+      window.scrollTo(0, heading.getBoundingClientRect().top + window.scrollY);
+      window.dispatchEvent(new Event('scroll'));
+    };
+
+    scrollToHeading(SETTINGS_SECTION_IDS.reading);
+    await waitFor(() => isCurrent('阅读'));
+
+    scrollToHeading(SETTINGS_SECTION_IDS.models);
+    await waitFor(() => isCurrent('模型'));
+
+    window.scrollTo(0, 0);
+    window.dispatchEvent(new Event('scroll'));
+    await waitFor(() => isCurrent('外观'));
+
+    await unmount();
+    window.scrollTo(0, 0);
   });
 
   it('保存用途时发送模型和参数', async () => {
