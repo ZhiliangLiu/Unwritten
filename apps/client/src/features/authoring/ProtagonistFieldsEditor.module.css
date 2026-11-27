@@ -30,8 +30,31 @@
 .row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-  align-items: end;
-  gap: var(--uw-space-2);
+  grid-template-rows: auto auto auto;
+  align-items: start;
+  column-gap: var(--uw-space-2);
+}
+
+.nameField,
+.valueField {
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  row-gap: var(--uw-space-1);
+}
+
+.nameField {
+  grid-column: 1;
+}
+
+.valueField {
+  grid-column: 2;
+}
+
+.remove {
+  display: flex;
+  grid-column: 3;
+  grid-row: 2;
+  align-self: center;
 }
 
 .add {

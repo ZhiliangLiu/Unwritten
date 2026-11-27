@@ -12,6 +12,7 @@ export function TextField({
   mono = false,
   disabled,
   autoComplete,
+  className,
 }: {
   label: string;
   value: string;
@@ -23,9 +24,14 @@ export function TextField({
   mono?: boolean;
   disabled?: boolean;
   autoComplete?: string;
+  className?: string;
 }) {
   return (
-    <Field.Root className={styles.field} disabled={disabled} invalid={Boolean(error)}>
+    <Field.Root
+      className={className ? `${styles.field} ${className}` : styles.field}
+      disabled={disabled}
+      invalid={Boolean(error)}
+    >
       <Field.Label className={styles.label}>{label}</Field.Label>
       <Field.Control
         className={`${styles.control} ${styles.singleLine} ${mono ? styles.mono : ''}`}

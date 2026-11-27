@@ -56,21 +56,25 @@ export function ProtagonistFieldsEditor({
         {local.map((field, index) => (
           <div key={`${index}`} className={styles.row}>
             <TextField
+              className={styles.nameField}
               label={t('authoring:settings.protagonist.fieldName')}
               value={field.name}
               onValueChange={(name) => setField(index, { name })}
               error={nameErrors[index] ?? undefined}
             />
             <TextField
+              className={styles.valueField}
               label={t('authoring:settings.protagonist.defaultValue')}
               value={field.defaultValue}
               onValueChange={(defaultValue) => setField(index, { defaultValue })}
             />
-            <IconButton
-              label={t('authoring:settings.protagonist.remove', { name: field.name })}
-              icon={X}
-              onClick={() => update(local.filter((_, fieldIndex) => fieldIndex !== index))}
-            />
+            <div className={styles.remove}>
+              <IconButton
+                label={t('authoring:settings.protagonist.remove', { name: field.name })}
+                icon={X}
+                onClick={() => update(local.filter((_, fieldIndex) => fieldIndex !== index))}
+              />
+            </div>
           </div>
         ))}
       </div>
