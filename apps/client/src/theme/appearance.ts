@@ -1,5 +1,5 @@
 import type { Appearance } from '@unwritten/contracts';
-import { DEFAULT_APPEARANCE } from '@unwritten/contracts';
+import { AppearanceSchema, DEFAULT_APPEARANCE } from '@unwritten/contracts';
 
 const DARK_QUERY = '(prefers-color-scheme: dark)';
 
@@ -10,21 +10,15 @@ function resolveTheme(preference: Appearance['appearance']): 'light' | 'dark' {
 
 export function readAppearance(): Appearance {
   const root = document.documentElement;
-  const appearance = root.getAttribute('data-uw-appearance');
-  const proseSize = root.getAttribute('data-uw-prose-size');
-  const proseFont = root.getAttribute('data-uw-prose-font');
-  const proseLeading = root.getAttribute('data-uw-prose-leading');
+  const { shape } = AppearanceSchema;
+  const fallback = DEFAULT_APPEARANCE;
   return {
-    appearance:
-      appearance === 'system' || appearance === 'light' || appearance === 'dark'
-        ? appearance
-        : DEFAULT_APPEARANCE.appearance,
-    proseSize:
-      proseSize === '1' || proseSize === '2' || proseSize === '3' || proseSize === '4' || proseSize === '5'
-        ? proseSize
-        : DEFAULT_APPEARANCE.proseSize,
-    proseFont: proseFont === 'sans' ? 'sans' : 'serif',
-    proseLeading: proseLeading === 'compact' ? 'compact' : 'comfortable',
+    appearance: shape.appearance.catch(fallback.appearance).parse(root.getAttribute('data-uw-appearance')),
+    proseSize: shape.proseSize.catch(fallback.proseSize).parse(root.getAttribute('data-uw-prose-size')),
+    proseFont: shape.proseFont.catch(fallback.proseFont).parse(root.getAttribute('data-uw-prose-font')),
+    proseLeading: shape.proseLeading.catch(fallback.proseLeading).parse(root.getAttribute('data-uw-prose-leading')),
+    proseLayout: shape.proseLayout.catch(fallback.proseLayout).parse(root.getAttribute('data-uw-prose-layout')),
+    proseIndent: shape.proseIndent.catch(fallback.proseIndent).parse(root.getAttribute('data-uw-prose-indent')),
   };
 }
 
@@ -34,6 +28,8 @@ export function applyAppearance(appearance: Appearance): void {
   root.setAttribute('data-uw-prose-size', appearance.proseSize);
   root.setAttribute('data-uw-prose-font', appearance.proseFont);
   root.setAttribute('data-uw-prose-leading', appearance.proseLeading);
+  root.setAttribute('data-uw-prose-layout', appearance.proseLayout);
+  root.setAttribute('data-uw-prose-indent', appearance.proseIndent);
   const theme = resolveTheme(appearance.appearance);
   if (root.getAttribute('data-uw-theme') === theme) return;
   const swap = () => root.setAttribute('data-uw-theme', theme);

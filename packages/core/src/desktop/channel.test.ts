@@ -23,6 +23,8 @@ const lightAppearance = {
   proseSize: '3',
   proseFont: 'serif',
   proseLeading: 'comfortable',
+  proseLayout: 'book',
+  proseIndent: '2',
 } as const;
 
 const darkAppearance = { ...lightAppearance, appearance: 'dark' } as const;

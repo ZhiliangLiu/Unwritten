@@ -36,6 +36,16 @@ const LEADING_OPTIONS = [
   { value: 'compact', labelKey: 'settings:appearance.leadingOption.compact' },
 ] as const;
 
+const LAYOUT_OPTIONS = [
+  { value: 'book', labelKey: 'settings:appearance.layoutOption.book' },
+  { value: 'chat', labelKey: 'settings:appearance.layoutOption.chat' },
+] as const;
+
+const INDENT_OPTIONS = [
+  { value: '2', labelKey: 'settings:appearance.indentOption.2' },
+  { value: '0', labelKey: 'settings:appearance.indentOption.0' },
+] as const;
+
 export function AppearanceSection() {
   const { t } = useTranslation();
   const api = useApi();
@@ -112,6 +122,24 @@ export function AppearanceSection() {
             value={current.proseLeading}
             onValueChange={(value) => change({ proseLeading: value as Appearance['proseLeading'] })}
             options={LEADING_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
+            appearance='segmented'
+          />
+        </div>
+        <div className={styles.optionRow}>
+          <RadioGroup
+            label={t('settings:appearance.proseLayout')}
+            value={current.proseLayout}
+            onValueChange={(value) => change({ proseLayout: value as Appearance['proseLayout'] })}
+            options={LAYOUT_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
+            appearance='segmented'
+          />
+        </div>
+        <div className={styles.optionRow}>
+          <RadioGroup
+            label={t('settings:appearance.proseIndent')}
+            value={current.proseIndent}
+            onValueChange={(value) => change({ proseIndent: value as Appearance['proseIndent'] })}
+            options={INDENT_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
             appearance='segmented'
           />
         </div>

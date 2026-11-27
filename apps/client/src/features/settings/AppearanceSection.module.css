@@ -42,4 +42,5 @@
   font-size: var(--uw-prose-size);
   line-height: var(--uw-prose-leading);
   color: var(--uw-color-ink);
+  text-indent: var(--uw-prose-indent);
 }

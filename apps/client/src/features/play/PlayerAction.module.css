@@ -1,0 +1,18 @@
+.action {
+  margin: 0;
+  font-family: var(--uw-font-ui);
+  font-size: var(--uw-prose-action-size);
+  line-height: var(--uw-prose-leading);
+  color: var(--uw-color-ink-action);
+  overflow-wrap: anywhere;
+}
+
+:root[data-uw-prose-layout='chat'] .action {
+  justify-self: end;
+  padding-block: var(--uw-space-2);
+  padding-inline: var(--uw-space-3);
+  margin-inline-start: var(--uw-space-12);
+  background-color: var(--uw-color-surface-sunken);
+  border: var(--uw-border-width) solid transparent;
+  border-radius: var(--uw-radius-lg);
+}

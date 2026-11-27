@@ -104,10 +104,12 @@ DTCG 里没有直接对应的几类值，约定这样写：
 | `--uw-prose-measure` | 对话框、空状态等窄内容的最大宽度，约 36 个汉字；相对正文字号 |
 | `--uw-prose-page-ratio` | 版心占视口宽度和 `--uw-size-page-max` 的比例 |
 | `--uw-prose-paragraph-gap` | 段间距；相对正文字号 |
-| `--uw-prose-indent` | 段首缩进，两个汉字宽；相对正文字号 |
+| `--uw-prose-indent` | 段首缩进，随阅读偏好在两个汉字宽和不缩进之间切换，默认两个汉字宽；相对正文字号 |
 | `--uw-prose-action-size` | 玩家行动的字号；相对正文字号，随阅读偏好一起缩放 |
 
-阅读偏好写在根元素上（§9）。三个随偏好切换的 token 在 `$extensions.unwritten` 里写明对应哪项偏好（`preference`）和每个选项指向哪个 token（`options`）。web 据此生成属性选择器，例如 `:root[data-uw-prose-size='1']` 把 `--uw-prose-size` 指向第 1 档。
+阅读偏好写在根元素上（§9）。四个随偏好切换的 token 在 `$extensions.unwritten` 里写明对应哪项偏好（`preference`）和每个选项的取值（`options`），取值可以引用别的 token，也可以直接写数。web 据此生成属性选择器，例如 `:root[data-uw-prose-size='1']` 把 `--uw-prose-size` 指向第 1 档。
+
+正文样式（书页 / 聊天气泡）也是阅读偏好，但它改的是玩家行动的排版结构，不是某个 token 的取值，所以不经 token：根元素写 `data-uw-prose-layout`，玩家行动的组件用 `:root[data-uw-prose-layout='chat']` 选出气泡的样式，长相见[设计准则 §3](./design-guidelines.md#3-版式)。叙述段落不看这个属性。
 
 阅读偏好和主题无关，切换主题时不会重置。
 
@@ -175,7 +177,7 @@ DTCG 里没有直接对应的几类值，约定这样写：
 | `--uw-color-page` | 正文纸面，独立于 `surface` |
 | `--uw-color-ink` | 正文墨色，独立于 `text` |
 | `--uw-color-ink-muted` | 正文里的次要文字 |
-| `--uw-color-ink-action` | 夹在剧情之间的玩家行动 |
+| `--uw-color-ink-action` | 夹在剧情之间的玩家行动；聊天气泡样式下压在 `surface-sunken` 上 |
 | `--uw-color-ink-selection` | 正文选中底，半透明 |
 | `--uw-color-ink-highlight` | 从手记跳回原文时的定位高亮、搜索命中 |
 | `--uw-color-scrim` | 对话框遮罩，半透明 |
@@ -189,7 +191,7 @@ DTCG 里没有直接对应的几类值，约定这样写：
 | `text-muted` 对各个表面 | ≥ 4.5 : 1 |
 | `text-subtle` 对各个表面 | ≥ 3 : 1，只用于大字号或装饰 |
 | `ink` 对 `page` | 10 : 1 到 12 : 1。约 11 : 1 是护眼区间：足够清楚，又不像纯黑配纯白那样刺眼 |
-| `accent-text` 对各个表面；`ink-action` 对 `page` | ≥ 4.5 : 1 |
+| `accent-text` 对各个表面；`ink-action` 对 `page` 和 `surface-sunken` | ≥ 4.5 : 1 |
 | `text-on-accent` 对主按钮的默认、悬停与按下底色 | ≥ 4.5 : 1 |
 | 四种反馈色对 `surface` 和各自的柔和底色 | ≥ 4.5 : 1 |
 | `border-control` 对各个表面 | ≥ 3 : 1（WCAG 1.4.11） |
@@ -262,12 +264,12 @@ Windows 的强制颜色模式（`forced-colors: active`）见 [a11y §7](./a11y.
 
 ## 9. 外观偏好与切换
 
-**偏好存在 core。** 外观偏好（跟随系统 / 浅色 / 深色）和阅读偏好（正文字号、字体、行距）都存在 core 的设置里，因为桌面版和将来的 web 客户端要共用同一份偏好。core 把它们存进作品库的 `app_settings` 表，一行，按 contracts 的 `AppearanceSchema` 校验后写入。设置页通过契约里的 `settings.get` 和 `settings.update` 两个过程读写它们。
+**偏好存在 core。** 外观偏好（跟随系统 / 浅色 / 深色）和阅读偏好（正文字号、字体、行距、段首缩进、正文样式）都存在 core 的设置里，因为桌面版和将来的 web 客户端要共用同一份偏好。core 把它们存进作品库的 `app_settings` 表，一行，按 contracts 的 `AppearanceSchema` 校验后写入。库里存的偏好缺少某一项时，读出时这一项取默认值，其余项照旧，因为偏好会随版本增加新项，不能让一项新偏好把用户已经调好的主题和字号清掉；偏好里有不认识的值时，整份回落到默认。设置页通过契约里的 `settings.get` 和 `settings.update` 两个过程读写它们。
 
 **首屏不闪。** core 返回 `index.html` 时，把偏好直接写在根元素上：
 
 ```html
-<html lang="zh-CN" data-uw-appearance="system" data-uw-prose-size="3" data-uw-prose-font="serif" data-uw-prose-leading="comfortable">
+<html lang="zh-CN" data-uw-appearance="system" data-uw-prose-size="3" data-uw-prose-font="serif" data-uw-prose-leading="comfortable" data-uw-prose-layout="book" data-uw-prose-indent="2">
 ```
 
 `<head>` 里有一段很短的内联脚本，在首次绘制前用 `matchMedia('(prefers-color-scheme: dark)')` 把 `system` 解析成具体的主题，写成 `data-uw-theme="light"` 或 `data-uw-theme="dark"`。主题 CSS 只认 `data-uw-theme`，所以 DOM 上永远不会出现 `system` 这个值。
@@ -341,6 +343,7 @@ apps/client/src/theme/
   - 生成的 CSS 变量名不重复；
   - 界面排版角色的字距等于 `tracking` 乘以字号；
   - 逐套检查默认和提高对比度两种配色。按 §5 逐组计算，半透明的前景先合成到对应的不透明底色上。
+  - 随阅读偏好切换的 token，`options` 的键和 contracts 的 `AppearanceSchema` 里对应偏好的取值完全一致。选项只在 contracts 里定义一次，脚本直接读它；偏好多了一个取值而 token 没跟上，检查就失败；
   - 用 Web 生成器检查阅读选项和 CSS 变量声明，组合排版展开后的变量名也参与重名检查。
 - **外观测试：**
   - DOM 上从不出现 `data-uw-theme="system"`；
@@ -373,4 +376,5 @@ apps/client/src/theme/
 | 把 `ink` 改成接近纯黑 | 运行 `node scripts/check-tokens.mjs` | 失败，指出 `ink` 对 `page` 的对比度超出护眼区间 |
 | 修改 token 文件里的一个颜色 | 重新构建 client | 生成的主题 CSS 跟着变，组件不用改 |
 | 阅读偏好设为最大字号 + 无衬线字体 | 切换主题 | 阅读偏好保持不变 |
+| 库里存的偏好缺少正文样式和段首缩进 | 启动应用 | 正文样式为书页，段首缩进两个汉字宽，主题、字号、字体、行距保持原样 |
 | 正文字体为宋体，正文里有一处强调 | 浅色和深色下各读一遍 | 强调处明显比周围粗 |

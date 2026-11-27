@@ -31,6 +31,8 @@ test('viewport, typography and reading preferences use the source tokens', () =>
   assert.match(css['media.css'], /@custom-media --uw-compact \(width < 48rem\)/);
   assert.match(css['tokens.css'], /--uw-typography-page-title-font-size: var\(--uw-text-2xl\)/);
   assert.match(css['tokens.css'], /data-uw-prose-size='5'[^}]*--uw-prose-size: var\(--uw-prose-size-scale-5\)/s);
+  assert.match(css['tokens.css'], /:root \{[^}]*--uw-prose-indent: 2em;/s);
+  assert.match(css['tokens.css'], /data-uw-prose-indent='0'[^}]*--uw-prose-indent: 0em;/s);
 });
 
 test('motion renders the declared aliases and disables looping for reduced motion', () => {
