@@ -53,7 +53,7 @@ token 的名字表达角色，不表达取值：写 `--uw-color-text-muted`，�
 DTCG 里没有直接对应的几类值，约定这样写：
 
 - **相对字号的长度**（字距、版心、段间距、段首缩进、玩家行动的字号）：DTCG 的 `dimension` 只有 `px` 和 `rem`，所以写成 `number`，并在 `$extensions.unwritten.unit` 标 `em`；
-- **比例**（正文列占视口和版面最大宽度的份额）：写成不带单位的 `number`，在 CSS 里用 `calc()` 乘上基准长度；
+- **比例**（正文列、浮层按视口或版面最大宽度取的份额）：写成不带单位的 `number`，在 CSS 里用 `calc()` 乘上基准长度；
 - **过渡涉及哪些属性**：写在 `$extensions.unwritten.properties`；循环动画另标 `iteration`；
 - **不播放的过渡和动画**：时长写 0；
 - **材质的背景模糊**：写成模糊半径，0 表示不模糊；
@@ -125,7 +125,7 @@ DTCG 里没有直接对应的几类值，约定这样写：
 | `--uw-size-icon-stroke` | 图标线宽，按 Lucide 图标 24 单位的画布计，随图标尺寸等比缩放。比 Lucide 默认的 `2` 细一档，和苹方常规体的笔画相称 |
 | `--uw-size-meter` | 状态栏里进度条和阶段条的粗细 |
 | `--uw-size-toolbar` | 顶部工具行的高度；滚动容器的 `scroll-padding-block-start` 取这个值（[a11y §4](./a11y.md#4-键盘与焦点)） |
-| `--uw-size-panel` / `-min` / `-max` | 工作站面板宽度；手记与存档浮层用 `--uw-size-panel` |
+| `--uw-size-panel` / `-min` / `-max` / `-ratio` | 工作站面板宽度；手记与存档浮层的宽度为 32vw，限制在 `--uw-size-panel` 和 `--uw-size-panel-max` 之间 |
 | `--uw-size-page-max` | 作品库等页面的最大宽度 |
 | `--uw-size-card-min` | 作品库卡片网格的最小列宽；页面最宽时排三列 |
 
