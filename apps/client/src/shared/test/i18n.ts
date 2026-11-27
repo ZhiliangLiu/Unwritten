@@ -4,6 +4,7 @@ import authoring from '../../i18n/zh-CN/authoring.json';
 import common from '../../i18n/zh-CN/common.json';
 import errors from '../../i18n/zh-CN/errors.json';
 import library from '../../i18n/zh-CN/library.json';
+import logs from '../../i18n/zh-CN/logs.json';
 import play from '../../i18n/zh-CN/play.json';
 import settings from '../../i18n/zh-CN/settings.json';
 
@@ -16,9 +17,9 @@ export function initTestI18n(): void {
     lng: 'zh-CN',
     fallbackLng: false,
     initAsync: false,
-    ns: ['common', 'errors', 'library', 'authoring', 'play', 'settings'],
+    ns: ['common', 'errors', 'library', 'authoring', 'play', 'settings', 'logs'],
     defaultNS: 'common',
-    resources: { 'zh-CN': { common, errors, library, authoring, play, settings } },
+    resources: { 'zh-CN': { common, errors, library, authoring, play, settings, logs } },
     interpolation: { escapeValue: false },
   });
 }

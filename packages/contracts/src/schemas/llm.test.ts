@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   GenerationParamsSchema,
+  LlmLogContentSchema,
+  LlmLogListInputSchema,
   SetPurposeInputSchema,
   THINKING_FORMATS,
   THINKING_LEVELS,
@@ -53,6 +55,15 @@ describe('llm schemas', () => {
     ).toBe(true);
     expect(TestConnectionInputSchema.safeParse({ purpose: 'narrator' }).success).toBe(true);
     expect(TestConnectionInputSchema.safeParse({ purpose: 'author_chat' }).success).toBe(true);
+  });
+
+  it('调试日志的内容块与列表输入', () => {
+    expect(
+      LlmLogContentSchema.safeParse({ type: 'toolCall', id: '1', name: 'propose_turn', arguments: {} }).success,
+    ).toBe(true);
+    expect(LlmLogContentSchema.safeParse({ type: 'text' }).success).toBe(false);
+    expect(LlmLogListInputSchema.parse({}).limit).toBe(50);
+    expect(LlmLogListInputSchema.safeParse({ limit: 201 }).success).toBe(false);
   });
 
   it('思考档位与写法的取值', () => {

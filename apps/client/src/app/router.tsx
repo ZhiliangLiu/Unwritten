@@ -9,6 +9,7 @@ import { Page } from '../shared/ui/Page.tsx';
 import { useShortcut } from '../shared/hooks/useShortcut.ts';
 import { LibraryPage } from '../features/library/LibraryPage.tsx';
 import { AuthoringPage } from '../features/authoring/AuthoringPage.tsx';
+import { LlmLogsPage } from '../features/logs/LlmLogsPage.tsx';
 import { SettingsPage } from '../features/settings/SettingsPage.tsx';
 import { OpeningPendingPage } from '../features/play/OpeningPendingPage.tsx';
 import { PlayPage } from '../features/play/PlayPage.tsx';
@@ -30,6 +31,7 @@ function RootLayout() {
 const rootRoute = createRootRoute({ component: RootLayout });
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: LibraryPage });
 const settingsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/settings', component: SettingsPage });
+const llmLogsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/debug/llm', component: LlmLogsPage });
 const worksEditRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/works/$workId/edit',
@@ -66,6 +68,7 @@ const playthroughRoute = createRoute({
 export const routeTree = rootRoute.addChildren([
   indexRoute,
   settingsRoute,
+  llmLogsRoute,
   worksEditRoute,
   workStartRoute,
   playRoute,

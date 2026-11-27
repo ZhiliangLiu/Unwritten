@@ -61,6 +61,7 @@ describe('openDatabase', () => {
         'turn_requests',
         'jobs',
         'llm_calls',
+        'llm_call_logs',
       ]) {
         expect(names).toContain(name);
       }

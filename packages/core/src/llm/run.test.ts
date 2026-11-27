@@ -7,6 +7,7 @@ import { makeTempDataDir } from '../test-support/temp-dir.ts';
 import { openDatabase } from '../store/db.ts';
 import { startFakeOpenAiServer } from '../test-support/fake-openai-server.ts';
 import { rawToolStep, thinkingToolStep } from '../test-support/llm-steps.ts';
+import { llmCallLogs } from '../store/schema.ts';
 import { createCompleter, createRunner, opencodeHeaders } from './run.ts';
 import type { RuntimeTarget } from './pi.ts';
 import type { LlmTool } from './types.ts';
@@ -43,6 +44,7 @@ function setup(
   baseUrl: string,
   timeouts = { firstOutputMs: 2_000, stallMs: 2_000 },
   overrides: Partial<RuntimeTarget> = {},
+  logBodies = false,
 ) {
   const temp = makeTempDataDir();
   const opened = openDatabase(join(temp.dir, 'library.db'));
@@ -63,6 +65,7 @@ function setup(
     logger,
     shutdown: new AbortController().signal,
     timeouts,
+    logBodies,
     targetFor,
   });
   const completer = createCompleter({
@@ -70,6 +73,7 @@ function setup(
     logger,
     shutdown: new AbortController().signal,
     timeouts,
+    logBodies,
     targetFor,
   });
   return { temp, opened, runner, completer };
@@ -86,6 +90,43 @@ describe('createRunner', () => {
       expect(rows).toEqual([{ status: 'ok' }]);
       expect(server.requests).toHaveLength(1);
       expect(server.requests[0]?.headers['user-agent']).toMatch(/^unwritten\//);
+    } finally {
+      await server.close();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('开发构建记录 prompt、回复和 HTTP 交换', async () => {
+    const server = await startFakeOpenAiServer();
+    const { temp, opened, runner } = setup(server.baseUrl, undefined, {}, true);
+    try {
+      server.enqueue(rawToolStep('propose_turn', { prose: '雨声' }));
+      await expect(runner(input())).resolves.toEqual({ requiredToolTerminated: true });
+      const [log] = opened.db.select().from(llmCallLogs).all();
+      expect(log?.system).toBe('system');
+      expect(log?.prompt).toBe('prompt');
+      expect(log?.response?.some((part) => part.type === 'toolCall' && part.name === 'propose_turn')).toBe(true);
+      expect(log?.http).toHaveLength(1);
+      expect(log?.http[0]?.requestBody).toContain('"model":"m"');
+      expect(log?.http[0]?.responseBody).toContain('data:');
+    } finally {
+      await server.close();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('开发构建的调试日志抹掉响应里的 key', async () => {
+    const server = await startFakeOpenAiServer();
+    const { temp, opened, runner } = setup(server.baseUrl, undefined, { apiKey: 'secret-key' }, true);
+    try {
+      server.enqueue({ kind: 'http_error', status: 401, message: 'bad key secret-key' });
+      await expect(runner(input())).rejects.toMatchObject({ code: 'unauthorized' });
+      const [log] = opened.db.select().from(llmCallLogs).all();
+      expect(log?.http[0]?.status).toBe(401);
+      expect(log?.http[0]?.responseBody).toContain('[redacted]');
+      expect(JSON.stringify(log)).not.toContain('secret-key');
     } finally {
       await server.close();
       opened.close();

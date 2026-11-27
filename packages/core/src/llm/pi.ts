@@ -1,7 +1,7 @@
 import { Agent } from '@earendil-works/pi-agent-core';
 import { createModels, createProvider, type AssistantMessage, type Model } from '@earendil-works/pi-ai';
 import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy';
-import type { GenerationParams, ThinkingFormat } from '@unwritten/contracts';
+import type { GenerationParams, LlmLogContent, ThinkingFormat } from '@unwritten/contracts';
 import packageJson from '../../package.json' with { type: 'json' };
 import type { LlmTool } from './types.ts';
 
@@ -38,6 +38,7 @@ export interface CompletionOutcome {
   calledToolNames: string[];
   usage: UsageTotals;
   text: string;
+  content: LlmLogContent[];
 }
 
 const IDENTITY = {
@@ -145,6 +146,20 @@ function toolNamesOf(message: AssistantMessage): string[] {
   return message.content.filter((part) => part.type === 'toolCall').map((part) => part.name);
 }
 
+function contentOf(message: AssistantMessage): LlmLogContent[] {
+  return message.content.map((part) => {
+    if (part.type === 'text') return { type: 'text', text: part.text };
+    if (part.type === 'thinking') return { type: 'thinking', thinking: part.thinking };
+    return {
+      type: 'toolCall',
+      id: part.id,
+      name: part.name,
+      arguments: part.arguments,
+      ...(part.argumentsError === undefined ? {} : { argumentsError: part.argumentsError }),
+    };
+  });
+}
+
 function outcomeOf(message: AssistantMessage): CompletionOutcome {
   return {
     stopReason: message.stopReason,
@@ -155,6 +170,7 @@ function outcomeOf(message: AssistantMessage): CompletionOutcome {
       .filter((part) => part.type === 'text')
       .map((part) => part.text)
       .join(''),
+    content: contentOf(message),
   };
 }
 
@@ -266,6 +282,7 @@ export function createAgentSession(
           calledToolNames: [],
           usage: EMPTY_USAGE,
           text: '',
+          content: [],
         };
       }
       const usage = assistants.reduce((total, message) => addUsage(total, usageOf(message)), EMPTY_USAGE);

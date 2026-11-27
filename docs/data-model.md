@@ -368,6 +368,7 @@ BEGIN DELETE FROM prose_fts WHERE turn_id = old.id; END;
 | `turn_requests`：一次回合请求的状态 | [回合循环 §2](./turn-loop.md#2-回合请求) |
 | `chat_threads`、`chat_messages`、`card_claims`、`jobs` | [创作工作站 §13](./author-workstation.md#13-数据表) |
 | `llm_calls`：模型调用记录 | [LLM 端点 §9](./llm-endpoints.md#9-调用记录) |
+| `llm_call_logs`：开发构建的模型调用正文 | [LLM 端点 §9.1](./llm-endpoints.md#91-调试日志) |
 | `app_settings`：外观与阅读偏好 | [主题与 token §9](./theme.md#9-外观偏好与切换) |
 | `illustrations`、`portrait_sets`：插图与人物参考组 | [插图与出图服务 §9.2](./image.md#92-表) |
 | `image_calls`：出图调用记录 | [插图与出图服务 §11](./image.md#11-调用记录与诊断) |

@@ -256,6 +256,30 @@ llm_calls (
 - **设置页显示用量**，按用途和作品汇总最近 7 天和 30 天的数据。记录只关联仍存在的作品；调用未结束时删除作品，补写记录时也不再关联该作品。作品删除后，记录仍计入用途总量，不再归入单部作品。
 - core 启动时删除 90 天以前的记录。
 
+### 9.1 调试日志
+
+开发构建额外把每次逻辑调用的输入、最终回复和经过的 HTTP 交换写进 `library.db` 的 `llm_call_logs`，供维护者排查。发布构建不写这张表。
+
+```sql
+llm_call_logs (
+  call_id     TEXT PRIMARY KEY REFERENCES llm_calls ON DELETE CASCADE,
+  work_id     TEXT REFERENCES works ON DELETE CASCADE,
+  system      TEXT NOT NULL,
+  prompt      TEXT NOT NULL,
+  response    JSON,
+  http        JSON NOT NULL,
+  created_at  INTEGER NOT NULL
+)
+```
+
+- **一条逻辑调用一行。** `call_id` 与 `llm_calls` 相同。`response` 是最后一次助手消息的内容块，可能含文本、思考和工具调用；工具往返的每一轮都在 `http` 里。
+- **`http` 是这次调用经过的请求数组。** 每项记录序号、方法、抹掉 key 的地址、状态码、原始请求体和原始响应正文。请求体是发往服务商的 JSON；响应体保留服务商返回的原始正文，成功时通常是流式 SSE。单条正文超过 100 万个字符（常量 `LLM_LOG_BODY_MAX_CHARS`）时截断并写入截断标记。
+- **不记请求头。** Authorization 和自定义头不落库。请求体、响应体、地址和错误文本写入前都要抹掉该端点的 key。
+- **只在开发构建记录。** desktop 在 `start` 消息里说明本次是否为开发构建；独立运行 core 以 `--client-origin` 是否存在判断。发布构建不记录，也不显示调试入口。
+- **作品删除时日志一并删除。** `work_id` 外键级联删除，作者删掉作品后调试正文不再留在库里。`llm_calls` 的用量记录仍按 §9 的规则保留，不再关联这部作品。
+- **保留 7 天（常量 `LLM_LOG_RETENTION_DAYS`）。** core 启动时删除 7 天前的日志，与 `llm_calls` 的 90 天清理一起执行。日志只在本机，不提供远程读取接口，也不写日志文件。
+- **读取接口只给调试页。** 调试页在 `/debug/llm`，设置页在开启时显示入口。`llm.logs.status` 返回是否开启；`llm.logs.list` 按时间倒序返回概览，每页最多 200 条（常量 `LLM_LOG_LIST_LIMIT_MAX`），可按时间往前翻；`llm.logs.get` 返回一条完整日志。发布构建里 `status` 为 false，列表为空，单条读取返回 `not_found`。
+
 ## 10. core 接口
 
 这些接口都是 contracts 里的 oRPC 过程，输入、输出和错误由契约定义，没有单独的 HTTP 路由（[架构总览 §3](./architecture.md#3-client-与-core-的通信)）。
@@ -274,6 +298,9 @@ llm_calls (
 | `llm.test` | 测试连接；可指定一个模型，也可指定一个用途，按该用途的模型和生成参数测试 |
 | `llm.purposes.set` | 修改用途分配，包括每个用途的生成参数。读取随 `llm.providers.list` 一起返回 |
 | `llm.usage.summary` | 用量汇总 |
+| `llm.logs.status` | 调试日志是否开启 |
+| `llm.logs.list` | 按时间倒序列出调试日志概览 |
+| `llm.logs.get` | 读取一条调试日志的正文 |
 
 ## 11. 不做的事
 
@@ -283,6 +310,8 @@ llm_calls (
 - 对本地服务的能力细探：Ollama 的 `/api/show`、llama.cpp 的 `/props`、LM Studio 的 `/api/v0/models`（thinkrail 的 `enrich`）。
 - 按作品单独指定模型。
 - embedding 模型。出图服务不走本文的端点和用途分配，它有自己的配置和协议（[插图与出图服务 §2](./image.md#2-出图服务的配置)）。
+- 发布构建记录模型正文。提示词和回复可能含作品内容，调试日志只在开发构建、本机、保留期内存在。
+- 记录请求头。Authorization 和自定义头不落库，避免把 key 和路由信息写进作品库。
 
 ## 12. 验收
 
@@ -296,3 +325,7 @@ llm_calls (
 | 每种协议各配一个端点，端点对一切请求返回 302，指向另一台测试主机；其中一个内置服务商的 key 只来自标准环境变量，另有一个端点没有 key | 分别探测、测试连接、发起一次实际的模型调用 | 每个请求都以 `redirected` 失败，另一台测试主机没有收到任何请求 |
 | `narrator` 设了思考档位和采样参数，`background` 只选了模型 | 各发起一次调用，查看服务商收到的请求体 | 续写请求带上对应字段；摘要请求不带任何没填的参数。能力为“否”的模型选不了思考档位 |
 | key 写成 `$VAR`，变量只在 `~/.zshrc` 里设置 | 从访达启动 Unwritten | key 能正确解析 |
+| 开发构建，完成一次带工具往返的调用 | 打开 `/debug/llm`，点开最近一条 | 能看到 system、初始 prompt、最终回复和工具调用参数；HTTP 里能看到每轮原始请求和 SSE 响应 |
+| 同一次调用在发布构建里执行 | 打开 `/debug/llm` | 没有调试入口，直接打开时显示未开启；`llm_call_logs` 没有新行 |
+| 端点返回带 key 的错误 | 查询 `llm_call_logs` | 请求体、响应体、地址和错误文本里都找不到 key |
+| 一条日志超过 7 天 | 重启 core | 该行被删除，`llm_calls` 里的用量记录仍在 90 天内 |

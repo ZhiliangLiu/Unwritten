@@ -21,6 +21,6 @@ export async function initI18n(): Promise<void> {
     });
 }
 
-export function loadNamespace(namespace: 'library' | 'authoring' | 'play' | 'settings'): Promise<void> {
+export function loadNamespace(namespace: 'library' | 'authoring' | 'play' | 'settings' | 'logs'): Promise<void> {
   return i18next.loadNamespaces(namespace);
 }

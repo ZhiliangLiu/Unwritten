@@ -1,5 +1,10 @@
 {
   "page": { "heading": "设置" },
+  "debug": {
+    "heading": "调试",
+    "description": "查看每次模型调用的 prompt、回复和 HTTP 请求。仅在开发构建中记录，保留 7 天。",
+    "open": "打开模型调用日志"
+  },
   "problem": {
     "syntax": "配置文件第 {{line}} 行第 {{column}} 列无法解析。",
     "schema": "配置项 {{path}} 不符合要求。",

@@ -89,6 +89,9 @@ export function createScriptedLlm(options?: { resolved?: ResolvedModel | null })
     removeModel: notScripted,
     setPurpose: notScripted,
     testConnection: notScripted,
+    logsStatus: () => ({ enabled: false }),
+    listLogs: () => ({ items: [] }),
+    getLog: notScripted,
     pruneCalls: notScripted,
   };
 }

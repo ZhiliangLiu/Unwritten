@@ -1,4 +1,10 @@
 import { randomUUID } from 'node:crypto';
+import {
+  LlmHttpExchangeSchema,
+  LlmLogContentSchema,
+  type LlmHttpExchange,
+  type LlmLogContent,
+} from '@unwritten/contracts';
 import { createGuardedFetch, createFetchRecorder, unguardedFetch } from './fetch-guard.ts';
 import { classifyFailure } from './classify.ts';
 import { scrubSecrets } from '../log/scrub.ts';
@@ -6,7 +12,7 @@ import { completeOnce, createAgentSession, type CompletionOutcome, type RuntimeT
 import type { LlmCompleteInput, LlmCompleteResult, LlmRunInput, LlmRunRef, LlmRunResult } from './types.ts';
 import { LlmRunError } from './types.ts';
 import type { Database } from '../store/db.ts';
-import { llmCalls } from '../store/schema.ts';
+import { llmCallLogs, llmCalls } from '../store/schema.ts';
 import type { Logger } from '../log/logger.ts';
 
 export interface LlmTimeouts {
@@ -25,7 +31,15 @@ export interface RunnerDeps {
   logger: Logger;
   shutdown: AbortSignal;
   timeouts?: Partial<LlmTimeouts>;
+  logBodies: boolean;
   targetFor(purpose: LlmRunInput['purpose']): RuntimeTarget | null;
+}
+
+interface LlmCallLog {
+  system: string;
+  prompt: string;
+  response: LlmLogContent[] | null;
+  http: LlmHttpExchange[];
 }
 
 export function opencodeHeaders(baseUrl: string, sessionId: string): Record<string, string> {
@@ -102,6 +116,37 @@ function startWatchdog(timeouts: LlmTimeouts, controller: AbortController): Watc
 
 const EMPTY_USAGE = { input: 0, output: 0, cacheRead: 0, cost: 0, costFromProvider: false };
 
+function scrubArguments(argumentsValue: Record<string, unknown>, secret: string | undefined): Record<string, unknown> {
+  if (!secret) return argumentsValue;
+  try {
+    return JSON.parse(scrubSecrets(JSON.stringify(argumentsValue), [secret])) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+function scrubContent(content: LlmLogContent[], secret: string | undefined): LlmLogContent[] {
+  return content.map((part) => {
+    if (part.type === 'text') return { ...part, text: scrubSecrets(part.text, [secret]) };
+    if (part.type === 'thinking') return { ...part, thinking: scrubSecrets(part.thinking, [secret]) };
+    return {
+      ...part,
+      arguments: scrubArguments(part.arguments, secret),
+      ...(part.argumentsError ? { argumentsError: scrubSecrets(part.argumentsError, [secret]) } : {}),
+    };
+  });
+}
+
+function scrubExchange(exchange: LlmHttpExchange, secret: string | undefined): LlmHttpExchange {
+  return {
+    ...exchange,
+    url: scrubSecrets(exchange.url, [secret]),
+    requestBody: exchange.requestBody === null ? null : scrubSecrets(exchange.requestBody, [secret]),
+    responseBody: exchange.responseBody === null ? null : scrubSecrets(exchange.responseBody, [secret]),
+    error: exchange.error === null ? null : scrubSecrets(exchange.error, [secret]),
+  };
+}
+
 function recordCall(
   deps: RunnerDeps,
   call: {
@@ -113,11 +158,13 @@ function recordCall(
     code: LlmRunError['code'] | undefined;
     watchdog: Watchdog;
     httpStatus: number | null;
+    log: LlmCallLog | null;
   },
 ): void {
   const { callId, ref, target, outcome, code, watchdog } = call;
   const usage = outcome?.usage ?? EMPTY_USAGE;
   const status = code === undefined ? 'ok' : code === 'interrupted' ? 'aborted' : 'error';
+  const createdAt = Date.now();
   deps.db
     .insert(llmCalls)
     .values({
@@ -136,9 +183,32 @@ function recordCall(
       durationMs: Math.round(performance.now() - watchdog.startedAt),
       status,
       error: code ?? null,
-      createdAt: Date.now(),
+      createdAt,
     })
     .run();
+
+  if (call.log) {
+    const secret = target.apiKey;
+    try {
+      deps.db
+        .insert(llmCallLogs)
+        .values({
+          callId,
+          workId: ref.workId,
+          system: scrubSecrets(call.log.system, [secret]),
+          prompt: scrubSecrets(call.log.prompt, [secret]),
+          response:
+            call.log.response === null
+              ? null
+              : LlmLogContentSchema.array().parse(scrubContent(call.log.response, secret)),
+          http: LlmHttpExchangeSchema.array().parse(call.log.http.map((exchange) => scrubExchange(exchange, secret))),
+          createdAt,
+        })
+        .run();
+    } catch {
+      deps.logger.record({ level: 'warn', module: 'llm', event: 'llm.log.failed', callId });
+    }
+  }
 
   const requestId = ref.kind === 'turn_request' ? ref.id : undefined;
   const jobId = ref.kind === 'job' ? ref.id : undefined;
@@ -189,7 +259,7 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
   const timeouts = { ...DEFAULT_TIMEOUTS, ...deps.timeouts };
 
   const attemptOnce = async (input: LlmRunInput, target: RuntimeTarget): Promise<AttemptResult> => {
-    const recorder = createFetchRecorder();
+    const recorder = createFetchRecorder(deps.logBodies);
     const guardedFetch = createGuardedFetch(unguardedFetch(), recorder);
     const controller = new AbortController();
     const signal = abortSignalFor(controller, deps, input.signal);
@@ -265,6 +335,7 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
       });
     } else if (!state.terminated) code = 'invalid_output';
 
+    await recorder.flush();
     recordCall(deps, {
       callId,
       purpose: input.purpose,
@@ -274,6 +345,14 @@ export function createRunner(deps: RunnerDeps): (input: LlmRunInput) => Promise<
       code,
       watchdog,
       httpStatus: recorder.lastStatus,
+      log: deps.logBodies
+        ? {
+            system: input.system,
+            prompt: input.prompt,
+            response: outcome?.content ?? null,
+            http: recorder.exchanges,
+          }
+        : null,
     });
 
     return {
@@ -316,7 +395,7 @@ export function createCompleter(deps: RunnerDeps): (input: LlmCompleteInput) => 
 
     for (let index = 0; index < 2; index += 1) {
       const callId = randomUUID();
-      const recorder = createFetchRecorder();
+      const recorder = createFetchRecorder(deps.logBodies);
       const guardedFetch = createGuardedFetch(unguardedFetch(), recorder);
       const controller = new AbortController();
       const signal = abortSignalFor(controller, deps, input.signal);
@@ -361,6 +440,7 @@ export function createCompleter(deps: RunnerDeps): (input: LlmCompleteInput) => 
         code = 'invalid_output';
       }
 
+      await recorder.flush();
       recordCall(deps, {
         callId,
         purpose: input.purpose,
@@ -370,6 +450,14 @@ export function createCompleter(deps: RunnerDeps): (input: LlmCompleteInput) => 
         code,
         watchdog,
         httpStatus: recorder.lastStatus,
+        log: deps.logBodies
+          ? {
+              system: input.system,
+              prompt: input.prompt,
+              response: outcome?.content ?? null,
+              http: recorder.exchanges,
+            }
+          : null,
       });
 
       if (code === undefined) return { text: (outcome?.text ?? '').trim() };

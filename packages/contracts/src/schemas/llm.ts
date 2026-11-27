@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ErrorCodeSchema, ErrorDataSchema } from '../errors.ts';
-import { UuidSchema } from './common.ts';
+import { TimestampSchema, UuidSchema } from './common.ts';
 
 export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
 export const ThinkingLevelSchema = z.enum(THINKING_LEVELS);
@@ -180,6 +180,65 @@ export const TestConnectionResultSchema = ErrorDataSchema.extend({
   savedToolsCapability: z.boolean(),
 });
 
+export const LlmCallPurposeSchema = z.enum(PURPOSES).exclude(['default']);
+export const LLM_LOG_BODY_MAX_CHARS = 1_000_000;
+
+export const LlmLogContentSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('text'), text: z.string() }),
+  z.object({ type: z.literal('thinking'), thinking: z.string() }),
+  z.object({
+    type: z.literal('toolCall'),
+    id: z.string(),
+    name: z.string(),
+    arguments: z.record(z.string(), z.unknown()),
+    argumentsError: z.string().optional(),
+  }),
+]);
+
+export const LlmHttpExchangeSchema = z.object({
+  seq: z.number().int().positive(),
+  method: z.string(),
+  url: z.string(),
+  status: z.number().int().nullable(),
+  requestBody: z.string().nullable(),
+  responseBody: z.string().nullable(),
+  error: z.string().nullable(),
+});
+
+export const LlmLogSummarySchema = z.object({
+  callId: UuidSchema,
+  purpose: LlmCallPurposeSchema,
+  workId: UuidSchema.nullable(),
+  provider: z.string(),
+  model: z.string(),
+  refKind: z.enum(['turn_request', 'job', 'turn']).nullable(),
+  refId: z.string().nullable(),
+  status: z.enum(['ok', 'error', 'aborted']),
+  error: z.string().nullable(),
+  inputTokens: z.number().int().nullable(),
+  outputTokens: z.number().int().nullable(),
+  durationMs: z.number().int().nonnegative().nullable(),
+  createdAt: TimestampSchema,
+});
+
+export const LlmLogDetailSchema = LlmLogSummarySchema.extend({
+  system: z.string(),
+  prompt: z.string(),
+  response: z.array(LlmLogContentSchema).nullable(),
+  http: z.array(LlmHttpExchangeSchema),
+});
+
+export const LLM_LOG_LIST_LIMIT_MAX = 200;
+
+export const LlmLogListInputSchema = z.object({
+  limit: z.number().int().min(1).max(LLM_LOG_LIST_LIMIT_MAX).default(50),
+  before: TimestampSchema.optional(),
+});
+
+export const LlmLogListSchema = z.object({ items: z.array(LlmLogSummarySchema) });
+export const LlmLogStatusSchema = z.object({ enabled: z.boolean() });
+export const LlmLogIdInputSchema = z.object({ callId: UuidSchema });
+
 export type ModelCapabilities = z.infer<typeof ModelCapabilitiesSchema>;
 export type KeyStatus = z.infer<typeof KeyStatusSchema>;
 export type EndpointView = z.infer<typeof EndpointViewSchema>;
@@ -206,3 +265,12 @@ export type TestDraftConnectionInput = z.infer<typeof TestDraftConnectionInputSc
 export type TestPurposeConnectionInput = z.infer<typeof TestPurposeConnectionInputSchema>;
 export type TestConnectionInput = z.infer<typeof TestConnectionInputSchema>;
 export type TestConnectionResult = z.infer<typeof TestConnectionResultSchema>;
+export type LlmCallPurpose = z.infer<typeof LlmCallPurposeSchema>;
+export type LlmLogContent = z.infer<typeof LlmLogContentSchema>;
+export type LlmHttpExchange = z.infer<typeof LlmHttpExchangeSchema>;
+export type LlmLogSummary = z.infer<typeof LlmLogSummarySchema>;
+export type LlmLogDetail = z.infer<typeof LlmLogDetailSchema>;
+export type LlmLogListInput = z.infer<typeof LlmLogListInputSchema>;
+export type LlmLogList = z.infer<typeof LlmLogListSchema>;
+export type LlmLogStatus = z.infer<typeof LlmLogStatusSchema>;
+export type LlmLogIdInput = z.infer<typeof LlmLogIdInputSchema>;
