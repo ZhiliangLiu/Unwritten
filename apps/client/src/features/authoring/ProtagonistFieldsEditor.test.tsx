@@ -46,6 +46,24 @@ describe('ProtagonistFieldsEditor', () => {
     await screen.unmount();
   });
 
+  it('并排的填写项顶端对齐，移除按钮对齐输入框', async () => {
+    const screen = await render(
+      <ProtagonistFieldsEditor
+        fields={[{ name: '主角.名', defaultValue: '阿远', isName: true }]}
+        onChange={() => {}}
+      />,
+    );
+    const nameLabel = screen.getByText('项目名').element().getBoundingClientRect();
+    const valueLabel = screen.getByText('默认值').element().getBoundingClientRect();
+    expect(Math.abs(nameLabel.top - valueLabel.top)).toBeLessThan(1);
+    const nameControl = screen.getByRole('textbox', { name: '项目名' }).element().getBoundingClientRect();
+    const valueControl = screen.getByRole('textbox', { name: '默认值' }).element().getBoundingClientRect();
+    expect(Math.abs(nameControl.top - valueControl.top)).toBeLessThan(1);
+    const remove = screen.getByRole('button', { name: '删除「主角.名」' }).element().getBoundingClientRect();
+    expect(Math.abs((remove.top + remove.bottom) / 2 - (valueControl.top + valueControl.bottom) / 2)).toBeLessThan(1);
+    await screen.unmount();
+  });
+
   it('达到上限后不能再添加', async () => {
     const full: ProtagonistField[] = Array.from({ length: PROTAGONIST_FIELDS_MAX }, (_, index) => ({
       name: `项目${index + 1}`,
