@@ -4,6 +4,11 @@ import {
   CreateEndpointInputSchema,
   CreateEndpointOutputSchema,
   LlmConfigViewSchema,
+  LlmLogDetailSchema,
+  LlmLogIdInputSchema,
+  LlmLogListInputSchema,
+  LlmLogListSchema,
+  LlmLogStatusSchema,
   RemoveEndpointInputSchema,
   RemoveModelInputSchema,
   SetPurposeInputSchema,
@@ -27,4 +32,9 @@ export const llmContract = {
   },
   purposes: { set: oc.input(SetPurposeInputSchema).output(LlmConfigViewSchema) },
   test: oc.input(TestConnectionInputSchema).output(TestConnectionResultSchema),
+  logs: {
+    status: oc.output(LlmLogStatusSchema),
+    list: oc.input(LlmLogListInputSchema).output(LlmLogListSchema),
+    get: oc.input(LlmLogIdInputSchema).output(LlmLogDetailSchema),
+  },
 };

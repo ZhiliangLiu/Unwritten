@@ -33,6 +33,10 @@
   gap: var(--uw-space-6);
 }
 
+.debugLink {
+  text-decoration: none;
+}
+
 .heading {
   margin: 0;
   font-family: var(--uw-typography-section-title-font-family);

@@ -16,6 +16,8 @@ import {
   KNOWLEDGE_LEVELS,
   STATE_DISPLAYS,
   type Appearance,
+  type LlmHttpExchange,
+  type LlmLogContent,
   type StateConfig,
 } from '@unwritten/contracts';
 import type {
@@ -186,6 +188,22 @@ export const llmCalls = sqliteTable(
     createdAt: integer('created_at').notNull(),
   },
   (table) => [index('llm_calls_created_idx').on(table.createdAt)],
+);
+
+export const llmCallLogs = sqliteTable(
+  'llm_call_logs',
+  {
+    callId: text('call_id')
+      .primaryKey()
+      .references(() => llmCalls.id, { onDelete: 'cascade' }),
+    workId: text('work_id').references(() => works.id, { onDelete: 'cascade' }),
+    system: text('system').notNull(),
+    prompt: text('prompt').notNull(),
+    response: text('response', { mode: 'json' }).$type<LlmLogContent[]>(),
+    http: text('http', { mode: 'json' }).$type<LlmHttpExchange[]>().notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [index('llm_call_logs_created_idx').on(table.createdAt)],
 );
 
 export const entities = sqliteTable(

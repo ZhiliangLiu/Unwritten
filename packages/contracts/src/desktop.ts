@@ -15,6 +15,7 @@ export const StartMessageSchema = z.strictObject({
   clientDir: z.string().min(1),
   clientOrigin: z.string().min(1).nullable(),
   logLevel: z.enum(DESKTOP_LOG_LEVELS),
+  dev: z.boolean(),
 });
 
 export const StopMessageSchema = z.strictObject({ type: z.literal('stop') });

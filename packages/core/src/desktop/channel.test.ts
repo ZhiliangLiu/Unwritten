@@ -45,6 +45,7 @@ function startMessage(dataDir: string) {
     clientDir: join(dataDir, 'client'),
     clientOrigin: null,
     logLevel: 'error',
+    dev: false,
   };
 }
 

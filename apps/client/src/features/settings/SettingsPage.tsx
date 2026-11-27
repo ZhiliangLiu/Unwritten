@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../../shared/api/context.tsx';
 import { queryKeys } from '../../shared/api/query.ts';
+import { buttonClassName } from '../../shared/ui/Button.tsx';
 import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
 import { Page } from '../../shared/ui/Page.tsx';
 import { Skeleton } from '../../shared/ui/Skeleton.tsx';
@@ -17,6 +19,7 @@ export function SettingsPage() {
   const { t } = useTranslation();
   const api = useApi();
   const config = useQuery({ queryKey: queryKeys.llm, queryFn: () => api.llm.providers.list() });
+  const llmLogs = useQuery({ queryKey: queryKeys.llmLogStatus, queryFn: () => api.llm.logs.status() });
   const writesDisabled =
     config.data?.status === 'invalid' || config.data?.status === 'too_new' || Boolean(config.data?.problem);
 
@@ -56,6 +59,17 @@ export function SettingsPage() {
               <Skeleton variant='lines' count={6} />
             ) : null}
           </section>
+          {llmLogs.data?.enabled ? (
+            <section className={styles.models}>
+              <h2 className={styles.heading}>{t('settings:debug.heading')}</h2>
+              <p className={styles.description}>{t('settings:debug.description')}</p>
+              <div>
+                <Link to='/debug/llm' className={`${buttonClassName('secondary')} ${styles.debugLink}`}>
+                  {t('settings:debug.open')}
+                </Link>
+              </div>
+            </section>
+          ) : null}
         </div>
       </div>
     </Page>

@@ -11,6 +11,11 @@ import type {
   GeneratePreviewInput,
   JournalView,
   LlmConfigView,
+  LlmLogDetail,
+  LlmLogIdInput,
+  LlmLogList,
+  LlmLogListInput,
+  LlmLogStatus,
   PlaythroughIdInput,
   PlaythroughView,
   PlanJobView,
@@ -62,6 +67,9 @@ export interface LlmService {
   removeModel(input: RemoveModelInput): Promise<LlmConfigView>;
   setPurpose(input: SetPurposeInput): Promise<LlmConfigView>;
   testConnection(input: TestConnectionInput): Promise<TestConnectionResult>;
+  logsStatus(): LlmLogStatus;
+  listLogs(input: LlmLogListInput): LlmLogList;
+  getLog(input: LlmLogIdInput): LlmLogDetail;
   resolve(purpose: Purpose): ResolvedModel | null;
   estimateTokens(text: string): number;
   run(input: LlmRunInput): Promise<LlmRunResult>;
@@ -122,6 +130,7 @@ export interface CoreDeps {
   db: Database;
   bus: EventBus;
   logger: Logger;
+  dev?: boolean;
 }
 
 export interface Services {

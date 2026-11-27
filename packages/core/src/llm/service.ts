@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { sql } from 'drizzle-orm';
+import { desc, eq, lt, sql } from 'drizzle-orm';
 import { PURPOSES } from '@unwritten/contracts';
 import type {
   AddModelInput,
@@ -8,6 +8,12 @@ import type {
   EndpointView,
   GenerationParams,
   LlmConfigView,
+  LlmLogDetail,
+  LlmLogIdInput,
+  LlmLogList,
+  LlmLogListInput,
+  LlmLogStatus,
+  LlmLogSummary,
   ModelRef,
   PurposeView,
   RemoveEndpointInput,
@@ -21,6 +27,7 @@ import type {
 } from '@unwritten/contracts';
 import { appError } from '../errors.ts';
 import type { CoreDeps, LlmService } from '../services.ts';
+import { llmCallLogs, llmCalls } from '../store/schema.ts';
 import { keyStatus, resolveApiKey } from './keys.ts';
 import { DEFAULT_CONTEXT_WINDOW, defaultMaxTokens, estimateTokens } from './budget.ts';
 import { newEndpointId } from './endpoint-id.ts';
@@ -33,6 +40,45 @@ import type { Purpose } from './types.ts';
 import type { EndpointEntry, ProvidersFile } from './providers-schema.ts';
 
 const LLM_CALL_RETENTION_DAYS = 90;
+const LLM_LOG_RETENTION_DAYS = 7;
+
+const logSummaryColumns = {
+  callId: llmCalls.id,
+  purpose: llmCalls.purpose,
+  workId: llmCalls.workId,
+  provider: llmCalls.provider,
+  model: llmCalls.model,
+  refKind: llmCalls.refKind,
+  refId: llmCalls.refId,
+  status: llmCalls.status,
+  error: llmCalls.error,
+  inputTokens: llmCalls.inputTokens,
+  outputTokens: llmCalls.outputTokens,
+  durationMs: llmCalls.durationMs,
+  createdAt: llmCalls.createdAt,
+} as const;
+
+function logSummaryOf(row: {
+  callId: string;
+  purpose: string;
+  workId: string | null;
+  provider: string;
+  model: string;
+  refKind: string | null;
+  refId: string | null;
+  status: 'ok' | 'error' | 'aborted';
+  error: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  durationMs: number | null;
+  createdAt: number;
+}): LlmLogSummary {
+  return {
+    ...row,
+    purpose: row.purpose as LlmLogSummary['purpose'],
+    refKind: row.refKind as LlmLogSummary['refKind'],
+  };
+}
 
 function endpointView(endpoint: EndpointEntry, env: NodeJS.ProcessEnv): EndpointView {
   return {
@@ -182,11 +228,13 @@ export function createLlmService(
     };
   };
 
+  const logBodies = deps.dev ?? false;
   const runner = createRunner({
     db: deps.db,
     logger: deps.logger,
     shutdown: deps.shutdown,
     timeouts: options?.timeouts,
+    logBodies,
     targetFor,
   });
   const completer = createCompleter({
@@ -194,6 +242,7 @@ export function createLlmService(
     logger: deps.logger,
     shutdown: deps.shutdown,
     timeouts: options?.timeouts,
+    logBodies,
     targetFor,
   });
   const tester = createConnectionTester({
@@ -385,6 +434,39 @@ export function createLlmService(
     testConnection(input: TestConnectionInput): Promise<TestConnectionResult> {
       return tester(input);
     },
+    logsStatus(): LlmLogStatus {
+      return { enabled: logBodies };
+    },
+    listLogs(input: LlmLogListInput): LlmLogList {
+      if (!logBodies) return { items: [] };
+      const rows = deps.db
+        .select(logSummaryColumns)
+        .from(llmCallLogs)
+        .innerJoin(llmCalls, eq(llmCallLogs.callId, llmCalls.id))
+        .where(input.before === undefined ? undefined : lt(llmCalls.createdAt, input.before))
+        .orderBy(desc(llmCalls.createdAt))
+        .limit(input.limit)
+        .all();
+      return { items: rows.map(logSummaryOf) };
+    },
+    getLog(input: LlmLogIdInput): LlmLogDetail {
+      if (!logBodies) throw appError('not_found', 'llm log is not enabled');
+      const row = deps.db
+        .select({
+          ...logSummaryColumns,
+          system: llmCallLogs.system,
+          prompt: llmCallLogs.prompt,
+          response: llmCallLogs.response,
+          http: llmCallLogs.http,
+        })
+        .from(llmCallLogs)
+        .innerJoin(llmCalls, eq(llmCallLogs.callId, llmCalls.id))
+        .where(eq(llmCallLogs.callId, input.callId))
+        .get();
+      if (!row) throw appError('not_found', 'llm log not found');
+      const { system, prompt, response, http, ...summary } = row;
+      return { ...logSummaryOf(summary), system, prompt, response, http };
+    },
     resolve(purpose) {
       const found = resolvedFor(store.load(), purpose);
       if (!found) return null;
@@ -399,7 +481,9 @@ export function createLlmService(
     estimateTokens,
     run: runner,
     pruneCalls() {
-      const cutoff = Date.now() - LLM_CALL_RETENTION_DAYS * 86_400_000;
+      const now = Date.now();
+      deps.db.run(sql`delete from llm_call_logs where created_at < ${now - LLM_LOG_RETENTION_DAYS * 86_400_000}`);
+      const cutoff = now - LLM_CALL_RETENTION_DAYS * 86_400_000;
       const result = deps.db.run(sql`delete from llm_calls where created_at < ${cutoff}`);
       return Number(result.changes ?? 0);
     },

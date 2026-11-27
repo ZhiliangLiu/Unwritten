@@ -24,7 +24,7 @@ export function App() {
 
   useEffect(() => {
     if (!api) return;
-    for (const namespace of ['library', 'authoring', 'play', 'settings'] as const) {
+    for (const namespace of ['library', 'authoring', 'play', 'settings', 'logs'] as const) {
       void loadNamespace(namespace).then(() => queryClient.invalidateQueries());
     }
     const controller = new AbortController();
@@ -105,5 +105,6 @@ export async function bootstrap() {
     loadNamespace('authoring'),
     loadNamespace('play'),
     loadNamespace('settings'),
+    loadNamespace('logs'),
   ]);
 }

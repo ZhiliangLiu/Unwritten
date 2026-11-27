@@ -44,7 +44,7 @@ for (const file of sourceFiles) {
   for (const match of text.matchAll(jsxKeyPattern)) used.add(`${match[1]}:${match[2]}`);
 }
 
-const namespaces = ['common', 'errors', 'library', 'authoring', 'play', 'settings'] as const;
+const namespaces = ['common', 'errors', 'library', 'authoring', 'play', 'settings', 'logs'] as const;
 const resources = new Map(namespaces.map((name) => [name, flatten(load(name))]));
 
 function hasKey(full: string): boolean {
