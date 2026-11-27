@@ -184,6 +184,7 @@ STRATA_UPDATE_CHECK=0 STRATA_INTERNAL_KEY=<内部 key> strata launch \
 - **MCP 和视觉输入。**
 - **在 core 里加 Strata 的预设，或者按 Strata 分支。** 理由见 §1。
 - **模型服务离线时，core 自动切换到别的端点。** 中途换模型，文风和工具调用的稳定性都会变。改用哪个端点，由用户在设置页的用途分配里决定。
+- **由启动器按需唤醒。** 回合不能停下来等十几分钟的冷启动，按需启动先只给出图服务做（[插图与出图服务 §13](./image.md#13-不做的事)）。
 - **和 ComfyUI 跑在同一个运行时里。** 理由见 [Colab 宿主 §1](./colab-host.md#1-定位)。
 - **Docker。** Colab 的运行时里没有 Docker。
 

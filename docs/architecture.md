@@ -25,12 +25,13 @@
 | [第一个里程碑](./milestone-1.md) | 模型设置、创作和续玩的交付范围与验收条件 |
 | [第二个里程碑](./milestone-2.md) | 故事事实与推送拉取、界面打磨、按用途的生成参数的交付范围与验收条件 |
 | [第三个里程碑](./milestone-3.md) | 桌面外壳与本机安装包、作者设定向导及其在游玩中的兑现的交付范围与验收条件 |
-| [插图与出图服务](./image.md) | 出图服务的配置与协议、人物形象与参考图、插图的生成流程、图片的存储与交付 |
+| [插图与出图服务](./image.md) | 出图服务的配置与协议、人物形象与参考图、插图的生成流程、图片的存储与交付、按需启动与启动器协议 |
 | [插件](./plugins.md) | 插件是什么、和 core 的边界、插件协议的共同规则、插件的义务、仓库里的插件 |
 | [ComfyUI 插件](./comfyui-plugin.md) | ComfyUI 插件的模型、工作流、包装服务与安全，以及它对 Colab 宿主的约定 |
+| [Colab 启动器](./colab-launcher.md) | 在 Mac 上常驻、用 Colab CLI 按需开关运行时的插件：配置、状态、启动步骤、安全 |
 | [Colab 宿主](./colab-host.md) | 在 Colab 上运行 GPU 服务：资源检查、Drive、Secrets、Tailscale 与访问控制、看护与空闲释放 |
 | [Strata 自建模型服务](./strata.md) | 用 Strata 在 Colab 或本机自建模型服务：版本与模型、运行参数、网关、在 Unwritten 里接为自定义端点 |
-| [第四个里程碑](./milestone-4.md) | 插图、人物形象、出图服务、ComfyUI 插件、Colab 宿主与 Strata 的交付范围与验收条件 |
+| [第四个里程碑](./milestone-4.md) | 插图、人物形象、出图服务、ComfyUI 插件、按需启动、Colab 宿主与 Strata 的交付范围与验收条件 |
 
 ## 1. 四个组成部分
 

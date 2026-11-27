@@ -40,6 +40,7 @@
 | **tsdown** | core、desktop 的打包 | 基于 Rolldown，和 Vite 8 用同一套打包器；是 tsup 的继任者 |
 | **uv** | 插件和自建服务的 Python 环境与依赖锁定 | 一个可执行文件同时管理 Python 版本、虚拟环境和锁定文件，速度快，是当前最流行的 Python 项目工具。只用于 `plugins/` 和 `selfhost/` 下的 Python 代码 |
 | **ruff** | 插件和自建服务的 Python lint 与格式化 | 一个工具同时做 lint 和格式化，速度快，规则覆盖 flake8、isort 等常用工具 |
+| **Colab CLI** | Colab 启动器开关运行时 | Google 官方的命令行工具，能新建运行时、上传文件、执行代码、释放运行时，登录凭据存在系统钥匙串里。用 uv 按 `colab-cli.lock` 钉版本安装，因为它调用的是内部接口，版本之间可能不兼容（[Colab 启动器 §2](./colab-launcher.md#2-目录)） |
 | **pytest** | 插件和自建服务的测试 | Python 测试的事实标准，aiohttp 的测试工具也基于它 |
 | **Lightning CSS** | CSS 转换 | 由 Vite 内置调用，负责 CSS Modules、嵌套语法和 `@custom-media` 断点（[主题与 token §4.4](./theme.md#44-层级不透明度断点)），不再需要 PostCSS |
 
@@ -233,7 +234,8 @@ unwritten/
 │     ├─ drizzle.config.ts
 │     └─ package.json
 ├─ plugins/                       插件：实现 Unwritten 协议的独立服务，见插件 §6
-│  └─ comfyui/                    ComfyUI 插件（Python），见 ComfyUI 插件
+│  ├─ comfyui/                    ComfyUI 插件（Python），见 ComfyUI 插件
+│  └─ colab-launcher/             Colab 启动器（Python），见 Colab 启动器
 ├─ selfhost/                      用户自己部署、不属于插件的服务（Python），见 Colab 宿主 §1
 │  ├─ colab/                      Colab 宿主，见 Colab 宿主
 │  └─ strata/                     Strata 自建模型服务，见 Strata 自建模型服务
