@@ -8,7 +8,10 @@
 - 模块之间经 `services.ts` 里的接口调用，不深入导入别的模块的内部文件。跨模块的变化通知经 `events/` 的事件总线。
 - `story/` 只依赖 `store/` 和 `text/`，不导入 `llm/`、`api/`、`play/`、`authoring/`：故事事实的读写不知道模型和接口的存在。
 - `llm/pi.ts` 是唯一导入 pi-ai 和 pi-agent-core 的文件。
-- 判据：`grep -rnE "from '\.\./(llm|api|play|authoring)/" packages/core/src/story` 零命中；`grep -rln "@earendil-works" packages/core/src` 只列出 `llm/pi.ts` 和测试支持代码。
+- `image/` 不导入 `story/`、`play/`、`authoring/`、`illustration/`：出图模块不认识作品、人物和回合，只认协议和能力（[插图与出图服务 §1](../../docs/image.md#1-组成)）。
+- 外发的 HTTP 请求只经 `net/` 的 `fetch` 封装（[LLM 端点 §3](../../docs/llm-endpoints.md#3-key-的来源与保护)）。
+- 源码里不出现插件专属的名字，也不按出图服务报告的实现名分支（[插件 §2](../../docs/plugins.md#2-边界)）。
+- 判据：`grep -rnE "from '\.\./(llm|api|play|authoring)/" packages/core/src/story` 零命中；`grep -rln "@earendil-works" packages/core/src` 只列出 `llm/pi.ts` 和测试支持代码；`grep -rnE "from '\.\./(story|play|authoring|illustration)/" packages/core/src/image` 零命中；扫描插件名的测试通过。
 
 ## 2. 契约与错误
 
@@ -25,9 +28,9 @@
 
 ## 4. 模型调用
 
-- 所有模型调用都经 `llm` 模块的 `run()` 或 `complete()`。业务代码不直接拼 HTTP 请求。
+- 所有模型调用都经 `llm` 模块的 `run()` 或 `complete()`，所有出图调用都经 `image` 模块的 `generate()`。业务代码不直接拼 HTTP 请求。
 - **工具不写库。** 只读工具只读；提案工具（`propose_turn`、`propose_preview`）只交出提案，由 core 校验后在提交事务里写入。
-- **重试分层，不叠加。** 网络类失败由 `llm` 模块自动重试一次；提案不合格由校验反馈让模型修正，最多两次；再失败交给用户点“重试”。不在别的层再加一层重试。
+- **重试分层，不叠加。** 网络类失败由 `llm` 或 `image` 模块自动重试一次；提案或镜头描述不合格由校验反馈让模型修正，最多两次；再失败交给用户点“重试”。不在别的层再加一层重试。
 - **采样参数只有服务端真正兑现才算生效。** 测试断言伪服务收到的请求体，不断言配置里的值。
 - **改动任何进入工具说明或系统提示的文字，都要更新 token 棘轮测试**（`story/tools.test.ts`、`play/context.test.ts`），并在提交说明里写清涨幅来自哪一段。不要为了让测试通过直接把数字调大。
 
@@ -36,6 +39,7 @@
 - **新增一种 `changes` 类型：** `story/types.ts` 的 schema、`story/changes.ts` 的解析与校验、`story/writer.ts` 的写入、`play/propose-turn-tool.ts` 的参数说明、`play/narrator-prompt.ts` 的系统提示（如需）、`story/tools.test.ts` 的 token 棘轮，以及每条规则一个测试。
 - **新增一个只读工具：** `story/tools.ts`、`story/render.ts` 的结果格式、`turn_requests.log` 的足迹、`story.tool` 样本、token 棘轮。
 - **新增一个模型用途：** contracts 的用途枚举、`llm/providers-schema.ts`、`llm/service.ts` 的回落规则、client 设置页的用途列表和文案。
+- **新增一种出图协议或一种插件：** 见[插件 §7](../../docs/plugins.md#7-新增插件)。
 - **新增一个错误码：** 见 §2。
 
 ## 6. 日志与性能

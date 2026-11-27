@@ -10,7 +10,7 @@
   - client 不导入 core，两者只通过 contracts 通信；
   - 样式只用 token；
   - 编译器用 TypeScript 7。
-- **版本只有一处来源。** 本文只写主版本号，确切版本统一写在 `pnpm-workspace.yaml` 的 catalog 里，各个包用 `catalog:` 引用。
+- **版本只有一处来源。** 本文只写主版本号，确切版本统一写在 `pnpm-workspace.yaml` 的 catalog 里，各个包用 `catalog:` 引用。`plugins/` 下的插件用自己的工具链，版本锁定在插件目录里（[插件 §6](./plugins.md#6-仓库里的插件)）。
 - **不为一两行代码引入依赖。** Node 和浏览器已经提供的能力，直接用平台自带的。例如 id 用 `crypto.randomUUID()`，日期格式化用 `Intl`。
 
 ## 2. 总览
@@ -26,6 +26,7 @@
 | core | Hono 4 + @hono/node-server、oRPC server 1、Drizzle ORM 1 + drizzle-kit 1、`node:sqlite`、pi-ai + pi-agent-core 1、p-queue |
 | 测试 | Vitest 5（Node 环境 + 浏览器模式）、Playwright、Testing Library、axe-core、fast-check、MSW、pi-ai 的测试用伪服务商 |
 | 代码质量 | oxlint + oxlint-tsgolint、Prettier 3、Stylelint 18、lefthook、GitHub Actions |
+| 插件 | Python、aiohttp、Pillow、uv、ruff、pytest（ComfyUI 插件，[ComfyUI 插件 §6](./comfyui-plugin.md#6-包装服务)、[§10](./comfyui-plugin.md#10-开发与测试)） |
 
 ## 3. 仓库与工具链
 
@@ -37,6 +38,9 @@
 | **Node 24** | 开发和独立运行 core 时的运行时 | 和 Electron 45 内置的 Node 主版本一致，避免开发时和打包后的行为不同。版本写在 `.node-version` 和各包的 `engines` 里 |
 | **Vite 8** | client 的开发服务器与构建 | 事实标准；8.x 用 Rolldown 打包 |
 | **tsdown** | core、desktop 的打包 | 基于 Rolldown，和 Vite 8 用同一套打包器；是 tsup 的继任者 |
+| **uv** | 插件的 Python 环境与依赖锁定 | 一个可执行文件同时管理 Python 版本、虚拟环境和锁定文件，速度快，是当前最流行的 Python 项目工具。只用于 `plugins/` 下的 Python 插件 |
+| **ruff** | 插件的 Python lint 与格式化 | 一个工具同时做 lint 和格式化，速度快，规则覆盖 flake8、isort 等常用工具 |
+| **pytest** | 插件的测试 | Python 测试的事实标准，aiohttp 的测试工具也基于它 |
 | **Lightning CSS** | CSS 转换 | 由 Vite 内置调用，负责 CSS Modules、嵌套语法和 `@custom-media` 断点（[主题与 token §4.4](./theme.md#44-层级不透明度断点)），不再需要 PostCSS |
 
 **内部包直接导出 TypeScript 源码。** `packages/contracts` 不单独构建，`exports` 直接指向 `src/*.ts`，由使用它的 Vite 和 tsdown 一起打包。这样不需要生成 `.d.ts`，也就避开了 TS 7 下生成声明文件的工具兼容问题。它有两个入口：`@unwritten/contracts` 是 client 与 core 之间的契约，`@unwritten/contracts/desktop` 是 core 与 desktop 之间的进程消息类型。desktop 只导入后者，打包时不会带上整份 oRPC 契约。
@@ -94,7 +98,7 @@ Electron 45 的 npm 包不再用 postinstall 下载本体，而是在首次运�
 | **`node:sqlite`** | SQLite 驱动 | Node 内置，不用为 Electron 和 Node 两种运行时分别编译原生模块。Node 24 内置的 SQLite 编译时带了 FTS5，trigram 分词的中文检索可以直接用。如果 Electron 45 不提供这个模块，使用 better-sqlite3，并验证 Drizzle 驱动、迁移和各平台原生模块打包 |
 | **pi-ai 1** + **pi-agent-core 1** | 调用模型、工具调用循环。npm 包是 `@earendil-works/pi-ai` 和 `@earendil-works/pi-agent-core` | 选型理由见 [LLM 端点](./llm-endpoints.md) |
 | **`node:sqlite`** | 运行诊断写入 | 运行事件与性能样本写入独立的 SQLite 连接，使用准备好的语句批量提交。字段和计时口径见[运行诊断与性能记录](./diagnostics.md) |
-| **p-queue** | 后台任务队列 | 回合摘要、生成任务的并发控制（[回合循环 §9](./turn-loop.md#9-后台摘要)） |
+| **p-queue** | 后台任务队列 | 回合摘要、生成任务的并发控制（[回合循环 §9](./turn-loop.md#9-后台摘要)）；出图按服务排队，并发数为 1（[插图与出图服务 §5.1](./image.md#51-调用入口)） |
 
 ## 8. 测试
 
@@ -121,15 +125,16 @@ Electron 45 的 npm 包不再用 postinstall 下载本体，而是在首次运�
 | **lefthook** | 提交前只检查暂存的文件：oxlint、Stylelint、Prettier | 它把 hook 装进 `.git/hooks`，同一个仓库的 worktree 共用一份，新 worktree 不用重装；按 glob 分组、`{staged_files}`、跑完把改好的文件写回暂存区都是它自己的配置，不用再叠一层 lint-staged |
 | **GitHub Actions** | CI：类型检查、lint、测试，以及三个平台的打包 | Turborepo 的缓存让没改动的包跳过 |
 
-`lefthook.yml` 的 `pre-commit` 按顺序跑三件事，任何一件不过就拦下这次提交：
+`lefthook.yml` 的 `pre-commit` 按顺序跑四件事，任何一件不过就拦下这次提交：
 
 | 步骤 | 命令 | 范围 |
 | --- | --- | --- |
 | 1 | `oxlint --fix` | 暂存的 TypeScript、JS 文件 |
 | 2 | `stylelint --fix` | 暂存的 `apps/client/src` 下的 CSS |
-| 3 | `prettier --write` | 暂存的、`pnpm format` 覆盖到的文件 |
+| 3 | `ruff check --fix`、`ruff format` | 暂存的 `plugins/` 下的 Python 文件，用插件自己的 uv 环境运行 |
+| 4 | `prettier --write` | 暂存的、`pnpm format` 覆盖到的文件 |
 
-Prettier 放最后，因为它决定最终排版；前两步修出来的代码由它收口。三个阶段都开了 `stage_fixed`，改好的内容回到暂存区，不会留下没暂存的残留。
+Prettier 放最后，因为它决定最终排版；前面几步修出来的代码由它收口。Python 文件不归 Prettier 管，由 ruff 自己格式化。四个阶段都开了 `stage_fixed`，改好的内容回到暂存区，不会留下没暂存的残留。
 
 提交前这一步跑的是不带 `--type-aware` 的 oxlint。类型感知要整个项目的上下文，放在提交路径上会慢到让人想按 `--no-verify`；它仍然归 `pnpm lint` 全量跑（[AGENTS.md §7](../AGENTS.md#7-贯穿性硬纪律)）。同理，类型检查和测试都不进 pre-commit。
 
@@ -217,12 +222,18 @@ unwritten/
 │     │  │  └─ tools/             只读工具、propose_turn、ask_clarification
 │     │  ├─ authoring/            向导、生成任务、工作站、动作注册表
 │     │  ├─ llm/                  providers.json、pi-ai 封装、用途分配、调用记录
+│     │  ├─ net/                  外发请求的统一出口：不跟随重定向、时间上限、取消
+│     │  ├─ image/                出图服务的配置、两种出图协议、排队、返回校验、调用记录
+│     │  │  └─ conformance/       Unwritten 图像协议的一致性测试
+│     │  ├─ illustration/         插图与立绘：何时画、镜头描述、图片存储与清理
 │     │  ├─ settings/             外观与阅读偏好
 │     │  ├─ log/                  SQLite 运行事件、性能样本、诊断库迁移
 │     │  ├─ events/               进程内事件总线：各模块发布变更，事件流过程订阅
 │     │  └─ test-support/         测试支持代码：伪 OpenAI 服务、脚本化的 llm，不进构建产物
 │     ├─ drizzle.config.ts
 │     └─ package.json
+├─ plugins/                       插件：实现 Unwritten 协议的独立服务，见插件 §6
+│  └─ comfyui/                    ComfyUI 插件（Python），见 ComfyUI 插件与 Colab 部署
 ├─ e2e/                           Playwright：浏览器模式与 Electron 模式
 ├─ evals/                         真实模型评测，按需运行
 ├─ docs/                          设计文档
@@ -244,9 +255,10 @@ unwritten/
 
 - `apps/client` 只依赖 `@unwritten/contracts`，不导入 `/desktop` 入口；
 - `packages/core` 依赖 `@unwritten/contracts` 的两个入口；
-- `apps/desktop` 只依赖 `@unwritten/contracts/desktop`，负责启动 core 的构建产物，不导入 core 的代码。
+- `apps/desktop` 只依赖 `@unwritten/contracts/desktop`，负责启动 core 的构建产物，不导入 core 的代码；
+- `plugins/` 下的插件不导入仓库里的任何 TypeScript 代码，`apps/` 和 `packages/` 也不导入插件，两边只共享协议规范。
 
-这条规则由 oxlint 的 import 规则检查。
+前三条由 oxlint 的 import 规则检查；`apps/` 和 `packages/` 里不出现插件专属的名字，由一条扫描源码的测试检查（[插件 §2](./plugins.md#2-边界)）。
 
 ## 12. 不选的方案
 
@@ -267,6 +279,9 @@ unwritten/
 | husky + lint-staged | lint-staged 只做暂存文件过滤，hook 还得另外装。husky 的 hook 脚本放在 `.husky/_`，那个目录由 husky 自己用 `.gitignore` 排除，不随仓库分发，所以每切一个 worktree 都要重装才生效，漏装时也不报错，表现为提交时什么都不跑。lefthook 直接写 `.git/hooks`，worktree 共用 |
 | Biome | 格式化和 lint 都不错，但插件生态不够，装不上 i18next 规则；类型感知规则也不如 oxlint-tsgolint 完整 |
 | Vercel AI SDK、LiteLLM | 见 [LLM 端点](./llm-endpoints.md)；LiteLLM 是 Python 库 |
+| 载入 core 的代码插件 | core 持有全部 key 和故事数据，插件改为实现协议的独立服务（[插件 §1](./plugins.md#1-什么是插件)） |
+| sharp 等原生图像库 | 出图服务直接返回 WebP，core 原样保存、不转码，用不到；引入原生模块还要按平台处理 Electron 打包（[插图与出图服务 §5.3](./image.md#53-校验返回的数据)） |
+| pip + requirements.txt 管理插件的开发环境、Poetry | pip 没有锁定文件和 Python 版本管理；Poetry 的功能被 uv 覆盖，速度慢得多。Colab 上安装用的 `requirements.txt` 由 uv 从锁定文件导出 |
 
 ## 13. 验收
 
