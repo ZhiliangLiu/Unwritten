@@ -192,7 +192,7 @@ describe('IllustrationFrame', () => {
       },
     });
 
-    await screen.getByRole('button', { name: '重试第 2 回合的插图' }).click();
+    await screen.getByRole('group', { name: '第 2 回合的插图' }).getByRole('button', { name: '重试' }).click();
     await expect.element(screen.getByText('出图请求太多。请稍后重试。')).toBeVisible();
     expect(document.querySelector('[role="alert"]')).toBeNull();
   });
@@ -207,7 +207,7 @@ describe('IllustrationFrame', () => {
       },
     });
 
-    await screen.getByRole('button', { name: '不要第 2 回合的插图' }).click();
+    await screen.getByRole('group', { name: '第 2 回合的插图' }).getByRole('button', { name: '不要这张图' }).click();
     await expect.element(screen.getByText('连不上出图服务。服务恢复后可以重试。')).toBeVisible();
     expect(document.querySelector('[role="alert"]')).toBeNull();
   });
@@ -216,9 +216,8 @@ describe('IllustrationFrame', () => {
     const view = illustration({ status: 'failed', error: 'image_server', stage: 'generate' });
     const { screen, fake } = await renderFrame(view);
 
-    await expect.element(screen.getByText('生成图片时')).toBeVisible();
-    await expect.element(screen.getByText('出图服务发生错误。请稍后重试。')).toBeVisible();
-    await screen.getByRole('button', { name: '重试第 2 回合的插图' }).click();
+    await expect.element(screen.getByText('生成图片时，出图服务发生错误。请稍后重试。')).toBeVisible();
+    await screen.getByRole('group', { name: '第 2 回合的插图' }).getByRole('button', { name: '重试' }).click();
 
     await vi.waitFor(() => expect(fake.calls.some((call) => call.path === 'illustration.retry')).toBe(true));
     expect(fake.calls.find((call) => call.path === 'illustration.retry')?.input).toMatchObject({
@@ -231,7 +230,7 @@ describe('IllustrationFrame', () => {
     const view = illustration({ status: 'failed', error: 'image_output_format_unavailable', stage: 'generate' });
     const { screen, fake } = await renderFrame(view);
 
-    await screen.getByRole('button', { name: '重试第 2 回合的插图' }).click();
+    await screen.getByRole('group', { name: '第 2 回合的插图' }).getByRole('button', { name: '重试' }).click();
     await expect.element(screen.getByRole('dialog', { name: '为这张图选择规格' })).toBeVisible();
 
     await screen.getByRole('combobox', { name: '画面比例' }).click();
@@ -289,7 +288,7 @@ describe('IllustrationFrame', () => {
   it('无可访问性违规（失败）', async () => {
     const view = illustration({ status: 'failed', error: 'image_server', stage: 'generate' });
     const { screen } = await renderFrame(view);
-    await expect.element(screen.getByText('生成图片时')).toBeVisible();
+    await expect.element(screen.getByText('生成图片时，出图服务发生错误。请稍后重试。')).toBeVisible();
     await expectNoAxeViolations(screen.container);
   });
 });

@@ -26,10 +26,11 @@
 
 .popup {
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: var(--uw-space-3);
   inline-size: 100%;
   max-inline-size: var(--uw-size-page-max);
-  max-block-size: calc(100vh - var(--uw-space-16));
+  block-size: calc(100vh - var(--uw-space-16));
   padding: var(--uw-space-6);
   overflow: auto;
   color: var(--uw-color-text);
@@ -68,21 +69,30 @@
   letter-spacing: var(--uw-typography-section-title-letter-spacing);
 }
 
+.stage {
+  display: grid;
+  place-items: center;
+  min-block-size: 0;
+  container-type: size;
+}
+
 .imageWrap {
   position: relative;
-  inline-size: fit-content;
-  max-inline-size: 100%;
-  margin-inline: auto;
+  inline-size: min(100cqi, 100cqb * var(--uw-illustration-aspect));
+  aspect-ratio: var(--uw-illustration-aspect);
 }
 
 .image {
   display: block;
-  max-inline-size: 100%;
-  max-block-size: calc(100vh - var(--uw-space-16));
-  inline-size: auto;
-  block-size: auto;
+  inline-size: 100%;
+  block-size: 100%;
   object-fit: contain;
   border-radius: var(--uw-radius-sm);
+}
+
+.footer {
+  display: grid;
+  gap: var(--uw-space-2);
 }
 
 .dim {

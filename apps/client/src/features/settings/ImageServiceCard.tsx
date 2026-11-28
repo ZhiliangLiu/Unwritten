@@ -60,18 +60,14 @@ function notReadyReasonKey(reason: string | null): string {
 function CapabilitySummary({ capabilities }: { capabilities: ImageCapabilities }) {
   const { t } = useTranslation();
   return (
-    <ul className={styles.capabilities}>
-      <li>
-        {capabilities.maxReferences === 0
+    <p className={styles.notice}>
+      {[
+        capabilities.maxReferences === 0
           ? t('settings:images.noReferences')
-          : t('settings:images.references', { count: capabilities.maxReferences })}
-      </li>
-      <li>
-        {capabilities.negativePrompt
-          ? t('settings:images.negativeSupported')
-          : t('settings:images.negativeUnsupported')}
-      </li>
-    </ul>
+          : t('settings:images.references', { count: capabilities.maxReferences }),
+        capabilities.negativePrompt ? t('settings:images.negativeSupported') : t('settings:images.negativeUnsupported'),
+      ].join(t('settings:images.separator'))}
+    </p>
   );
 }
 
@@ -280,73 +276,68 @@ export function ImageServiceCard({
         <div className={styles.titleArea}>
           <div className={styles.titleRow}>
             <h3 className={styles.name}>{service.name}</h3>
+            {service.probe?.result === 'ready' ? (
+              <Badge tone='success'>{t('play:serviceState.ready')}</Badge>
+            ) : service.probe ? (
+              <Badge tone='warning'>{t(notReadyReasonKey(service.probe.notReadyReason))}</Badge>
+            ) : null}
             <Badge tone={serviceKeyBadge.tone}>{t(serviceKeyBadge.labelKey)}</Badge>
           </div>
-          <p className={styles.protocol}>{t(PROTOCOL_LABEL_KEYS[service.protocol])}</p>
-          <p className={styles.address}>{service.baseUrl}</p>
+          <p className={styles.protocol}>
+            <span>{t(PROTOCOL_LABEL_KEYS[service.protocol])}</span>
+            <bdi className={styles.address}>{service.baseUrl}</bdi>
+          </p>
         </div>
       </div>
-      {service.model ? (
-        <p className={styles.meta}>
-          <span>{t('settings:images.model')}</span> <bdi>{service.model}</bdi>
-        </p>
-      ) : null}
-      {service.capabilities ? <CapabilitySummary capabilities={service.capabilities} /> : null}
-      <div className={styles.status}>
-        {service.probe ? (
-          <>
-            <p>{t('settings:images.lastProbe', { time: formatRelative(service.probe.at) })}</p>
-            {service.probe.result === 'ready' ? (
-              <Badge tone='success'>{t('play:serviceState.ready')}</Badge>
-            ) : (
-              <Badge tone='warning'>{t(notReadyReasonKey(service.probe.notReadyReason))}</Badge>
-            )}
-            {service.probe.implementation ? (
-              <p className={styles.implementation}>
-                <bdi>
-                  {service.probe.implementation.name} {service.probe.implementation.version}
-                </bdi>
-              </p>
-            ) : null}
-            {service.probe.model ? (
-              <p className={styles.implementation}>
-                <bdi>{service.probe.model}</bdi>
-              </p>
-            ) : null}
-          </>
+      <div className={styles.facts}>
+        {service.model ? (
+          <p className={styles.meta}>
+            <span>{t('settings:images.model')}</span> <bdi>{service.model}</bdi>
+          </p>
         ) : null}
-        {service.lastSuccessAt ? (
-          <p>{t('settings:images.lastSuccess', { time: formatRelative(service.lastSuccessAt) })}</p>
+        {service.capabilities ? <CapabilitySummary capabilities={service.capabilities} /> : null}
+        {service.probe || service.lastSuccessAt ? (
+          <p className={styles.status}>
+            {service.probe?.implementation ? (
+              <bdi className={styles.implementation}>
+                {service.probe.implementation.name} {service.probe.implementation.version}
+              </bdi>
+            ) : null}
+            {service.probe?.model ? <bdi className={styles.implementation}>{service.probe.model}</bdi> : null}
+            {service.probe ? (
+              <span>{t('settings:images.lastProbe', { time: formatRelative(service.probe.at) })}</span>
+            ) : null}
+            {service.lastSuccessAt ? (
+              <span>{t('settings:images.lastSuccess', { time: formatRelative(service.lastSuccessAt) })}</span>
+            ) : null}
+          </p>
+        ) : null}
+        {service.protocol === 'unwritten-image' && !service.launcher ? (
+          <p className={styles.notice}>{t('settings:images.launcher.notConfigured')}</p>
         ) : null}
       </div>
-      {service.protocol === 'unwritten-image' ? (
+      {service.protocol === 'unwritten-image' && service.launcher ? (
         <div className={styles.launcher}>
           <h4 className={styles.subheading}>{t('settings:images.launcher.heading')}</h4>
-          {service.launcher ? (
-            <>
-              <p className={styles.address}>{service.launcher.baseUrl}</p>
-              {launcherKeyBadge ? <Badge tone={launcherKeyBadge.tone}>{t(launcherKeyBadge.labelKey)}</Badge> : null}
-              <dl className={styles.details}>
-                <div>
-                  <dt>{t('settings:images.launcher.idleMinutes')}</dt>
-                  <dd>{service.idleMinutes}</dd>
-                </div>
-              </dl>
-              <div>
-                <Button
-                  variant='secondary'
-                  onClick={() => testLauncher.mutate()}
-                  disabled={disabled}
-                  busy={testLauncher.isPending}
-                >
-                  {t('settings:images.launcher.test')}
-                </Button>
-              </div>
-              {launcherResult ? <TestLauncherResult result={launcherResult} /> : null}
-            </>
-          ) : (
-            <p className={styles.notice}>{t('settings:images.launcher.notConfigured')}</p>
-          )}
+          <p className={styles.address}>{service.launcher.baseUrl}</p>
+          {launcherKeyBadge ? <Badge tone={launcherKeyBadge.tone}>{t(launcherKeyBadge.labelKey)}</Badge> : null}
+          <dl className={styles.details}>
+            <div>
+              <dt>{t('settings:images.launcher.idleMinutes')}</dt>
+              <dd>{service.idleMinutes}</dd>
+            </div>
+          </dl>
+          <div>
+            <Button
+              variant='secondary'
+              onClick={() => testLauncher.mutate()}
+              disabled={disabled}
+              busy={testLauncher.isPending}
+            >
+              {t('settings:images.launcher.test')}
+            </Button>
+          </div>
+          {launcherResult ? <TestLauncherResult result={launcherResult} /> : null}
         </div>
       ) : null}
       <div className={styles.actions}>

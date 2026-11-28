@@ -3,15 +3,6 @@
   gap: var(--uw-space-3);
 }
 
-.anchors {
-  display: grid;
-  gap: var(--uw-space-2);
-}
-
-.anchorsSummary {
-  cursor: pointer;
-}
-
 .anchorsBody {
   display: grid;
   gap: var(--uw-space-3);

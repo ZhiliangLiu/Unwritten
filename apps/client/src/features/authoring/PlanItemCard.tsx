@@ -1,9 +1,8 @@
 import { Pencil } from 'lucide-react';
-import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PlanItem } from '@unwritten/contracts';
 import { Badge } from '../../shared/ui/Badge.tsx';
-import { Button } from '../../shared/ui/Button.tsx';
+import { Disclosure } from '../../shared/ui/Disclosure.tsx';
 import { IconButton } from '../../shared/ui/IconButton.tsx';
 import { PortraitSetEditor } from '../../shared/ui/illustration/PortraitSetEditor.tsx';
 import { PlanItemEditor } from './PlanItemEditor.tsx';
@@ -39,8 +38,6 @@ export function PlanItemCard({
   castMode?: 'fixed' | 'per_run';
 }) {
   const { t } = useTranslation();
-  const [portraitsOpen, setPortraitsOpen] = useState(false);
-  const portraitRegionId = useId();
   const portraitsAvailable =
     item.kind === 'entity' && item.entityKind === 'character' && (item.role !== 'cast' || castMode !== 'per_run');
 
@@ -83,7 +80,11 @@ export function PlanItemCard({
           </p>
         ) : null}
         {item.entityKind === 'character' ? (
-          <p className={styles.text}>{item.appearance ?? t('authoring:plan.noAppearance')}</p>
+          <p className={styles.text}>
+            {item.appearance
+              ? t('authoring:plan.entity.appearance', { text: item.appearance })
+              : t('authoring:plan.noAppearance')}
+          </p>
         ) : null}
       </>
     ) : item.kind === 'secret' ? (
@@ -144,27 +145,15 @@ export function PlanItemCard({
           </div>
           <div className={styles.body}>{body}</div>
           {item.kind === 'entity' && portraitsAvailable && workId ? (
-            <div className={styles.portrait}>
-              <Button
-                variant='text'
-                aria-expanded={portraitsOpen}
-                aria-controls={portraitRegionId}
-                onClick={() => setPortraitsOpen((open) => !open)}
-              >
-                {t('authoring:portrait.heading')}
-              </Button>
-              <div id={portraitRegionId}>
-                {portraitsOpen ? (
-                  <PortraitSetEditor
-                    workId={workId}
-                    scope='work'
-                    target={{ kind: 'entity', entityId: item.id }}
-                    appearance={item.appearance}
-                    mode='author'
-                  />
-                ) : null}
-              </div>
-            </div>
+            <Disclosure summary={t('authoring:portrait.heading')}>
+              <PortraitSetEditor
+                workId={workId}
+                scope='work'
+                target={{ kind: 'entity', entityId: item.id }}
+                appearance={item.appearance}
+                mode='author'
+              />
+            </Disclosure>
           ) : null}
         </>
       )}

@@ -92,6 +92,7 @@
 | --- | --- | --- | --- |
 | 悬停 | 底色变为 `surface-hover` | 反向 | `transition-feedback` |
 | 按下 | 按下的瞬间底色变为 `surface-pressed`，并缩小到 `scale-press` | 松开后平稳复原，不回弹 | `transition-feedback`、`transition-press` |
+| 展开项 | 箭头从向右转到向下，内容直接出现 | 箭头转回，内容直接收起 | `transition-press` |
 | 焦点环 | 立即出现，没有过渡 | 立即消失 | 无 |
 | 菜单、下拉、气泡 | 以触发点（Base UI 的 `--transform-origin`）为原点，从 `scale-enter` 放大并淡入 | 沿原路缩回并淡出 | `transition-popup`、`-popup-exit` |
 | 提示 | 停留 `delay-tooltip` 后淡入，不缩放。在相邻元素之间连续移动时立即出现（Base UI 的 `[data-instant]`） | 淡出 | `transition-popup` 中的 `opacity` |

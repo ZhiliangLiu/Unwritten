@@ -27,6 +27,17 @@
   border-radius: var(--uw-radius-sm);
 }
 
+.portraitEmpty {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--uw-size-control-md);
+  block-size: var(--uw-size-control-md);
+  color: var(--uw-color-text-subtle);
+  background-color: var(--uw-color-surface-sunken);
+  border-radius: var(--uw-radius-sm);
+}
+
 .lines {
   display: grid;
   gap: var(--uw-space-3);

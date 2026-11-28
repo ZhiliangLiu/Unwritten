@@ -32,6 +32,7 @@ export function ImageServiceSection() {
     <section id={SETTINGS_SECTION_IDS.images} className={styles.section}>
       <h2 className={styles.heading}>{t('settings:images.heading')}</h2>
       <p className={styles.description}>{t('settings:images.description')}</p>
+      <p className={styles.description}>{t('settings:images.privacy')}</p>
       {config.data?.problem ? <ConfigProblem problem={config.data.problem} /> : null}
       <ErrorNotice error={config.error ?? select.error} />
       {config.data ? (

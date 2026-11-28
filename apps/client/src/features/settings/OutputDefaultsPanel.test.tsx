@@ -102,7 +102,7 @@ beforeEach(() => {
 describe('OutputDefaultsPanel', () => {
   it('自动比例只显示服务支持的档位，固定比例不支持时不显示', async () => {
     const first = await openSettings(ONE_TIER);
-    expect(optionLabels(first.container)).toContain('非常高 · 2K · 多个尺寸');
+    expect(optionLabels(first.container)).toContain('非常高 · 2K');
     expect(first.container.textContent).toContain('当前只有这一档可用。');
     await first.unmount();
 
@@ -111,7 +111,7 @@ describe('OutputDefaultsPanel', () => {
       preferences: { aspectPreference: '3:4', resolutionTier: '2k' },
       preferenceAvailable: false,
     });
-    expect(optionLabels(second.container)).not.toContain('非常高 · 2K · 多个尺寸');
+    expect(optionLabels(second.container)).not.toContain('非常高 · 2K');
     expect(second.container.textContent).not.toContain('非常高 · 2K');
     expect(second.container.textContent).toContain('当前服务不支持已选规格，请重新选择。');
     await second.unmount();
@@ -119,7 +119,7 @@ describe('OutputDefaultsPanel', () => {
 
   it('改档位后发送新的偏好', async () => {
     const { fake, container, unmount } = await openSettings(TWO_TIERS);
-    clickOption(container, '非常高 · 2K · 多个尺寸');
+    clickOption(container, '非常高 · 2K');
     await waitFor(() => fake.calls.some((call) => call.path === 'image.outputPreferences.set'));
     expect(fake.calls.find((call) => call.path === 'image.outputPreferences.set')!.input).toEqual({
       aspectPreference: 'auto',

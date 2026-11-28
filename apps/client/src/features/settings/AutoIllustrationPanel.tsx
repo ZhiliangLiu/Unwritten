@@ -33,8 +33,7 @@ export function AutoIllustrationPanel({ disabled }: { disabled: boolean }) {
   const confirmed = Boolean(view.data && !view.data.enabled && view.data.confirmed);
 
   return (
-    <section className={styles.panel}>
-      <h3 className={styles.heading}>{t('settings:auto.heading')}</h3>
+    <section className={styles.panel} aria-label={t('settings:auto.heading')}>
       {view.isPending ? <Skeleton variant='lines' count={2} /> : null}
       {view.data ? (
         <>

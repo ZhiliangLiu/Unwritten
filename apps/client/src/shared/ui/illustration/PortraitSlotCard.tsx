@@ -113,66 +113,75 @@ export function PortraitSlotCard({
 
   return (
     <section className={styles.slot} aria-labelledby={nameId} aria-describedby={problem ? problemId : undefined}>
-      <p className={styles.name} id={nameId}>
-        {label}
-      </p>
-      <p className={styles.hint}>{t(SLOT_HINT_KEYS[slot])}</p>
-      {preview ? (
-        <div className={styles.preview}>
-          <img className={styles.image} src={preview.url} alt={t('authoring:portrait.slotAlt', { slot: label })} />
+      <div className={styles.header}>
+        <p className={styles.name} id={nameId}>
+          {label}
+        </p>
+        <p className={styles.hint}>{t(SLOT_HINT_KEYS[slot])}</p>
+      </div>
+      <div className={styles.body}>
+        <div className={styles.frame}>
+          {preview ? (
+            <img className={styles.image} src={preview.url} alt={t('authoring:portrait.slotAlt', { slot: label })} />
+          ) : view.image ? (
+            image.status === 'ready' ? (
+              <img className={styles.image} src={image.url} alt={t('authoring:portrait.slotAlt', { slot: label })} />
+            ) : image.status === 'error' ? (
+              <ErrorNotice code={image.code} />
+            ) : (
+              <Skeleton variant='card' />
+            )
+          ) : view.task?.status === 'running' ? (
+            <GeneratingMarker label={t('authoring:portrait.generating')} />
+          ) : (
+            <p className={styles.status}>{t('authoring:portrait.empty')}</p>
+          )}
+        </div>
+        {view.image && view.task?.status === 'running' ? (
+          <GeneratingMarker label={t('authoring:portrait.generating')} />
+        ) : null}
+        {view.task?.status === 'failed' ? <ErrorNotice code={view.task.error ?? 'unknown'} /> : null}
+        {view.needsReview ? <p className={styles.status}>{t('authoring:portrait.needsReview')}</p> : null}
+        {problem ? (
+          <p className={styles.problem} id={problemId}>
+            {t(IMPORT_PROBLEM_KEYS[problem])}
+          </p>
+        ) : null}
+        {preview ? (
           <div className={styles.actions}>
-            <Button variant='primary' busy={upload.isPending} onClick={() => upload.mutate(preview.file)}>
+            <Button size='sm' variant='primary' busy={upload.isPending} onClick={() => upload.mutate(preview.file)}>
               {t('authoring:portrait.useImage')}
             </Button>
-            <Button variant='secondary' onClick={() => setPreview(null)}>
+            <Button size='sm' variant='secondary' onClick={() => setPreview(null)}>
               {t('common:action.cancel')}
             </Button>
           </div>
-        </div>
-      ) : view.image ? (
-        image.status === 'ready' ? (
-          <img className={styles.image} src={image.url} alt={t('authoring:portrait.slotAlt', { slot: label })} />
-        ) : image.status === 'error' ? (
-          <ErrorNotice code={image.code} />
         ) : (
-          <Skeleton variant='card' />
-        )
-      ) : null}
-      {view.task?.status === 'running' ? <GeneratingMarker label={t('authoring:portrait.generating')} /> : null}
-      {view.task?.status === 'failed' ? (
-        <>
-          <ErrorNotice code={view.task.error ?? 'unknown'} />
-          <Button variant='text' disabled={!canGenerate} onClick={() => generate.mutate()}>
-            {t('authoring:portrait.retryNamed', { slot: label })}
-          </Button>
-        </>
-      ) : null}
-      {view.needsReview ? (
-        <div className={styles.review}>
-          <p className={styles.status}>{t('authoring:portrait.needsReview')}</p>
-          <Button variant='text' busy={update.isPending} onClick={() => update.mutate('confirm')}>
-            {t('authoring:portrait.confirmNamed', { slot: label })}
-          </Button>
-        </div>
-      ) : null}
-      {!view.image && !preview && view.task?.status !== 'running' ? (
-        <p className={styles.status}>{t('authoring:portrait.empty')}</p>
-      ) : null}
-      {problem ? (
-        <p className={styles.problem} id={problemId}>
-          {t(IMPORT_PROBLEM_KEYS[problem])}
-        </p>
-      ) : null}
-      <div className={styles.actions}>
-        <Button variant='secondary' onClick={() => fileInput.current?.click()}>
-          {t('authoring:portrait.chooseNamed', { slot: label })}
-        </Button>
-        <Button variant='secondary' busy={generate.isPending} disabled={!canGenerate} onClick={() => generate.mutate()}>
-          {t('authoring:portrait.generateNamed', { slot: label })}
-        </Button>
-        <Button variant='text' busy={update.isPending} disabled={!view.image} onClick={() => update.mutate('remove')}>
-          {t('authoring:portrait.removeNamed', { slot: label })}
-        </Button>
+          <div className={styles.actions}>
+            {view.needsReview ? (
+              <Button size='sm' variant='secondary' busy={update.isPending} onClick={() => update.mutate('confirm')}>
+                {t('authoring:portrait.confirm')}
+              </Button>
+            ) : null}
+            <Button size='sm' variant='secondary' onClick={() => fileInput.current?.click()}>
+              {t('authoring:portrait.choose')}
+            </Button>
+            <Button
+              size='sm'
+              variant='secondary'
+              busy={generate.isPending}
+              disabled={!canGenerate}
+              onClick={() => generate.mutate()}
+            >
+              {view.task?.status === 'failed' ? t('common:action.retry') : t('authoring:portrait.generate')}
+            </Button>
+            {view.image ? (
+              <Button size='sm' variant='text' busy={update.isPending} onClick={() => update.mutate('remove')}>
+                {t('authoring:portrait.remove')}
+              </Button>
+            ) : null}
+          </div>
+        )}
       </div>
       <input
         ref={fileInput}

@@ -37,14 +37,12 @@ export function IllustrationStyleSection({ work }: { work: WorkDetail }) {
   const previewProps = { workId: work.id, style, viewWorkId: work.id };
 
   return (
-    <details className={styles.section}>
-      <summary className={styles.summary}>{t('authoring:style.heading')}</summary>
-      <div className={styles.body}>
-        <p className={styles.help}>{t('authoring:style.description')}</p>
-        <StylePicker value={style} onChange={choose} />
-        <StylePreview {...previewProps} />
-        <ErrorNotice error={error} />
-      </div>
-    </details>
+    <section className={styles.section}>
+      <h3 className={styles.heading}>{t('authoring:style.heading')}</h3>
+      <p className={styles.help}>{t('authoring:style.description')}</p>
+      <StylePicker value={style} onChange={choose} />
+      <StylePreview {...previewProps} />
+      <ErrorNotice error={error} />
+    </section>
   );
 }

@@ -8,13 +8,19 @@ import { Skeleton } from '../../shared/ui/Skeleton.tsx';
 import styles from './ImageUsagePanel.module.css';
 
 const NUMBER_FORMAT = new Intl.NumberFormat('zh-CN');
+const BYTES_PER_KILOBYTE = 1024;
 const BYTES_PER_MEGABYTE = 1024 * 1024;
-const SIZE_FORMAT = new Intl.NumberFormat('zh-CN', {
-  style: 'unit',
-  unit: 'megabyte',
-  unitDisplay: 'short',
-  maximumFractionDigits: 1,
-});
+const BYTES_PER_GIGABYTE = 1024 * 1024 * 1024;
+
+function sizeFormat(unit: 'kilobyte' | 'megabyte' | 'gigabyte'): Intl.NumberFormat {
+  return new Intl.NumberFormat('zh-CN', { style: 'unit', unit, unitDisplay: 'short', maximumFractionDigits: 1 });
+}
+
+export function formatStorageSize(bytes: number): string {
+  if (bytes >= BYTES_PER_GIGABYTE) return sizeFormat('gigabyte').format(bytes / BYTES_PER_GIGABYTE);
+  if (bytes >= BYTES_PER_MEGABYTE) return sizeFormat('megabyte').format(bytes / BYTES_PER_MEGABYTE);
+  return sizeFormat('kilobyte').format(bytes / BYTES_PER_KILOBYTE);
+}
 
 type UsageWindow = ImageUsageSummary['services'][number]['last7Days'];
 
@@ -58,12 +64,11 @@ export function ImageUsagePanel() {
       {storage.data ? (
         <p className={styles.storage}>
           {t('settings:usage.storage', {
-            size: SIZE_FORMAT.format(storage.data.bytes / BYTES_PER_MEGABYTE),
+            size: formatStorageSize(storage.data.bytes),
           })}
         </p>
       ) : null}
       <ErrorNotice error={usage.error ?? storage.error} />
-      <p className={styles.privacy}>{t('settings:images.privacy')}</p>
     </section>
   );
 }

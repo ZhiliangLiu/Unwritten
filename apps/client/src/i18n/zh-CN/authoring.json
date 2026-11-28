@@ -133,6 +133,7 @@
     "entity": {
       "role": { "protagonist": "主角", "cast": "主要人物", "other": "其他" },
       "knownAs": "主角称作：{{name}}",
+      "appearance": "形象：{{text}}",
       "slot": "人物位置：{{role}}",
       "encounter": "相遇样例：{{text}}"
     },
@@ -251,12 +252,11 @@
     "useForPlaythrough": "用作本局参考",
     "retire": "撤下",
     "choose": "选择图片",
+    "generate": "生成",
+    "remove": "移除",
+    "confirm": "确认可用",
     "chooseNamed": "为{{slot}}选择图片",
     "useImage": "使用这张",
-    "generateNamed": "生成{{slot}}参考图",
-    "retryNamed": "重试{{slot}}参考图",
-    "confirmNamed": "确认{{slot}}参考图",
-    "removeNamed": "移除{{slot}}参考图",
     "sendNotice": "生成图片时，出图服务「{{service}}」会收到提示词和本次选用的参考图。",
     "importProblem": {
       "type": "请选择 PNG、JPEG 或 WebP 图片。",

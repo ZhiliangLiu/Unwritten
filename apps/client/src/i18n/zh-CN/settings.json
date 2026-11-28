@@ -193,6 +193,7 @@
     "plainHttpWarning": "这个地址使用明文 HTTP。发送的密钥和图片可能被网络上的其他人看到。",
     "references": "最多使用 {{count}} 张参考图",
     "noReferences": "只靠形象文字保持人物一致。",
+    "separator": " · ",
     "negativeSupported": "支持负面提示词",
     "negativeUnsupported": "不支持负面提示词",
     "referenceLimit": "最多参考图",

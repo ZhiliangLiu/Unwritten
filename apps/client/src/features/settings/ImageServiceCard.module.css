@@ -38,6 +38,10 @@
 }
 
 .protocol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--uw-space-2);
   margin: 0;
   font-family: var(--uw-typography-caption-font-family);
   font-size: var(--uw-typography-caption-font-size);
@@ -55,6 +59,15 @@
   overflow-wrap: anywhere;
 }
 
+.facts {
+  display: grid;
+  gap: var(--uw-space-1);
+}
+
+.facts:empty {
+  display: none;
+}
+
 .meta {
   display: flex;
   flex-wrap: wrap;
@@ -68,33 +81,19 @@
   overflow-wrap: anywhere;
 }
 
-.capabilities {
-  display: grid;
-  gap: var(--uw-space-1);
-  margin: 0;
-  padding-inline-start: var(--uw-space-5);
-  font-family: var(--uw-typography-caption-font-family);
-  font-size: var(--uw-typography-caption-font-size);
-  line-height: var(--uw-typography-caption-line-height);
-  color: var(--uw-color-text-muted);
-}
-
 .status {
-  display: grid;
-  gap: var(--uw-space-2);
-  justify-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--uw-space-1) var(--uw-space-3);
+  margin: 0;
   font-family: var(--uw-typography-caption-font-family);
   font-size: var(--uw-typography-caption-font-size);
   line-height: var(--uw-typography-caption-line-height);
   color: var(--uw-color-text-muted);
-}
-
-.status p {
-  margin: 0;
 }
 
 .implementation {
-  margin: 0;
   font-family: var(--uw-typography-mono-font-family);
   font-size: var(--uw-typography-mono-font-size);
   line-height: var(--uw-typography-mono-line-height);

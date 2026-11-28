@@ -8,6 +8,7 @@ import { errorCode } from '../../api/errors.ts';
 import { queryKeys } from '../../api/query.ts';
 import { IMAGE_TIER_LABEL_KEYS } from '../../lib/image-labels.ts';
 import { Button } from '../Button.tsx';
+import { Disclosure } from '../Disclosure.tsx';
 import { ErrorNotice } from '../ErrorNotice.tsx';
 import { Select } from '../Select.tsx';
 import { Skeleton } from '../Skeleton.tsx';
@@ -177,46 +178,45 @@ export function PortraitSetEditor({
         })}
       </div>
       {generateFormat && output.data ? (
-        <details className={styles.settings}>
-          <summary className={styles.summary}>{t('authoring:portrait.generateSettings')}</summary>
-          <div className={styles.settingsBody}>
-            <Select
-              label={t('play:format.aspect')}
-              value={generateFormat.aspectPreference}
-              onValueChange={(aspectPreference) => setPreference({ ...generateFormat, aspectPreference })}
-              options={output.data.aspects.map((aspect) => ({ value: aspect, label: aspect }))}
-            />
-            <Select
-              label={t('play:format.tier')}
-              value={generateFormat.resolutionTier}
-              onValueChange={(resolutionTier) =>
-                setPreference({
-                  ...generateFormat,
-                  resolutionTier: resolutionTier as OutputPreferences['resolutionTier'],
-                })
-              }
-              options={tierOptions.map((entry) => ({
-                value: entry.tier,
-                label: t(IMAGE_TIER_LABEL_KEYS[entry.tier]),
-              }))}
-            />
-          </div>
-        </details>
+        <Disclosure summary={t('authoring:portrait.generateSettings')} panelClassName={styles.settingsBody}>
+          <Select
+            label={t('play:format.aspect')}
+            value={generateFormat.aspectPreference}
+            onValueChange={(aspectPreference) => setPreference({ ...generateFormat, aspectPreference })}
+            options={output.data.aspects.map((aspect) => ({ value: aspect, label: aspect }))}
+          />
+          <Select
+            label={t('play:format.tier')}
+            value={generateFormat.resolutionTier}
+            onValueChange={(resolutionTier) =>
+              setPreference({
+                ...generateFormat,
+                resolutionTier: resolutionTier as OutputPreferences['resolutionTier'],
+              })
+            }
+            options={tierOptions.map((entry) => ({
+              value: entry.tier,
+              label: t(IMAGE_TIER_LABEL_KEYS[entry.tier]),
+            }))}
+          />
+        </Disclosure>
       ) : null}
       {serviceName ? (
         <p className={styles.notice}>{t('authoring:portrait.sendNotice', { service: serviceName })}</p>
       ) : null}
       <div className={styles.actions}>
+        {missingViews ? (
+          <Button
+            variant='secondary'
+            busy={fillViews.isPending}
+            disabled={!canGenerate || !hasFront}
+            onClick={() => fillViews.mutate()}
+          >
+            {t('authoring:portrait.fillViews')}
+          </Button>
+        ) : null}
         <Button
           variant='secondary'
-          busy={fillViews.isPending}
-          disabled={!canGenerate || !hasFront || !missingViews}
-          onClick={() => fillViews.mutate()}
-        >
-          {t('authoring:portrait.fillViews')}
-        </Button>
-        <Button
-          variant='primary'
           busy={adopt.isPending}
           disabled={!hasFront}
           aria-describedby={!hasFront ? needFrontId : undefined}
