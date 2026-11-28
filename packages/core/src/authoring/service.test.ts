@@ -242,14 +242,90 @@ describe('createAuthoringService', () => {
       expect(adoptedMeta.opening?.scene.present).toEqual(['沈岚']);
 
       expect(library.get({ workId }).status).toBe('playable');
-      expect(() =>
-        library.saveDraft({ workId, baseContentRev: 3, background: '改稿', settings: baseSettings }),
-      ).toThrow();
-      expect(authoring.adoptPreview({ workId, jobId }).routeId).toBeNull();
+      expect(library.get({ workId }).hasUnpublishedChanges).toBe(false);
+      const playthroughId = '00000000-0000-4000-8000-000000000006';
+      opened.db.run(
+        sql`insert into playthroughs (id, version_id, kind, created_at)
+            values (${playthroughId}, ${work?.published_id ?? ''}, 'play', ${Date.now()})`,
+      );
+      expect(
+        library.saveDraft({ workId, baseContentRev: 3, background: '改稿', settings: baseSettings }).contentRev,
+      ).toBe(4);
+      expect(library.get({ workId }).hasUnpublishedChanges).toBe(true);
+      try {
+        authoring.applyDraft({ workId, baseContentRev: 3 });
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toMatchObject({ code: 'stale_revision' });
+      }
+      try {
+        authoring.applyDraft({ workId, baseContentRev: 4 });
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toMatchObject({ code: 'plan_not_confirmed' });
+      }
+      authoring.confirmPlan({ workId, baseContentRev: 4 });
+      const runningPlanId = '00000000-0000-4000-8000-000000000005';
+      const now = Date.now();
+      opened.db.run(
+        sql`insert into jobs (id, work_id, kind, status, input, created_at, updated_at)
+            values (${runningPlanId}, ${workId}, 'plan', 'running', '{"contentRev":5}', ${now}, ${now})`,
+      );
+      try {
+        authoring.applyDraft({ workId, baseContentRev: 5 });
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toMatchObject({ code: 'job_running' });
+      }
+      opened.db.run(sql`update jobs set status = 'failed' where id = ${runningPlanId}`);
+      expect(authoring.applyDraft({ workId, baseContentRev: 5 }).contentRev).toBe(5);
+      expect(authoring.applyDraft({ workId, baseContentRev: 5 }).contentRev).toBe(5);
+      expect(library.get({ workId }).hasUnpublishedChanges).toBe(false);
       const publishedAfter = opened.db.get<{ count: number }>(
         sql`select count(*) as count from work_versions where work_id = ${workId} and kind = 'published'`,
       )?.count;
-      expect(publishedAfter).toBe(1);
+      expect(publishedAfter).toBe(2);
+      const currentPublished = opened.db.get<{ id: string; meta: string }>(
+        sql`select id, meta from work_versions where id = (select published_id from works where id = ${workId})`,
+      );
+      expect(currentPublished?.id).not.toBe(work?.published_id);
+      expect(JSON.parse(currentPublished?.meta ?? '{}')).toMatchObject({ background: '改稿' });
+      const currentPublishedNames = opened.db
+        .all<{ name: string }>(sql`select name from entities where version_id = ${currentPublished?.id ?? ''}`)
+        .map((row) => row.name);
+      expect(currentPublishedNames).toContain('林潮');
+      expect(currentPublishedNames).toContain('沈岚');
+      expect(opened.db.all(sql`select id from work_versions where id = ${work?.published_id ?? ''}`)).toHaveLength(1);
+      expect(
+        opened.db.get<{ version_id: string }>(sql`select version_id from playthroughs where id = ${playthroughId}`)
+          ?.version_id,
+      ).toBe(work?.published_id);
+
+      expect(
+        library.saveDraft({ workId, baseContentRev: 5, background: '再改一版', settings: baseSettings }).contentRev,
+      ).toBe(6);
+      authoring.updatePlanItem({
+        workId,
+        baseContentRev: 6,
+        item: { ...keeper, name: '林潮改' },
+      });
+      try {
+        authoring.applyDraft({ workId, baseContentRev: 7 });
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toMatchObject({ code: 'plan_not_confirmed' });
+      }
+      authoring.confirmPlan({ workId, baseContentRev: 7 });
+      const shenId = publishedRows.find((row) => row.name === '沈岚')?.id;
+      opened.db.run(
+        sql`delete from entities where version_id = (select draft_id from works where id = ${workId}) and id = ${shenId ?? ''}`,
+      );
+      try {
+        authoring.applyDraft({ workId, baseContentRev: 8 });
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toMatchObject({ code: 'opening_outdated' });
+      }
     } finally {
       opened.close();
       temp.cleanup();

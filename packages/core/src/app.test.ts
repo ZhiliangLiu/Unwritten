@@ -148,6 +148,9 @@ function fakeServices(): Services {
       adoptPreview: () => {
         throw new Error('not used');
       },
+      applyDraft: () => {
+        throw new Error('not used');
+      },
       generatePlan: () => {
         throw new Error('not used');
       },

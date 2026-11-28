@@ -36,6 +36,7 @@ export const WorkSummarySchema = z.object({
   status: WorkStatusSchema,
   hasProgress: z.boolean(),
   hasMultiplePlaythroughs: z.boolean().default(false),
+  hasUnpublishedChanges: z.boolean(),
   routeId: UuidSchema.nullable(),
   updatedAt: TimestampSchema,
 });
@@ -86,6 +87,8 @@ export const WorkDetailSchema = z.object({
   title: z.string().nullable(),
   blurb: z.string().nullable(),
   status: WorkStatusSchema,
+  hasUnpublishedChanges: z.boolean(),
+  routeCount: z.number().int().nonnegative(),
   draft: z.object({
     contentRev: ContentRevSchema,
     background: z.string(),
@@ -118,6 +121,11 @@ export const GeneratePreviewInputSchema = z.object({
 
 export const AdoptPreviewInputSchema = z.object({ workId: UuidSchema, jobId: UuidSchema });
 export const AdoptPreviewOutputSchema = z.object({ routeId: UuidSchema.nullable() });
+
+export const ApplyDraftInputSchema = z.object({
+  workId: UuidSchema,
+  baseContentRev: ContentRevSchema,
+});
 
 export const GeneratePlanInputSchema = z.object({
   workId: UuidSchema,
@@ -162,6 +170,7 @@ export type SaveDraftOutput = z.infer<typeof SaveDraftOutputSchema>;
 export type GeneratePreviewInput = z.infer<typeof GeneratePreviewInputSchema>;
 export type AdoptPreviewInput = z.infer<typeof AdoptPreviewInputSchema>;
 export type AdoptPreviewOutput = z.infer<typeof AdoptPreviewOutputSchema>;
+export type ApplyDraftInput = z.infer<typeof ApplyDraftInputSchema>;
 export type GeneratePlanInput = z.infer<typeof GeneratePlanInputSchema>;
 export type AdoptStalePlanInput = z.infer<typeof AdoptStalePlanInputSchema>;
 export type UpdatePlanItemInput = z.infer<typeof UpdatePlanItemInputSchema>;

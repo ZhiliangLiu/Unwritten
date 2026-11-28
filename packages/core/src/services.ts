@@ -4,6 +4,7 @@ import type {
   AdoptPreviewOutput,
   AdoptStalePlanInput,
   Appearance,
+  ApplyDraftInput,
   AutoIllustrationTarget,
   AutoIllustrationView,
   ConfirmPlanInput,
@@ -206,6 +207,7 @@ export interface LibraryService {
 export interface AuthoringService {
   generatePreview(input: GeneratePreviewInput): PreviewJobView;
   adoptPreview(input: AdoptPreviewInput): AdoptPreviewOutput;
+  applyDraft(input: ApplyDraftInput): SaveDraftOutput;
   generatePlan(input: GeneratePlanInput): PlanJobView;
   adoptStalePlan(input: AdoptStalePlanInput): SaveDraftOutput;
   updatePlanItem(input: UpdatePlanItemInput): SaveDraftOutput;

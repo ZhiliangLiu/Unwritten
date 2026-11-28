@@ -87,6 +87,35 @@ describe('createPlanJobs', () => {
     }
   });
 
+  it('已发布作品仍能重新生成方案', async () => {
+    const { temp, opened, llm, library, authoring } = setup();
+    try {
+      library.create({ workId });
+      library.saveDraft({
+        workId,
+        baseContentRev: 0,
+        background: '灯塔镇只在夜里通电。',
+        settings: DEFAULT_WORK_SETTINGS,
+      });
+      const publishedId = '00000000-0000-4000-8000-000000000004';
+      const now = Date.now();
+      opened.db.run(
+        sql`insert into work_versions (id, work_id, kind, content_rev, source_rev, meta, created_at, updated_at)
+            values (${publishedId}, ${workId}, 'published', 1, 1, '{"background":"灯塔镇只在夜里通电。"}', ${now}, ${now})`,
+      );
+      opened.db.run(sql`update works set published_id = ${publishedId} where id = ${workId}`);
+      llm.enqueue(scripted(proposePlanStep()));
+      authoring.generatePlan({ workId, jobId, contentRev: 1 });
+      await authoring.whenIdle();
+
+      expect(library.get({ workId }).latestPlanJob?.status).toBe('done');
+      expect(library.get({ workId }).draft.plan?.items.some((item) => item.kind === 'entity')).toBe(true);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
   it('生成期间改过草稿时不覆盖', async () => {
     const { temp, opened, library, authoring } = setup((library) => {
       const base = createScriptedLlm();

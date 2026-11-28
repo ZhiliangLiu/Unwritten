@@ -15,6 +15,7 @@ import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
 import { GeneratingMarker } from '../../shared/ui/GeneratingMarker.tsx';
 import { Page } from '../../shared/ui/Page.tsx';
 import { Skeleton } from '../../shared/ui/Skeleton.tsx';
+import { useNotify } from '../../shared/ui/Toaster.tsx';
 import { WakePrompt } from '../../shared/ui/WakePrompt.tsx';
 import { BackgroundEditor } from './BackgroundEditor.tsx';
 import { sameDraft, type DraftContent } from './draft.ts';
@@ -28,6 +29,7 @@ export function AuthoringPage({ workId }: { workId: string }) {
   const api = useApi();
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const notify = useNotify();
   const [edit, setEdit] = useState<{ workId: string; draft: DraftContent } | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [step, setStep] = useState<WizardStep | null>(null);
@@ -135,6 +137,16 @@ export function AuthoringPage({ workId }: { workId: string }) {
     onError: setError,
   });
 
+  const applyDraft = useMutation({
+    mutationFn: (rev: number) => api.works.applyDraft({ workId, baseContentRev: rev }),
+    onSuccess: () => {
+      invalidateWork();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.works });
+      notify({ title: t('authoring:published.applied'), tone: 'success' });
+    },
+    onError: setError,
+  });
+
   useEffect(() => {
     if (!previewJob || previewJob.status === 'running') return;
     if (previewJob.id === previewStartJob.current) return;
@@ -202,8 +214,17 @@ export function AuthoringPage({ workId }: { workId: string }) {
         <ErrorNotice error={error ?? work.error} />
       )}
       {work.isLoading ? <Skeleton variant='lines' count={3} /> : null}
-      {data && published ? <PublishedPanel work={data} /> : null}
-      {data && !published ? (
+      {data && published ? (
+        <PublishedPanel
+          work={data}
+          applying={applyDraft.isPending}
+          dirty={localDirty}
+          planConfirmed={Boolean(data.draft.plan?.confirmed)}
+          planRunning={planJob?.status === 'running' || generatePlan.isPending}
+          onApply={() => applyDraft.mutate(contentRev)}
+        />
+      ) : null}
+      {data ? (
         <div className={styles.sections}>
           <WizardSteps current={currentStep} available={available} onSelect={selectStep} />
           <div ref={stepRegionRef} className={styles.step}>
@@ -240,6 +261,7 @@ export function AuthoringPage({ workId }: { workId: string }) {
               <PreviewPanel
                 preview={preview}
                 stale={stale}
+                published={published}
                 status={
                   generatePreview.isPending || previewJob?.status === 'running' ? (
                     <GeneratingMarker label={t('authoring:preview.running')} />

@@ -41,39 +41,42 @@ export function WorkCard({ work, onDelete }: { work: WorkSummary; onDelete: () =
         {work.blurb ? <p className={styles.blurb}>{work.blurb}</p> : null}
         <p className={styles.updated}>{t('library:card.updated', { time: formatRelative(work.updatedAt) })}</p>
         <div className={styles.footer}>
-          {!playable ? (
-            <Link className={buttonClassName('secondary')} to='/works/$workId/edit' params={{ workId: work.id }}>
-              {entryLabel}
-            </Link>
-          ) : showsPlaythroughs ? (
-            <Link
-              className={buttonClassName('secondary')}
-              to='/works/$workId/playthroughs'
-              params={{ workId: work.id }}
-            >
-              <Icon icon={Play} size='sm' />
-              {entryLabel}
-            </Link>
-          ) : routeId !== null ? (
-            <Link className={buttonClassName('secondary')} to='/play/$routeId' params={{ routeId }}>
-              <Icon icon={Play} size='sm' />
-              {entryLabel}
-            </Link>
-          ) : (
-            <Link className={buttonClassName('secondary')} to='/works/$workId/start' params={{ workId: work.id }}>
-              <Icon icon={Play} size='sm' />
-              {entryLabel}
-            </Link>
-          )}
+          <div className={styles.entries}>
+            {!playable ? (
+              <Link className={buttonClassName('secondary')} to='/works/$workId/edit' params={{ workId: work.id }}>
+                {entryLabel}
+              </Link>
+            ) : showsPlaythroughs ? (
+              <Link
+                className={buttonClassName('secondary')}
+                to='/works/$workId/playthroughs'
+                params={{ workId: work.id }}
+              >
+                <Icon icon={Play} size='sm' />
+                {entryLabel}
+              </Link>
+            ) : routeId !== null ? (
+              <Link className={buttonClassName('secondary')} to='/play/$routeId' params={{ routeId }}>
+                <Icon icon={Play} size='sm' />
+                {entryLabel}
+              </Link>
+            ) : (
+              <Link className={buttonClassName('secondary')} to='/works/$workId/start' params={{ workId: work.id }}>
+                <Icon icon={Play} size='sm' />
+                {entryLabel}
+              </Link>
+            )}
+            {playable ? (
+              <Link className={buttonClassName('text')} to='/works/$workId/edit' params={{ workId: work.id }}>
+                {work.hasUnpublishedChanges ? t('library:card.continueEditing') : t('library:card.editPlayable')}
+              </Link>
+            ) : null}
+          </div>
           <OverflowMenu
             label={t('library:card.more', { title })}
             items={[
               ...(work.status === 'playable'
                 ? [
-                    {
-                      label: t('library:card.viewDraft'),
-                      onSelect: () => void navigate({ to: '/works/$workId/edit', params: { workId: work.id } }),
-                    },
                     {
                       label: t('library:card.playthroughs'),
                       onSelect: () => void navigate({ to: '/works/$workId/playthroughs', params: { workId: work.id } }),
