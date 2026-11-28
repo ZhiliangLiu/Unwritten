@@ -105,7 +105,7 @@ export const WorkDetailSchema = z.object({
   latestPlanJob: PlanJobViewSchema.nullable(),
   novelImport: z
     .object({
-      chapters: z.array(z.string()),
+      chapterCount: z.number().int().positive(),
       chapter: z.number().int().nonnegative(),
       referenceChapter: z.number().int().nonnegative().optional(),
     })

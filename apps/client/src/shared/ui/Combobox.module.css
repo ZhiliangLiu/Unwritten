@@ -1,0 +1,28 @@
+.group {
+  position: relative;
+}
+
+.input {
+  padding-inline-end: calc(var(--uw-space-3) * 2 + var(--uw-size-icon-sm));
+}
+
+.icon {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: var(--uw-space-3);
+  inline-size: var(--uw-size-icon-sm);
+  block-size: var(--uw-size-icon-sm);
+  margin-block: auto;
+  color: var(--uw-color-text-muted);
+  pointer-events: none;
+}
+
+.empty {
+  padding-inline: var(--uw-space-3);
+  padding-block: var(--uw-space-2);
+  color: var(--uw-color-text-muted);
+}
+
+.empty:empty {
+  display: none;
+}

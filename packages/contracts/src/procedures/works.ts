@@ -27,6 +27,7 @@ export const worksContract = {
   create: oc.input(WorkIdInputSchema).output(WorkDetailSchema),
   importNovel: oc.input(ImportNovelInputSchema).output(WorkIdInputSchema),
   get: oc.input(WorkIdInputSchema).output(WorkDetailSchema),
+  novelChapters: oc.input(WorkIdInputSchema).output(z.array(z.string())),
   saveDraft: oc.input(SaveDraftInputSchema).output(SaveDraftOutputSchema),
   generatePreview: oc.input(GeneratePreviewInputSchema).output(PreviewJobViewSchema),
   adoptPreview: oc.input(AdoptPreviewInputSchema).output(AdoptPreviewOutputSchema),

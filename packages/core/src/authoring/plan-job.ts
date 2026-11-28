@@ -597,17 +597,11 @@ export function createPlanJobs(
             const previous = tx
               .select()
               .from(jobs)
-              .where(
-                and(
-                  eq(jobs.workId, input.workId),
-                  eq(jobs.kind, 'plan'),
-                  sql`json_extract(${jobs.input}, '$.novel.chapter') = ${input.novelChapter}`,
-                ),
-              )
+              .where(and(eq(jobs.workId, input.workId), eq(jobs.kind, 'plan')))
               .orderBy(desc(jobs.createdAt), sql`rowid desc`)
               .get();
-            if (previous) {
-              const parts = planJobParts(previous);
+            const parts = previous ? planJobParts(previous) : null;
+            if (previous?.status === 'failed' && parts?.input.novel?.chapter === novel.chapter) {
               checkpoint = parts.checkpoint ?? undefined;
               if (checkpoint && parts.input.novel?.referenceChapter !== novel.referenceChapter) {
                 checkpoint = { ...checkpoint, evidence: undefined };

@@ -98,21 +98,17 @@ export const PreviewJobResultSchema = z.object({
 export const NovelFileSchema = z.object({
   name: z.string().min(1),
   size: z.number().int().positive(),
-  encoding: z.enum(['utf-8', 'gb18030']),
+  encoding: z.enum(['utf-8', 'gb18030', 'big5', 'utf-16le', 'utf-16be']),
 });
 
-const NovelInlineSchema = z.object({ name: z.string().min(1), text: z.string().min(1) });
-const novelChapters = {
+export const NovelChaptersSchema = z.object({
   chapters: z.array(z.object({ title: z.string(), start: z.number().int().nonnegative() })).min(1),
-};
+});
 
-export const NovelSourceSchema = z.union([
-  NovelFileSchema.extend(novelChapters),
-  NovelInlineSchema.extend(novelChapters),
-]);
+export const NovelSourceSchema = NovelFileSchema.extend(NovelChaptersSchema.shape);
 
 export const NovelAnalysisSchema = z.object({
-  notes: z.string().trim().min(1).max(5_000),
+  notes: z.string().trim().min(1),
   queries: z
     .array(
       z.object({
@@ -171,13 +167,12 @@ export type PreviewJobInput = z.infer<typeof PreviewJobInputSchema>;
 export type PreviewJobResult = z.infer<typeof PreviewJobResultSchema>;
 export type NovelSource = z.infer<typeof NovelSourceSchema>;
 export type NovelFile = z.infer<typeof NovelFileSchema>;
-type NovelSourceInput = NovelFile | z.infer<typeof NovelInlineSchema>;
 export type NovelCheckpoint = z.infer<typeof NovelCheckpointSchema>;
 export type PlanJobInput = z.infer<typeof PlanJobInputSchema>;
 export type PlanJobResult = z.infer<typeof PlanJobResultSchema>;
 export type TurnRequestLog = z.infer<typeof TurnRequestLogSchema>;
 
-export type JobInput = PreviewJobInput | PlanJobInput | NovelSourceInput;
+export type JobInput = PreviewJobInput | PlanJobInput | NovelFile;
 export type JobResult = PreviewJobResult | PlanJobResult | NovelCheckpoint | Pick<NovelSource, 'chapters'>;
 
 export function previewJobParts(row: { kind: string; input: JobInput; result: JobResult | null }): {

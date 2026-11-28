@@ -108,3 +108,4 @@
 - **观察器的测试桩要验证接线。** 只有调用了 `observe(target)` 之后才能触发回调，并断言 `target` 是哪个元素。直接调用回调只测到了回调本身，测不到观察器有没有挂上。
 - **每页恰好一个 `h1`，标题逐级不跳。** 新页面和新浮层用 `shared/test/heading-outline.ts` 断言。
 - **只在生产构建成立的接线要有构建侧判据。** 内容安全策略、首屏外观脚本这类东西，组件测试跑在开发构建里，证明不了它们生效，要在端到端测试里查。
+- **绕过 `pnpm test` 直接跑 vitest 前，先生成 token CSS。** `src/theme/` 下的 token 样式和 `media.css` 由 `packages/tokens/build-css.mjs` 生成，不进仓库；`pnpm test` 会先生成，`pnpm exec vitest` 不会。新 worktree 里缺了它们，引用 `media.css` 的测试文件在导入阶段失败（`Failed to fetch dynamically imported module`），其余控件没有尺寸、点击超时，看起来像组件本身坏了。先在 `apps/client` 下执行 `node ../../packages/tokens/build-css.mjs`；判据是 `src/theme/media.css` 存在。

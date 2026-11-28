@@ -2,6 +2,7 @@
   "app": { "name": "Unwritten", "documentTitle": "{{title}} · Unwritten" },
   "nav": { "library": "作品库", "settings": "设置" },
   "action": { "cancel": "取消", "retry": "重试", "close": "关闭" },
+  "combobox": { "empty": "没有匹配的项" },
   "status": { "loading": "正在加载", "saved": "已保存", "saving": "正在保存" },
   "toast": { "region": "通知" },
   "wake": {
