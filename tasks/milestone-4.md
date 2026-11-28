@@ -647,44 +647,44 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
 **步骤。**
 
-- [ ] 1. **核对前提。** 对照 §6.1 的当次裁定，逐条核对 D1–D28 的状态。运行 `node scripts/check-doc-links.mjs` 留下基线。用 `rg -n "autoIllustration|storage.summary|setIllustrationStyle|portrait.get" docs/image.md` 核查缺口，已有条目改原处。裁定缺失或与 §1.4 不同，按依赖说明处理。
-- [ ] 2. `docs/image.md` §2 的过程表加三行：
+- [x] 1. **核对前提。** 对照 §6.1 的当次裁定，逐条核对 D1–D28 的状态。运行 `node scripts/check-doc-links.mjs` 留下基线。用 `rg -n "autoIllustration|storage.summary|setIllustrationStyle|portrait.get" docs/image.md` 核查缺口，已有条目改原处。裁定缺失或与 §1.4 不同，按依赖说明处理。
+- [x] 2. `docs/image.md` §2 的过程表加三行：
   - `image.autoIllustration.get`、`image.autoIllustration.set`：读取或修改「游玩时生成插图」和数据接收方确认（D3）；
   - `image.storage.summary`：插图和人物参考合计占用的空间（§9.5）。
-- [ ] 3. `docs/image.md` §10 的过程表加：
+- [x] 3. `docs/image.md` §10 的过程表加：
   - `portrait.get`：按组 id 取一组参考或一张画风预览；
   - `works.setIllustrationStyle`：作者默认画风（D26）。
 
   §6.3 第二条写明默认画风由这个过程保存。
-- [ ] 4. `docs/image.md` §10 的「回合视图里的插图」一条，写明插图视图随 `play.getRoute` 返回的每个回合一起给出（D15）。
-- [ ] 5. `docs/image.md` §9.1 写明临时文件放在 `images/tmp/`，启动时清空（D9）；§9.3 第 3 步写明写入区间是一个进程内的串行锁（D10）。
-- [ ] 5a. `docs/image.md` §5.1 把 `image` 对 `illustration` 的入口列全：`selectedServiceId`、`activeTarget`、`capabilities`、`prepareGeneration`、`assertFormat`、`generate`、`wake`。§8 的真名规则改成「在场人物的真名和主角的名字」。§9.2 的 `format_preference` 和 `format` 改成 `OutputPreferences` 的字段名（D22）。
-- [ ] 6. `docs/data-model.md`：
+- [x] 4. `docs/image.md` §10 的「回合视图里的插图」一条，写明插图视图随 `play.getRoute` 返回的每个回合一起给出（D15）。
+- [x] 5. `docs/image.md` §9.1 写明临时文件放在 `images/tmp/`，启动时清空（D9）；§9.3 第 3 步写明写入区间是一个进程内的串行锁（D10）。
+- [x] 5a. `docs/image.md` §5.1 把 `image` 对 `illustration` 的入口列全：`selectedServiceId`、`activeTarget`、`capabilities`、`prepareGeneration`、`assertFormat`、`generate`、`wake`。§8 的真名规则改成「在场人物的真名和主角的名字」。§9.2 的 `format_preference` 和 `format` 改成 `OutputPreferences` 的字段名（D22）。
+- [x] 6. `docs/data-model.md`：
   - `works.illustration_style` 的注释改成 `{"kind":"preset","preset":"<预设 id>"}` 或 `{"kind":"custom","text":"<画风原文>"}`；
   - 如果有 `app_settings` 的表定义，加 `illustration` 列，说明见 D3。
   - 在实体表登记可空的 `source_para`。回合内登记的人物用已校验的 `new_entity.para`，作者设定和缺少出处的旧记录留空。
-- [ ] 6a. `docs/data-model.md` §5「插图按段落投影」写明 D27 的在场候选、D28 的亲见与形象规则和 D8 的「这一刻还不知道的名字」。§4 的 `same_visible_identity` 写成提案里是字符串 `"true"`、存储为数字 `1`。
-- [ ] 6b. `docs/colab-host.md` §8 第 4 步改成把认证 key 写进权限 `0600` 的临时文件，用 `--auth-key=file:<临时文件>`，执行完删除；不把 key 放进命令行参数。
-- [ ] 7. `docs/turn-loop.md` §12 验收表里「narrator 新增一个人物，没写 `appearance`」那一行改成：
+- [x] 6a. `docs/data-model.md` §5「插图按段落投影」写明 D27 的在场候选、D28 的亲见与形象规则和 D8 的「这一刻还不知道的名字」。§4 的 `same_visible_identity` 写成提案里是字符串 `"true"`、存储为数字 `1`。
+- [x] 6b. `docs/colab-host.md` §8 第 4 步改成把认证 key 写进权限 `0600` 的临时文件，用 `--auth-key=file:<临时文件>`，执行完删除；不把 key 放进命令行参数。
+- [x] 7. `docs/turn-loop.md` §12 验收表里「narrator 新增一个人物，没写 `appearance`」那一行改成：
   - **从什么情况开始：** narrator 新增一个人物，没写 `appearance`，并把 `illustrate` 写成正文里不存在的段号；
   - **操作：** 提交 `propose_turn`；
   - **应当看到的结果：** 回合照常提交，人物登记成功、没有形象，回合没有插图标记。
 
   （D23）
-- [ ] 8. `docs/diagnostics.md` §2、§3 加本文 §2.5 表里的新事件和新样本。只写名字、时机和 `data` 字段，不写任务号。
-- [ ] 9. `docs/plugins.md` §6「CI 对每个插件做两件事」一条改成：
+- [x] 8. `docs/diagnostics.md` §2、§3 加本文 §2.5 表里的新事件和新样本。只写名字、时机和 `data` 字段，不写任务号。
+- [x] 9. `docs/plugins.md` §6「CI 对每个插件做两件事」一条改成：
   - 用 `pnpm test:python` 跑插件自己的测试；
   - 启动插件（对外部引擎用伪实现替代），再对着它运行这种协议的一致性测试；
   - 写明这条命令不进 `pnpm test`，因为要求本机装有 uv（D19）。
 
   `docs/colab-host.md` §11、`docs/comfyui-plugin.md` §10、`docs/strata.md` §11、`docs/colab-launcher.md` §7 里「CI 跑……」的说法同步改。
-- [ ] 10. `docs/milestone-4.md` 的「留给后续的能力」和验收表：把依赖「换一种发展」「从存档另开」的行标成「依赖未实现的功能，本里程碑不验」（§1.3）。设计总验收保留其完整行为。将 M4 的组合用例写成单路线实际可操作的步骤。规划时核到的行：
+- [x] 10. `docs/milestone-4.md` 的「留给后续的能力」和验收表：把依赖「换一种发展」「从存档另开」的行标成「依赖未实现的功能，本里程碑不验」（§1.3）。设计总验收保留其完整行为。将 M4 的组合用例写成单路线实际可操作的步骤。规划时核到的行：
   - `image.md` §14 的「narrator 在一次换一种发展的候选里标了插图」；
   - 「第 2 段图已生成…再在存档分出的路线重画」。
   - 体验表写明作者可以从已发布作品另开一局验证画风和人物参考。试玩入口由相应任务补上。
 
   执行时用 `rg -n "换一种发展|存档" docs/image.md docs/milestone-4.md` 重新核对一遍。
-- [ ] 11. 运行 `node scripts/check-doc-links.mjs`，再按 [docs/AGENTS.md §3](../docs/AGENTS.md#3-审计) 对新增的行跑三遍审计扫描。
+- [x] 11. 运行 `node scripts/check-doc-links.mjs`，再按 [docs/AGENTS.md §3](../docs/AGENTS.md#3-审计) 对新增的行跑三遍审计扫描。
 
 **接线点。** 无（只改文档）。
 
@@ -723,10 +723,10 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
 **步骤。**
 
-- [ ] 1. **核对前提。**
+- [x] 1. **核对前提。**
   - 运行 `rg -n "fetch-guard" packages/core apps e2e --glob '!node_modules'`，把命中的每个文件和行号记进汇报。规划时的命中是：`llm/run.ts`、`llm/test-connection.ts`、`main.ts`、`llm/fetch-guard-install.ts`、`llm/fetch-guard.test.ts`。多出别的文件时，它们也属于本任务要改的导入方。
   - 运行 `rg -n "^export" packages/core/src/llm/fetch-guard.ts`，确认导出的正好是 `REDIRECT_STATUSES`、`RedirectBlockedError`、`FetchRecorder`、`createFetchRecorder`、`createGuardedFetch`、`installGlobalFetchGuard`、`unguardedFetch` 七个。
-- [ ] 2. **新建 `packages/core/src/net/fetch.ts`。** 把 `llm/fetch-guard.ts` 的内容原样复制过来，导出名一个不改。再在文件末尾加一个函数，供 `image` 模块用：
+- [x] 2. **新建 `packages/core/src/net/fetch.ts`。** 把 `llm/fetch-guard.ts` 的内容原样复制过来，导出名一个不改。再在文件末尾加一个函数，供 `image` 模块用：
 
   ```ts
   export function createNetFetch(recorder?: FetchRecorder): typeof fetch {
@@ -735,24 +735,24 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   ```
 
   它等价于 `llm/run.ts` 里现在的写法 `createGuardedFetch(unguardedFetch(), recorder)`。
-- [ ] 3. **新建 `packages/core/src/net/install.ts`。** 内容和 `llm/fetch-guard-install.ts` 一样，只改导入路径：
+- [x] 3. **新建 `packages/core/src/net/install.ts`。** 内容和 `llm/fetch-guard-install.ts` 一样，只改导入路径：
 
   ```ts
   import { installGlobalFetchGuard } from './fetch.ts';
 
   installGlobalFetchGuard();
   ```
-- [ ] 4. **把测试移过去。** 把 `llm/fetch-guard.test.ts` 复制成 `net/fetch.test.ts`，只改导入路径。再加一个测试：
+- [x] 4. **把测试移过去。** 把 `llm/fetch-guard.test.ts` 复制成 `net/fetch.test.ts`，只改导入路径。再加一个测试：
   - 测试名：`createNetFetch 拒绝跟随重定向`；
   - 做法：用 `node:http` 起一个本机服务，对任意请求回 `302`、`Location: http://127.0.0.1:1/x`；
   - 断言：`await expect(createNetFetch()(url)).rejects.toBeInstanceOf(RedirectBlockedError)`，并断言 `error.status === 302`。
-- [ ] 5. **改导入方。**
+- [x] 5. **改导入方。**
   - `llm/run.ts`、`llm/test-connection.ts`：`from './fetch-guard.ts'` 改成 `from '../net/fetch.ts'`。
   - `main.ts` 第一行：`import './llm/fetch-guard-install.ts';` 改成 `import './net/install.ts';`。**它必须仍然是第一行**，原因见 [LLM 端点 §3](../docs/llm-endpoints.md#3-key-的来源与保护)：ESM 先执行被导入的模块，晚了 SDK 可能已经拿走原始的 `fetch`。
   - 第 1 步多出的导入方同样改。
-- [ ] 6. **删除** `llm/fetch-guard.ts`、`llm/fetch-guard.test.ts`、`llm/fetch-guard-install.ts`。
-- [ ] 6a. **把地址整理也搬进 `net/`。** `llm/url.ts`（`normalizeBaseUrl`，按符号名找）出图服务也要用，`image` 模块不能导入 `llm` 的内部文件。把它原样移成 `net/url.ts`，测试 `llm/url.test.ts` 移成 `net/url.test.ts`，只改导入路径。导入方规划时是 `llm/service.ts`、`llm/test-connection.ts`，执行时用 `rg -n "from '\./url\.ts'" packages/core/src/llm` 重新核对。
-- [ ] 7. 在 `packages/core/AGENTS.md` §1 的判据里**不用改**（它已经写了 `net/`）。
+- [x] 6. **删除** `llm/fetch-guard.ts`、`llm/fetch-guard.test.ts`、`llm/fetch-guard-install.ts`。
+- [x] 6a. **把地址整理也搬进 `net/`。** `llm/url.ts`（`normalizeBaseUrl`，按符号名找）出图服务也要用，`image` 模块不能导入 `llm` 的内部文件。把它原样移成 `net/url.ts`，测试 `llm/url.test.ts` 移成 `net/url.test.ts`，只改导入路径。导入方规划时是 `llm/service.ts`、`llm/test-connection.ts`，执行时用 `rg -n "from '\./url\.ts'" packages/core/src/llm` 重新核对。
+- [x] 7. 在 `packages/core/AGENTS.md` §1 的判据里**不用改**（它已经写了 `net/`）。
 
 **接线点。**
 
@@ -811,14 +811,14 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
 **步骤。**
 
-- [ ] 1. **核对前提：`File` 能在 oRPC 的输入和输出里往返。** 新建 `packages/core/src/api/file-roundtrip.test.ts`：
+- [x] 1. **核对前提：`File` 能在 oRPC 的输入和输出里往返。** 新建 `packages/core/src/api/file-roundtrip.test.ts`：
   1. 用 `@orpc/contract` 的 `oc` 定义两个过程：`up: oc.input(z.object({ name: z.string(), file: z.file() })).output(z.object({ size: z.number() }))`，`down: oc.input(z.object({})).output(z.file())`。
   2. 用 `@orpc/server` 的 `implement` 实现它们：`up` 返回 `{ size: input.file.size }`；`down` 返回 `new File([new Uint8Array([1, 2, 3])], 'x.webp', { type: 'image/webp' })`。
   3. 用 `@orpc/server/fetch` 的 `RPCHandler` 处理请求，客户端用 `@orpc/client/fetch` 的 `RPCLink`，`fetch` 选项直接调用 `handler.handle(request, { prefix: '/api' })` 拿响应（不起真的 HTTP 服务）。
   4. 断言 `up` 收到的 `size` 是上传的字节数；`down` 返回的值 `instanceof Blob`，`type === 'image/webp'`，字节是 `[1, 2, 3]`。
 
   用 core 已安装的 `@orpc/server` 和 `@orpc/client`。这条测试留在仓库，供 T06、T17、T19 复用。失败时按 §0.3 汇报。
-- [ ] 2. **新建 `packages/contracts/src/schemas/image.ts`。** 照抄下面的代码。常量的含义见注明的设计章节：
+- [x] 2. **新建 `packages/contracts/src/schemas/image.ts`。** 照抄下面的代码。常量的含义见注明的设计章节：
 
   ```ts
   import { z } from 'zod';
@@ -1042,7 +1042,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   ```
 
   文件末尾为每个 schema 导出 `z.infer` 类型，名字去掉 `Schema` 后缀，例如 `export type ImageServiceView = z.infer<typeof ImageServiceViewSchema>;`。常量数组另导出联合类型，例如 `export type ImageTier = (typeof IMAGE_TIERS)[number];`。
-- [ ] 3. **新建 `packages/contracts/src/schemas/illustration.ts`。** 照抄：
+- [x] 3. **新建 `packages/contracts/src/schemas/illustration.ts`。** 照抄：
 
   ```ts
   import { z } from 'zod';
@@ -1231,7 +1231,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   ```
 
   同样在文件末尾导出 `z.infer` 类型和常量数组的联合类型。
-- [ ] 4. **改现有 schema（只加不删，§2.8）。**
+- [x] 4. **改现有 schema（只加不删，§2.8）。**
   - `schemas/play.ts`：
     - `TurnViewSchema` 加 `illustration: IllustrationViewSchema.nullable().default(null)`；
     - `StartInfoSchema` 加 `illustration: StartIllustrationInfoSchema.default(DEFAULT_START_ILLUSTRATION_INFO)`；
@@ -1266,7 +1266,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
   用 `rg -n 'WorkDetail|TurnView|RouteView|StartInfo|JournalSubject|PlanItem' apps/client/src packages/core/src` 找符号，运行全仓 `pnpm typecheck` 定位上下文推断出的漏项。只补读取或构造新字段所需的行，现有生产者和类型化夹具的这些改动都归 T02。对存量方案沿用 Zod 解析默认值。
 
-- [ ] 5. **`events.ts` 加四个事件**，放在 `settings.changed` 前面：
+- [x] 5. **`events.ts` 加四个事件**，放在 `settings.changed` 前面：
 
   ```ts
   z.object({
@@ -1279,8 +1279,8 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   z.object({ type: z.literal('image.config_changed') }),
   z.object({ type: z.literal('image.service_state'), serviceId: z.string().min(1) }),
   ```
-- [ ] 6. **`errors.ts` 的 `ERROR_CODES` 末尾**按 §2.3 表格的顺序加 26 个码。`packages/core/src/errors.ts` 的 `HTTP_STATUS` 同步加，状态码照 §2.3。`apps/client/src/i18n/zh-CN/errors.json` 照附录 A.1 加文案。
-- [ ] 7. **新建三个过程文件。**
+- [x] 6. **`errors.ts` 的 `ERROR_CODES` 末尾**按 §2.3 表格的顺序加 26 个码。`packages/core/src/errors.ts` 的 `HTTP_STATUS` 同步加，状态码照 §2.3。`apps/client/src/i18n/zh-CN/errors.json` 照附录 A.1 加文案。
+- [x] 7. **新建三个过程文件。**
 
   `procedures/image.ts`：
 
@@ -1359,14 +1359,14 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   ```
 
   每个文件按需从 `@orpc/contract`、`zod` 和 schema 文件导入。
-- [ ] 8. **改现有过程文件。**
+- [x] 8. **改现有过程文件。**
   - `procedures/play.ts` 加 `suggestAppearance: oc.input(SuggestAppearanceInputSchema).output(SuggestAppearanceOutputSchema)`；
   - `procedures/works.ts` 加 `setIllustrationStyle: oc.input(SetIllustrationStyleInputSchema).output(z.object({}))`。
-- [ ] 9. **`index.ts`。**
+- [x] 9. **`index.ts`。**
   - `contract` 对象加 `image: imageContract, illustration: illustrationContract, portrait: portraitContract`；
   - 末尾加 `export * from './schemas/image.ts';` 和 `export * from './schemas/illustration.ts';`。
-- [ ] 10. **`packages/core/src/api/router.ts`，同波接临时路由。** 在 `base.router` 中为第 7–9 步注册的每个叶子绑定对应的 `base.<路径>.handler`，包括 `play.suggestAppearance`、`works.setIllustrationStyle`。临时处理函数抛 `appError('internal', 'not implemented: rpc.<路径>')`，不调用服务。旧过程保留既有 handler。T06 逐一改调服务并删临时函数。
-- [ ] 11. **测试。** `api/http-app.test.ts` 经现有鉴权入口对 `works.list`、`image.services.list` 各发一个有效请求。旧过程成功；新过程进到临时 handler，应用错误码为 `internal`，诊断里记录过程路径。T06 接真实服务后把后者改为真实列表结果。`schemas/image.test.ts`、`schemas/illustration.test.ts` 至少覆盖下表。每一行用 `safeParse` 断言 `success` 的布尔值：
+- [x] 10. **`packages/core/src/api/router.ts`，同波接临时路由。** 在 `base.router` 中为第 7–9 步注册的每个叶子绑定对应的 `base.<路径>.handler`，包括 `play.suggestAppearance`、`works.setIllustrationStyle`。临时处理函数抛 `appError('internal', 'not implemented: rpc.<路径>')`，不调用服务。旧过程保留既有 handler。T06 逐一改调服务并删临时函数。
+- [x] 11. **测试。** `api/http-app.test.ts` 经现有鉴权入口对 `works.list`、`image.services.list` 各发一个有效请求。旧过程成功；新过程进到临时 handler，应用错误码为 `internal`，诊断里记录过程路径。T06 接真实服务后把后者改为真实列表结果。`schemas/image.test.ts`、`schemas/illustration.test.ts` 至少覆盖下表。每一行用 `safeParse` 断言 `success` 的布尔值：
 
   | schema | 输入 | 期望 |
   | --- | --- | --- |
@@ -1452,11 +1452,11 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
 **步骤。**
 
-- [ ] 1. **核对前提。**
+- [x] 1. **核对前提。**
   - `uv --version` 能运行。不能运行时停下来汇报，请维护者先装 uv。
   - `git ls-files apps packages | xargs rg -il "comfy|colab|tailscale|strata"` 零命中。规划时零命中；有命中时停下来汇报命中的文件。
   - `ls plugins selfhost` 两个目录都不存在。
-- [ ] 2. **`scripts/check-plugin-names.mjs`。**
+- [x] 2. **`scripts/check-plugin-names.mjs`。**
   - **扫哪些文件：** 运行 `git -C <根目录> ls-files apps packages`，跳过：
     - 文件名是 `pnpm-lock.yaml` 的；
     - 扩展名是 `.png`、`.jpg`、`.jpeg`、`.webp`、`.icns`、`.ico`、`.woff2` 的二进制文件。
@@ -1464,7 +1464,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   - **输出：** 命中时打印 `文件:行号: 那一行`，最后打印 `发现 N 处插件专属名字`，以退出码 1 结束；没有命中时打印 `插件名扫描通过（N 个文件）`，退出码 0。
   - **根目录：** 默认是脚本所在目录的上一级；可以用第一个命令行参数传入另一个目录。
   - 名单写成一个导出的常量 `PLUGIN_NAMES = ['comfy', 'colab', 'tailscale', 'strata']`，`qwen` 不在名单里（D20）。
-- [ ] 3. **`scripts/check-plugin-names.test.mjs`**（`node:test`）。每个测试：
+- [x] 3. **`scripts/check-plugin-names.test.mjs`**（`node:test`）。每个测试：
   1. 在 `os.tmpdir()` 下建临时目录，`git init`；
   2. 写入 `apps/a.ts`、`packages/b.ts`；
   3. `git add -A`；
@@ -1476,7 +1476,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   - `packages/b.ts` 里写 `const x = 'ComfyUI';`：退出码 1，输出含 `packages/b.ts:1:`。
   - `plugins/c.py` 里写 `comfy`、但 `apps/`、`packages/` 干净：退出码 0。证明 `plugins/` 不在扫描范围内。
   - 未被 git 跟踪的 `apps/untracked.ts` 里写 `colab`：退出码 0。证明只扫跟踪的文件。
-- [ ] 4. **`scripts/test-python.mjs`。**
+- [x] 4. **`scripts/test-python.mjs`。**
   1. **检查 uv。** 先运行 `uv --version`，失败时打印 `需要先安装 uv：https://docs.astral.sh/uv/` 并以退出码 1 结束。
   2. **跑各目录的 pytest。** 依次处理 `selfhost/colab`、`plugins/comfyui`、`selfhost/strata`、`plugins/colab-launcher`：
      - 目录下没有 `tests/` 时打印 `跳过 <目录>：还没有测试`，继续下一个；
@@ -1497,14 +1497,14 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
      启动脚本的约定写进 T26、T28：它只打印这两行，令牌每次随机生成。
   4. **汇总。** 打印每一步的结果。有任何失败时以退出码 1 结束。
-- [ ] 5. **`scripts/ruff-staged.mjs`。** 参数是暂存的 `.py` 文件路径。
+- [x] 5. **`scripts/ruff-staged.mjs`。** 参数是暂存的 `.py` 文件路径。
   - 按文件所在的 Python 目录（四个目录之一）分组。不在这四个目录里的 `.py` 文件：打印出来，以退出码 1 结束。
   - 对每一组依次运行 `uv run --frozen --directory <目录> ruff check --fix <相对路径…>` 和 `uv run --frozen --directory <目录> ruff format <相对路径…>`。路径要换成相对于该目录的路径。
   - 任一命令失败以它的退出码结束。
-- [ ] 6. **根目录 `package.json` 的 `scripts`。**
+- [x] 6. **根目录 `package.json` 的 `scripts`。**
   - `test` 的开头改成 `node scripts/check-tokens.mjs && node scripts/check-plugin-names.mjs && node --test packages/tokens/build-css.test.mjs scripts/dev.test.mjs scripts/check-plugin-names.test.mjs && turbo run test`；
   - 加 `"test:python": "node scripts/test-python.mjs"`。
-- [ ] 7. **`lefthook.yml`。** 在 `prettier` 那一项**前面**加：
+- [x] 7. **`lefthook.yml`。** 在 `prettier` 那一项**前面**加：
 
   ```yaml
       - name: ruff
@@ -1512,7 +1512,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
         run: node scripts/ruff-staged.mjs {staged_files}
         stage_fixed: true
   ```
-- [ ] 8. **四个 `pyproject.toml`。** 结构照下面这个模板，按 §2.10 的依赖表填：
+- [x] 8. **四个 `pyproject.toml`。** 结构照下面这个模板，按 §2.10 的依赖表填：
 
   ```toml
   [project]
@@ -1546,11 +1546,11 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   - **版本：** 按 §2.10 选「发布满两周的最新版」，记进台账。
   - **不写注释**（§0.2）。
   - `S` 规则（安全）会拦掉 `subprocess` 的 shell 调用和 `assert` 等。测试目录要放宽 `S101`（允许 `assert`）：在 `[tool.ruff.lint.per-file-ignores]` 里写 `"tests/**" = ["S101"]`。这是配置，不是代码里的抑制指令，符合 [AGENTS.md §8](../AGENTS.md#8-不写注释)。
-- [ ] 9. **生成锁定文件和导出文件。**
+- [x] 9. **生成锁定文件和导出文件。**
   - 在每个目录里运行 `uv lock`；
   - 在 `plugins/comfyui`、`selfhost/strata` 里运行 `uv export --no-dev --format requirements-txt -o requirements.txt`（带哈希，供 Colab 上的 `pip install --require-hashes` 用）；
   - 检查生成的 `requirements.txt` 里没有以 `#` 开头的注释行。有的话，加 `--no-header` 重新导出；仍有注释时，停下来汇报。
-- [ ] 10. **`.gitignore`。** 加 `.venv/`、`__pycache__/`、`.pytest_cache/`、`.ruff_cache/`（四行，不带注释）。加之前先 `rg -n "^\.venv|__pycache__" .gitignore`，已有的不重复加。
+- [x] 10. **`.gitignore`。** 加 `.venv/`、`__pycache__/`、`.pytest_cache/`、`.ruff_cache/`（四行，不带注释）。加之前先 `rg -n "^\.venv|__pycache__" .gitignore`，已有的不重复加。
 
 **接线点。**
 
@@ -1605,8 +1605,8 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T02 已合入，`rg -n "IMAGE_MAX_BYTES|IMAGE_MAX_PIXELS" packages/contracts/src/schemas/image.ts` 有两项常量，`index.ts` 导出该 schema。`ls packages/core/src/image` 不存在；`node -e "console.log(typeof require('node:zlib').crc32)"` 输出 `function`。不是 `function` 时，第 4 步的 PNG 夹具改用自己写的 CRC32 表，并在汇报里写明。
-- [ ] 2. **`image/limits.ts`。**
+- [x] 1. **核对前提。** T02 已合入，`rg -n "IMAGE_MAX_BYTES|IMAGE_MAX_PIXELS" packages/contracts/src/schemas/image.ts` 有两项常量，`index.ts` 导出该 schema。`ls packages/core/src/image` 不存在；`node -e "console.log(typeof require('node:zlib').crc32)"` 输出 `function`。不是 `function` 时，第 4 步的 PNG 夹具改用自己写的 CRC32 表，并在汇报里写明。
+- [x] 2. **`image/limits.ts`。**
 
   ```ts
   export { IMAGE_MAX_BYTES, IMAGE_MAX_PIXELS } from '@unwritten/contracts';
@@ -1619,7 +1619,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
     'image/webp': 'webp',
   };
   ```
-- [ ] 3. **`image/validate.ts`。** 导出：
+- [x] 3. **`image/validate.ts`。** 导出：
 
   ```ts
   export type ImageRejectReason =
@@ -1690,7 +1690,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   `aspectMatches`：`aspect` 是 `"a:b"`，算 `|w/h − a/b| ÷ (a/b) ≤ tolerance`（默认 `IMAGE_ASPECT_TOLERANCE`）。`aspect` 格式不对时返回 `false`。
 
   **所有读取都先检查下标不越界。** 越界一律当 `truncated`，绝不抛异常。这个函数的输入是不可信的，写成「任何字节序列都不会让它抛错」。
-- [ ] 4. **`test-support/image-bytes.ts`。** 导出：
+- [x] 4. **`test-support/image-bytes.ts`。** 导出：
   - `pngBytes(width, height, options?: { textChunk?: string; exif?: boolean; animated?: boolean }): Uint8Array`
     - 生成**真正能解码的** PNG：8 位 RGB，每行开头一个过滤字节 0，像素全 0；`IDAT` 数据用 `zlib.deflateSync` 压缩；每块的 CRC 用 `zlib.crc32(类型 + 数据)`。
     - `textChunk` 在 `IEND` 前插一个 `tEXt` 块，内容是 `Comment\0<文字>`；`exif` 插一个空的 `eXIf` 块；`animated` 在 `IHDR` 后插一个 `acTL` 块。
@@ -1703,14 +1703,14 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
     4. `FF DA` 段；
     5. 两个数据字节；
     6. `FF D9`。
-- [ ] 5. **`test-support/image-bytes.test.ts`。** 用 `validateImageBytes` 反向验证夹具：
+- [x] 5. **`test-support/image-bytes.test.ts`。** 用 `validateImageBytes` 反向验证夹具：
   - `pngBytes(3, 2)` 校验得 `image/png`、宽 3、高 2；
   - `TINY_WEBP` 得 `image/webp`、1×1；
   - `webpHeaderBytes(1536, 1024)` 得 1536×1024；
   - `jpegHeaderBytes(640, 480)` 得 640×480。
 
   另用 `zlib.inflateSync` 解压 `pngBytes(3, 2)` 的 `IDAT` 数据，断言长度是 `(1 + 3 × 3) × 2 = 20`，证明夹具真的能解码。
-- [ ] 6. **`image/validate.test.ts`。** 至少这些用例，每一条断言 `ok` 和 `reason` 的字面量：
+- [x] 6. **`image/validate.test.ts`。** 至少这些用例，每一条断言 `ok` 和 `reason` 的字面量：
 
   | 输入 | 期望 |
   | --- | --- |
@@ -1733,7 +1733,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
   `aspectMatches`：`(1536, 1024, '3:2')` 为 true；`(1024, 1360, '3:4')` 为 true（误差约 0.4%）；`(1000, 1000, '3:2')` 为 false；`(1, 1, 'x')` 为 false。
 
-- [ ] 7. **`image/errors.ts`。** 出图模块内部统一的错误类型，T08、T09、T10、T11 共用：
+- [x] 7. **`image/errors.ts`。** 出图模块内部统一的错误类型，T08、T09、T10、T11 共用：
 
   ```ts
   import type { ErrorCode } from '@unwritten/contracts';
@@ -1764,7 +1764,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   - `final`：不重试。
 
   `message` 只放错误码，不放服务返回的原文。
-- [ ] 8. **`image/conformance/target.ts`。** 两组一致性测试（T08、T10）共用的目标选择。导出：
+- [x] 8. **`image/conformance/target.ts`。** 两组一致性测试（T08、T10）共用的目标选择。导出：
 
   ```ts
   export async function conformanceTarget(
@@ -1838,10 +1838,10 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
 **步骤。**
 
-- [ ] 1. **核对前提。**
+- [x] 1. **核对前提。**
   - 运行 `rg -n "providers-file|providers-schema" packages/core/src`。规划时命中这几个文件：`llm/service.ts`、`llm/params.ts`、`llm/providers-file.ts`、`llm/providers-file.test.ts`、`llm/test-connection.ts`、`llm/test-connection.test.ts`。多出来的文件同样要改导入。
   - 运行 `rg -n "createProvidersStore\(" packages/core/src --glob '!*.test.ts'`，确认生产代码只有 `llm/service.ts` 一处调用。
-- [ ] 2. **`providers/schema.ts`。**
+- [x] 2. **`providers/schema.ts`。**
   1. 把 `llm/providers-schema.ts` 的内容移过来；
   2. `PROVIDERS_FILE_VERSION` 改成 `2`；
   3. 加下面两段，插在 `ProvidersFileSchema` 之前：
@@ -1869,7 +1869,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   `emptyProvidersFile()` 返回值加 `imageServices: []`、`image: { service: null }`。
 
   文件名里的 `capabilities` 是 OpenAI 图像接口的手填能力（`maxReferences`、`sizes`），和 [插图与出图服务 §2](../docs/image.md#2-出图服务的配置) 的示例一致。
-- [ ] 3. **`providers/migrate.ts`。** 导出：
+- [x] 3. **`providers/migrate.ts`。** 导出：
 
   ```ts
   export function upgradeProvidersObject(parsed: unknown): { value: unknown; fromVersion: 1 | 2 | null };
@@ -1879,7 +1879,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   - `version === 2`：原样返回，`fromVersion: 2`。
   - 其他情况：原样返回，`fromVersion: null`。由调用方照旧按 schema 报错。
   - 不修改传入的对象。
-- [ ] 4. **`providers/file.ts`。** 把 `llm/providers-file.ts` 移过来，做四处改动：
+- [x] 4. **`providers/file.ts`。** 把 `llm/providers-file.ts` 移过来，做四处改动：
   1. `ProvidersState` 的 `ok` 分支加 `migratedFrom: 1 | null`。
   2. `load()` 里：
      - 判 `too_new` 的条件从 `version > 1` 改成 `version > PROVIDERS_FILE_VERSION`；
@@ -1899,7 +1899,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
      - 先把磁盘上当前的文件按字节复制到 `<filePath>.bak`：`copyFileSync`，然后 `chmodSync(…, 0o600)`。`.bak` 已存在时覆盖。
      - 复制成功后调用 `options.onMigrated?.(true)`；复制失败时调用 `onMigrated(false)` 并抛出原错误，**不写新文件**。不能在没有备份的情况下覆盖用户的版本 1 文件。
      - 写入前用 `ProvidersFileSchema.parse(file)` 校验一次（[packages/core/AGENTS.md §2](../packages/core/AGENTS.md#2-契约与错误)：读的时候校验什么，写的时候就校验什么）。
-- [ ] 4a. **把 key 和 id 的规则也搬进 `providers/`。** 出图服务的 key 规则和 id 格式照搬模型服务（[插图与出图服务 §2](../docs/image.md#2-出图服务的配置)），`image` 模块不能导入 `llm` 的内部文件。
+- [x] 4a. **把 key 和 id 的规则也搬进 `providers/`。** 出图服务的 key 规则和 id 格式照搬模型服务（[插图与出图服务 §2](../docs/image.md#2-出图服务的配置)），`image` 模块不能导入 `llm` 的内部文件。
   - `llm/keys.ts`（`envVarOf`、`resolveApiKey`、`keyStatus`）原样移成 `providers/keys.ts`。
   - `llm/endpoint-id.ts`（`endpointSlug`、`newEndpointId`）移成 `providers/ids.ts`，再加一个函数：
 
@@ -1911,10 +1911,10 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
     先核对 `newEndpointId` 返回的确实以 `custom-` 开头（`rg -n "custom-" packages/core/src/llm/endpoint-id.ts`），不是时停下来汇报。
   - 两个测试文件一起移。导入方用 `rg -n "from '\./(keys|endpoint-id)\.ts'" packages/core/src/llm` 找，改成从 `../providers/` 导入。
-- [ ] 5. **`services.ts`。** `CoreDeps` 加 `providers?: ProvidersStore;`，从 `./providers/file.ts` 导入类型。
+- [x] 5. **`services.ts`。** `CoreDeps` 加 `providers?: ProvidersStore;`，从 `./providers/file.ts` 导入类型。
   - **为什么可选：** 现有的几十个测试直接手写 `CoreDeps`。可选字段让它们不用改。
   - 生产装配必须传。由第 7 步和 T29 的判据守住。
-- [ ] 6. **`llm/service.ts`。**
+- [x] 6. **`llm/service.ts`。**
   1. 把 `createProvidersStore(join(deps.dataDir, 'providers.json'), (state) => { … })` 改成：
 
      ```ts
@@ -1926,7 +1926,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   2. `view()`、`resolvedFor()` 等用到 `state.file` 的地方不用改：版本 2 的文件只是多了两个字段。
   3. `ProvidersState` 的 `ok` 分支多了 `migratedFrom`，按需补上类型。
   4. 其余文件里的 `from './providers-schema.ts'`、`from './providers-file.ts'` 改成 `from '../providers/schema.ts'`、`from '../providers/file.ts'`。
-- [ ] 7. **`app.ts`。** 在 `const bus = createEventBus();` 之后：
+- [x] 7. **`app.ts`。** 在 `const bus = createEventBus();` 之后：
 
   ```ts
   const providers = createProvidersStore(join(options.dataDir, 'providers.json'), {
@@ -1936,7 +1936,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   ```
 
   把 `providers` 放进 `deps` 对象。
-- [ ] 8. **测试。** 把 `llm/providers-file.test.ts` 移成 `providers/file.test.ts`，原有用例保留，按版本 2 调整期望。再加：
+- [x] 8. **测试。** 把 `llm/providers-file.test.ts` 移成 `providers/file.test.ts`，原有用例保留，按版本 2 调整期望。再加：
   - **版本 1 读取：** 写一个版本 1 的文件，里面有一个自定义端点和一个用途分配。`load()` 得 `ok`、`migratedFrom: 1`，`file.imageServices` 为 `[]`，`file.image.service` 为 `null`，端点原样保留。断言磁盘上的文件字节没变：读文件前后各取一次 `sha256`，两者相等。
   - **第一次写入时备份：** 接上一条，调用 `write(新文件)`：
     - `.bak` 的字节等于原版本 1 文件；
@@ -2009,11 +2009,11 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
 **步骤。**
 
-- [ ] 1. **核对前提。**
+- [x] 1. **核对前提。**
   - `rg -n "illustration|portrait|image_calls" packages/core/src/store/schema.ts` 零命中。
   - `ls packages/core/src/store/migrations` 列出现有迁移目录，记下最新的一个。
   - `pnpm --filter @unwritten/core exec drizzle-kit --version` 能运行。
-- [ ] 2. **`store/illustration-types.ts`。** 照抄下面的定义，每个都导出 schema 和类型：
+- [x] 2. **`store/illustration-types.ts`。** 照抄下面的定义，每个都导出 schema 和类型：
 
   ```ts
   import { z } from 'zod';
@@ -2138,7 +2138,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
   - `PortraitTaskSchema.inputFiles` 记生成这个位置时用作参考的文件（补齐视角时是正面）。`appearanceHash` 记登记时的形象哈希。两个字段供 T17 在提交前核对生成输入是否过期。清理时把文件算作「已登记的任务输入」（[插图与出图服务 §9.4](../docs/image.md#94-清理)）。
   - `TEXT_ONLY_PLAYTHROUGH_ILLUSTRATION`、`DEFAULT_ILLUSTRATION_SETTINGS` 必须能通过各自的 schema，第 6 步测试这一点。
-- [ ] 3. **`store/schema.ts` 加列。**
+- [x] 3. **`store/schema.ts` 加列。**
   - `works` 加 `illustrationStyle: text('illustration_style', { mode: 'json' }).$type<IllustrationStyle>()`（可空）。
   - `playthroughs` 加：
 
@@ -2160,7 +2160,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
       .notNull()
       .default(sql`'{"autoEnabled":false,"confirmed":null,"defaults":{"aspectPreference":"auto","resolutionTier":"1k"}}'`),
     ```
-- [ ] 4. **`store/schema.ts` 加三张表。** 列名、可空性、外键、CHECK 照 [插图与出图服务 §9.2](../docs/image.md#92-表) 和 §11 的 SQL 逐列翻成 Drizzle。
+- [x] 4. **`store/schema.ts` 加三张表。** 列名、可空性、外键、CHECK 照 [插图与出图服务 §9.2](../docs/image.md#92-表) 和 §11 的 SQL 逐列翻成 Drizzle。
 
   **`illustrations`：**
   - 列：`id`、`turnId`（唯一，引用 `turns.id`，`onDelete: 'cascade'`）、`playthroughId`（引用 `playthroughs.id`，级联删除）、`para`、`formatPreference`（json，非空）、`format`（json）、`status`、`stage`、`caption`、`prompt`、`negativePrompt`、`shotCapability`（json）、`refs`（json）、`referenceFiles`（json）、`seed`、`serviceId`、`model`、`file`（json）、`error`、`attempts`（非空，默认 0）、`activeAttemptId`、`attemptData`（json）、`createdAt`、`updatedAt`。
@@ -2181,7 +2181,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
     - 另加普通索引 `index('portrait_sets_work_idx').on(table.workId, table.scope)`。
 
   **`imageCalls`：** 照 §11 的 SQL。另加 `index('image_calls_created_idx').on(table.createdAt)`，`created_at` 非空。
-- [ ] 5. **生成迁移。** `pnpm --filter @unwritten/core db:generate`。
+- [x] 5. **生成迁移。** `pnpm --filter @unwritten/core db:generate`。
   - 生成后打开新目录的 `migration.sql`，逐条核对：
     1. 核对第 3 步的五列。两个 JSON 默认值需逐字对应第 3 步；`works.illustration_style`、`turns.illustrate_para`、`entities.source_para` 都可空；
     2. 两个 CHECK 都在；
@@ -2192,7 +2192,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
     这是唯一允许手写的迁移内容，写进汇报。
   - **不要手改**生成的 `snapshot.json`。
-- [ ] 6. **测试。**
+- [x] 6. **测试。**
 
   `store/illustration-types.test.ts`：
   - `TEXT_ONLY_PLAYTHROUGH_ILLUSTRATION`、`DEFAULT_ILLUSTRATION_SETTINGS`、`EMPTY_PORTRAIT_SLOTS`、`EMPTY_PORTRAIT_TASKS` 各自通过 schema。
@@ -2261,9 +2261,9 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T01、T07 已合入：`ls packages/core/src/net/fetch.ts packages/core/src/image/validate.ts` 都存在。
-- [ ] 2. **错误类型。** 用 T07 提供的 `image/errors.ts`（`ImageError`、`ImageErrorKind`），不要另写。
-- [ ] 3. **`image/info.ts`。** 导出：
+- [x] 1. **核对前提。** T01、T07 已合入：`ls packages/core/src/net/fetch.ts packages/core/src/image/validate.ts` 都存在。
+- [x] 2. **错误类型。** 用 T07 提供的 `image/errors.ts`（`ImageError`、`ImageErrorKind`），不要另写。
+- [x] 3. **`image/info.ts`。** 导出：
 
   ```ts
   export const SERVICE_INFO_PROTOCOL = 'unwritten-image/1';
@@ -2303,7 +2303,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   - `model` 缺省时为 null。
   - 返回的 `capabilities` 里 `resolutions` 缺省为 `{}`。
   - 不合格时 `issue` 写**一句英文**，说明哪个字段不合格，只给测试和诊断用，不显示给用户。
-- [ ] 4. **`image/unwritten-client.ts`。** 导出：
+- [x] 4. **`image/unwritten-client.ts`。** 导出：
 
   ```ts
   export interface UnwrittenJobRequest {
@@ -2387,7 +2387,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
     | `not_ready`、503 | `image_not_ready`，`final` |
     | 5xx | `image_server`，`final` |
     | 200 但 JSON 不合格 | `image_invalid_response`，`final` |
-- [ ] 5. **`test-support/fake-image-server.ts`。** 导出：
+- [x] 5. **`test-support/fake-image-server.ts`。** 导出：
 
   ```ts
   export interface FakeImageServerOptions {
@@ -2437,8 +2437,8 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
     - `DELETE` 之后，取图返回 404 `not_found`。
     - 响应**不带任何 `access-control-*` 头**。
   - 记录每个请求：方法、路径、`authorization` 头、解析后的 JSON 请求体。参考图的 `data` 也原样记下，测试要断言参考图的顺序。
-- [ ] 6. **一致性测试的目标选择。** 用 T07 提供的 `image/conformance/target.ts`（`conformanceTarget`），不要另写。
-- [ ] 7. **`image/conformance/unwritten-image.conformance.test.ts`。** 对 `conformanceTarget('UNWRITTEN_IMAGE', startFakeImageServer)` 逐条测下面这些。用裸 `fetch`（`createNetFetch()`），不用第 4 步的客户端：一致性测试要能看出协议本身的问题，不能被客户端的容错盖住。
+- [x] 6. **一致性测试的目标选择。** 用 T07 提供的 `image/conformance/target.ts`（`conformanceTarget`），不要另写。
+- [x] 7. **`image/conformance/unwritten-image.conformance.test.ts`。** 对 `conformanceTarget('UNWRITTEN_IMAGE', startFakeImageServer)` 逐条测下面这些。用裸 `fetch`（`createNetFetch()`），不用第 4 步的客户端：一致性测试要能看出协议本身的问题，不能被客户端的容错盖住。
 
   | 用例 | 断言 |
   | --- | --- |
@@ -2457,7 +2457,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   | 每个错误响应 | 形状是 `{ error: { code: string, message: string } }` |
 
   文件开头用 `describe.skipIf` 之外的普通 `describe`，不跳过任何用例。`real` 为 true 时把超时放宽到 300 秒，因为真的插件要画图。
-- [ ] 8. **`unwritten-client.test.ts`。** 对伪服务测：
+- [x] 8. **`unwritten-client.test.ts`。** 对伪服务测：
   - `info` 解析能力；
   - `run` 的正常路径：伪服务记录到的请求依次是 `POST /v1/jobs`、若干 `GET /v1/jobs/<id>`、`GET …/image`、`DELETE …`；
   - `size`、`seed`、`negativePrompt` 为 null 时，请求体里没有这些键；
@@ -2514,8 +2514,8 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T01、T07 已合入：`ls packages/core/src/net/fetch.ts packages/core/src/image/errors.ts` 都存在。
-- [ ] 2. **`image/openai-capabilities.ts`。** 导出：
+- [x] 1. **核对前提。** T01、T07 已合入：`ls packages/core/src/net/fetch.ts packages/core/src/image/errors.ts` 都存在。
+- [x] 2. **`image/openai-capabilities.ts`。** 导出：
 
   ```ts
   export function prefillOpenAiOptions(modelId: string): { maxReferences: number; sizes: 'fixed' | 'custom' };
@@ -2536,7 +2536,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   - **`openAiSizeFor`**：`tier` 为 `'default'` 时返回该比例的 `1k` 尺寸；表里没有时返回 `null`。
 
   **规划时 `custom` 尺寸表全部满足这几条约束：** 宽高都是 16 的倍数、长边不超过 3840、长短边之比不超过 3:1、总像素在 655,360 到 8,294,400 之间（[OpenAI 图像生成指南](https://developers.openai.com/api/docs/guides/image-generation#customize-image-output)）。测试里用这几条约束逐项验证表格，常量写死在测试里，不从被测代码派生。
-- [ ] 3. **`image/openai-client.ts`。** 导出：
+- [x] 3. **`image/openai-client.ts`。** 导出：
 
   ```ts
   export interface OpenAiImageRequest {
@@ -2606,7 +2606,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
     怎样区分连接阶段：`fetch` 抛出的 `TypeError` 的 `cause.code` 属于 `ECONNREFUSED`、`ENOTFOUND`、`EAI_AGAIN`、`UND_ERR_CONNECT_TIMEOUT` 之一时算连接阶段，其余都算已经发出。
   - **本模块不重试。** 重试一次的逻辑在 T11（`transport` 和 `busy` 各重试一次）。
   - **`listModels`：** `GET {baseUrl}/models`，2xx 即成功，其余按上表抛错。
-- [ ] 4. **`test-support/fake-openai-images.ts`。** 导出 `startFakeOpenAiImages(options?: { apiKey?: string })`，返回 `{ baseUrl, requests, enqueue(step), close() }`。
+- [x] 4. **`test-support/fake-openai-images.ts`。** 导出 `startFakeOpenAiImages(options?: { apiKey?: string })`，返回 `{ baseUrl, requests, enqueue(step), close() }`。
   - `baseUrl` 以 `/v1` 结尾。
   - `requests` 记录：路径、`authorization`、`content-type`、JSON 请求体，或 multipart 的字段。multipart 用 `new Request(url, { method, headers, body }).formData()` 解析，记下每个 `image[]` 的类型、文件名和字节长度。
   - **`step` 的种类：**
@@ -2616,7 +2616,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
     - `{ kind: 'hang' }`：不响应，直到连接被关；
     - `{ kind: 'oversize' }`：持续写出超过上限的 JSON。
   - 没有排队的 `step` 时，`GET /v1/models` 返回 `{ data: [] }`，其余请求返回 500。
-- [ ] 5. **测试。**
+- [x] 5. **测试。**
 
   `openai-capabilities.test.ts`：
   - 三类模型 id 的预填；
@@ -2668,8 +2668,8 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T01、T07 已合入：`ls packages/core/src/net/fetch.ts packages/core/src/image/conformance/target.ts` 都存在。
-- [ ] 2. **`image/launcher-client.ts`。** 导出：
+- [x] 1. **核对前提。** T01、T07 已合入：`ls packages/core/src/net/fetch.ts packages/core/src/image/conformance/target.ts` 都存在。
+- [x] 2. **`image/launcher-client.ts`。** 导出：
 
   ```ts
   export const LAUNCHER_PROTOCOL = 'unwritten-launcher/1';
@@ -2714,7 +2714,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
     | 其他非 2xx | `image_wake_failed` |
 
   - `info` 的 `protocol` 必须等于 `LAUNCHER_PROTOCOL`，否则抛 `image_wake_failed`。
-- [ ] 3. **`test-support/fake-launcher.ts`。** 导出 `startFakeLauncher(options?)`，返回：
+- [x] 3. **`test-support/fake-launcher.ts`。** 导出 `startFakeLauncher(options?)`，返回：
 
   ```ts
   interface FakeLauncher {
@@ -2736,7 +2736,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   - `stop` 进入 `stopping`，10 毫秒后进入 `stopped`。
   - `expiresAt` 是收到 `start` 时的 Unix 秒加 600。
   - 令牌校验、错误格式、不返回 CORS 头，都同 T08 的伪服务。
-- [ ] 4. **一致性测试**（`conformanceTarget('UNWRITTEN_LAUNCHER', startFakeLauncher)`），用裸 `fetch`：
+- [x] 4. **一致性测试**（`conformanceTarget('UNWRITTEN_LAUNCHER', startFakeLauncher)`），用裸 `fetch`：
 
   | 用例 | 断言 |
   | --- | --- |
@@ -2749,7 +2749,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   | 轮询状态，最多 120 秒 | 先看到 `needs_action` 时：`action.url` 以 `https://` 开头，`continue` 返回 202；最终到达 `running`。直接到达 `running` 时，跳过 `needs_action` 的断言，并在测试输出里写明（伪启动器默认会经过 `needs_action`） |
   | `stop` | 202；随后状态到达 `stopped` |
   | 所有响应 | 没有 `access-control-*` 头，不是 3xx |
-- [ ] 5. **`launcher-client.test.ts`。** 对伪启动器测：
+- [x] 5. **`launcher-client.test.ts`。** 对伪启动器测：
   - 秒到毫秒的换算（`since * 1000`）；
   - `action.url` 为 `http://…` 时抛 `image_wake_failed`：用 `setState` 注入；
   - 401 映射；
@@ -2809,8 +2809,8 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T02 已合入：`rg -n "imageContract|IllustrationViewSchema" packages/contracts/src` 有命中。
-- [ ] 2. **`shared/api/query.ts`** 的 `queryKeys` 加：
+- [x] 1. **核对前提。** T02 已合入：`rg -n "imageContract|IllustrationViewSchema" packages/contracts/src` 有命中。
+- [x] 2. **`shared/api/query.ts`** 的 `queryKeys` 加：
 
   ```ts
   imageConfig: ['image', 'config'] as const,
@@ -2825,7 +2825,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
   - `portraitDraft` 的 `target` 传 `entity:<id>` 或 `protagonist`。
   - 同一作品的参考组都以 `['portrait', workId]` 开头，事件来时按前缀一次失效。
-- [ ] 3. **`app/App.tsx` 的事件循环**加四个分支：
+- [x] 3. **`app/App.tsx` 的事件循环**加四个分支：
 
   | 事件 | 失效 |
   | --- | --- |
@@ -2834,7 +2834,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   | `image.config_changed` | `queryKeys.imageConfig`、`queryKeys.imageOutput`、`queryKeys.autoIllustration`、`['startInfo']` 前缀 |
   | `image.service_state` | `queryKeys.imageConfig`、`queryKeys.imageOutput`（就绪或探测结果变化可能带来新的能力） |
   | `llm.config_changed` | 保留原模型配置失效，同时失效 `queryKeys.autoIllustration` 和 `['startInfo']` 前缀，接收方变化会让确认过期 |
-- [ ] 4. **`shared/hooks/useImageBlob.ts`。**
+- [x] 4. **`shared/hooks/useImageBlob.ts`。**
 
   ```ts
   export type ImageBlobState =
@@ -2856,7 +2856,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   - **出错：** 请求失败时 `status: 'error'`，`code` 用 `shared/api/errors.ts` 的 `errorCode(error)`（按符号名找）。
   - **竞态：** 请求还没回来，`input` 就变了的话，丢弃旧请求的结果。如果该键已无人等候，释放旧结果生成的 URL。另一个组件还在等同一个键时，它仍能收到结果。
   - 导出一个只给测试用的 `resetImageBlobCacheForTests()`，revoke 全部项并清空缓存。
-- [ ] 5. **`shared/hooks/useImageServiceState.ts`。**
+- [x] 5. **`shared/hooks/useImageServiceState.ts`。**
 
   ```ts
   export function useImageServiceState(serviceId: string | null): {
@@ -2869,7 +2869,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   - 用 `useQuery({ queryKey: queryKeys.imageConfig, queryFn: () => api.image.services.list() })`。
   - 找到 `id === serviceId` 的服务，返回它的三个字段。
   - `serviceId` 为空，或服务不存在时，返回 `{ state: 'unknown', action: null, wakeFailure: null }`。
-- [ ] 6. **`shared/lib/image-import.ts`**（[插图与出图服务 §6.2](../docs/image.md#62-人物参考组)「导入」一条）。
+- [x] 6. **`shared/lib/image-import.ts`**（[插图与出图服务 §6.2](../docs/image.md#62-人物参考组)「导入」一条）。
 
   ```ts
   export type ImportProblem = 'type' | 'too_large' | 'too_many_pixels' | 'decode' | 'encode';
@@ -2892,7 +2892,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
   - 重新编码会丢掉 EXIF、XMP 和原始文件名，这正是目的：原图和原始文件名不出本机（§6.2）。
   - 不读 `file.name`，也不把它传给任何接口。
-- [ ] 7. **`shared/lib/image-labels.ts`。** 枚举到文案键的对照表（§2.4）：
+- [x] 7. **`shared/lib/image-labels.ts`。** 枚举到文案键的对照表（§2.4）：
 
   ```ts
   export const STYLE_PRESET_LABEL_KEYS: Record<StylePreset, string> = { watercolor: 'play:style.watercolor', … };
@@ -2906,7 +2906,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   键名照附录 A.4 的 `play:style.*`、`play:tier.*`、`play:slot.*`、`play:serviceState.*`、`play:wake.reason.*`、`play:stage.*`，文案照抄附录。`image-labels.test.ts` 对每张表：
   - 从 contracts 的常量数组现取（`STYLE_PRESETS` 等），先断言数组非空；
   - 再断言每个值都有键，并且这个键在 `play.json` 里存在。
-- [ ] 8. **`shared/ui/WakePrompt.tsx`。**
+- [x] 8. **`shared/ui/WakePrompt.tsx`。**
 
   ```tsx
   export function WakePrompt(props: { serviceId: string | null }): JSX.Element | null;
@@ -2926,8 +2926,8 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   - **无障碍：** 整个提示包在 `<section aria-labelledby=…>` 里，标题是 `t('common:wake.heading')`（视觉上可以隐藏）。进入 `needs_action` 时，用 `LiveRegion` 礼貌播报一次 `t('common:wake.needsAction')`；同一个 `action.url` 只播报一次（[a11y §10](../docs/a11y.md#10-宣告区)）。**不抢焦点。**
   - 样式只用 token：背景 `--uw-color-surface`、边框 `--uw-border-width` 加 `--uw-color-border`、圆角 `--uw-radius-md`、内边距 `--uw-space-3`、按钮间距 `--uw-space-2`、文字 `--uw-typography-body-*`。这些 token 规划时都在用（`rg -o "\-\-uw-[a-z0-9-]+" apps/client/src`）。需要别的 token 时只从已有的里选，取不到合适的时停下来汇报，不要自己编 token。
   - 本组件不自己挂载，由 T22、T23、T24 放进各自的页面。
-- [ ] 9. **i18n。** 照附录 A.3（`common.json`）和附录 A.4 里标「T20」的键加文案。
-- [ ] 10. **测试。**
+- [x] 9. **i18n。** 照附录 A.3（`common.json`）和附录 A.4 里标「T20」的键加文案。
+- [x] 10. **测试。**
 
   `useImageBlob.test.tsx`（浏览器项目）。伪接口的 `image.file` 返回 `new Blob([…], { type: 'image/png' })`，用 `vi.spyOn(URL, 'createObjectURL')` 和 `revokeObjectURL` 观察：
   - 两个组件用同一个输入，`image.file` 只被调用一次；
@@ -3029,8 +3029,8 @@ selfhost/colab/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T03 已合入：`cat selfhost/colab/pyproject.toml` 能看到 `requires-python = ">=3.11"`，`uv sync --directory selfhost/colab` 成功。
-- [ ] 2. **`service.py`：宿主与服务的约定**（§4）。
+- [x] 1. **核对前提。** T03 已合入：`cat selfhost/colab/pyproject.toml` 能看到 `requires-python = ">=3.11"`，`uv sync --directory selfhost/colab` 成功。
+- [x] 2. **`service.py`：宿主与服务的约定**（§4）。
 
   ```python
   from collections.abc import Callable
@@ -3058,7 +3058,7 @@ selfhost/colab/
 
   - `start` 的第二个参数是服务令牌。服务把它经环境变量交给自己的进程，**不放进命令行参数**。
   - 状态文件路径不进 `HostedService`，固定是 `Path(f"/tmp/unwritten-{name}.state")`，由 `paths.py` 给出。
-- [ ] 3. **`paths.py`。** 一个 `@dataclass(frozen=True) class Paths`，字段：
+- [x] 3. **`paths.py`。** 一个 `@dataclass(frozen=True) class Paths`，字段：
   - `local_root = Path("/content/unwritten")`；
   - `service_dir`：本地的服务代码目录；
   - `models_dir`：本地模型目录 `local_root / name / "models"`；
@@ -3067,7 +3067,7 @@ selfhost/colab/
   - `state_file = Path("/tmp/unwritten-<name>.state")`。
 
   再提供 `Paths.for_service(name, drive_root, local_root=…)`。**测试里所有根目录都通过参数换成 `tmp_path`**，代码里不能写死 `/content` 以外的绝对路径。
-- [ ] 4. **`resources.py`**（§8 第 2 步）。
+- [x] 4. **`resources.py`**（§8 第 2 步）。
   - **读数：**
     - `read_vram_gib()`：运行 `nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits`，取第一行的 MiB 数除以 1024。
     - `read_ram_gib()`：读 `/proc/meminfo` 的 `MemTotal`（kB）。
@@ -3076,7 +3076,7 @@ selfhost/colab/
     - 磁盘的需要量 = `models_total_bytes / 2**30 + DISK_HEADROOM_GIB`，`DISK_HEADROOM_GIB = 20` 是模块常量。
     - `min_ram_gib` 为 `None` 时不检查内存。
   - **读不到时：** 没有 `nvidia-smi` 时 `read_vram_gib` 抛 `ResourceError("nvidia-smi not found")`，由 `run.py` 当作显存不足处理。
-- [ ] 5. **`secrets.py`**（§7）。
+- [x] 5. **`secrets.py`**（§7）。
   - **`read_notebook_secret(name, userdata)`：**
     - `userdata` 是注入的 `google.colab.userdata` 模块。
     - 抛 `SecretNotFoundError` → `SecretProblem(name, "missing")`；抛 `NotebookAccessError` → `SecretProblem(name, "no_access")`。
@@ -3087,12 +3087,12 @@ selfhost/colab/
     - 文件不存在或字段缺失时抛 `SecretProblem("launch.json", "missing")`。
   - **`SecretProblem`** 的 `__str__` 只写名字和种类，**不写值**。
   - **任何函数都不打印密钥**，也不把它放进异常信息。
-- [ ] 6. **`drive.py`**（§6）。
+- [x] 6. **`drive.py`**（§6）。
   - `find_drive_root(mount=Path("/content/drive"))`：依次看 `mount / "MyDrive"`、`mount / "My Drive"`，返回存在的那个下面的 `unwritten/`；都不存在返回 `None`。
   - `is_mounted(mount)`：`find_drive_root(mount)` 是否不为 `None`。
   - `copy_tree(src, dst)`：`shutil.copytree(src, dst, dirs_exist_ok=True)`。
   - `unmount(drive_module)`：调用 `drive_module.flush_and_unmount()`。调用后再检查一次 `is_mounted`，仍挂载时抛 `DriveError("still mounted")`。**这一条要在服务启动之前成立**（§6）。
-- [ ] 7. **`models.py`**（§8 第 3 步）。
+- [x] 7. **`models.py`**（§8 第 3 步）。
   - **锁定文件：** `load_lock(path)` 读 `models.lock.json`，形状是 `{"files": [{"repo", "commit", "path", "size", "sha256", "dest"}]}`。`dest` 是相对于模型目录的路径。
   - **`ensure_models(lock, drive_models, local_models, opener=urllib.request.urlopen)`**，对每个文件：
     1. **Drive 上的文件。** Drive 上有这个文件，并且有标记 `<dest>.verified.json`，记下的 `size` 和 `mtime_ns` 都和文件当前的一致：跳过校验。
@@ -3104,7 +3104,7 @@ selfhost/colab/
     3. **Drive 上已有、本地没有的文件**，用 `shutil.copyfile` 顺序复制到本地。
   - **`models_total_bytes(lock)`** 返回 `size` 之和，供第 4 步用。
   - **下载地址里必须带 `commit`，** 不能用分支名（§8 第 3 步）。
-- [ ] 8. **`tailscale.py`**（§8 第 4 步、§9）。
+- [x] 8. **`tailscale.py`**（§8 第 4 步、§9）。
   - `install()`：`subprocess.run(["sh", "-c", "curl -fsSL https://tailscale.com/install.sh | sh"], check=True)`。
   - `start_tailscaled(statedir)`：用 `subprocess.Popen` 启动：
 
@@ -3120,14 +3120,14 @@ selfhost/colab/
   - `serve(port)`：`tailscale --socket=/tmp/tailscaled.sock serve --bg --https=443 http://127.0.0.1:<port>`。
   - `dns_name()`：运行 `tailscale --socket=/tmp/tailscaled.sock status --json`，取 `Self.DNSName`，去掉末尾的点，拼成 `https://<DNSName>`。
   - 每个命令失败时抛 `TailscaleError(命令名)`，**不带命令行原文**，因为可能含路径。
-- [ ] 9. **`state.py`。**
+- [x] 9. **`state.py`。**
   - `read_state(path)`：读状态文件（§4 的 JSON），返回 `ServiceState(ready, not_ready_reason, in_flight, last_activity_at)`。文件不存在、或 JSON 不合格时返回 `None`。
   - 只读，不写：状态文件由服务自己写。
-- [ ] 10. **`status_line.py`**（§8.1）。
+- [x] 10. **`status_line.py`**（§8.1）。
   - 导出 `emit(phase, **extra)`，打印一行 `unwritten-host ` 加 `json.dumps({"phase": phase, **extra}, ensure_ascii=True)`，然后 flush。
   - `phase` 必须是 `copying`、`preparing`、`models`、`tailscale`、`starting`、`serving`、`exiting` 之一，否则抛 `ValueError`。
   - `extra` 只允许 `reason`、`step` 两个键，值必须是 `str`，否则抛 `ValueError`。这样状态行里不可能混进地址和用户内容。
-- [ ] 11. **`watchdog.py`**（§10）。
+- [x] 11. **`watchdog.py`**（§10）。
 
   ```python
   def watch(*, processes, state_path, idle_minutes, clock, sleep, unassign, log, status=None) -> str
@@ -3150,7 +3150,7 @@ selfhost/colab/
      2. 调用 `unassign()`；
      3. 返回这个原因。
   - 进程退出**不会让循环停下**（§10）。
-- [ ] 12. **`run.py`。** 把前面的模块按 §8 的 8 步串起来：
+- [x] 12. **`run.py`。** 把前面的模块按 §8 的 8 步串起来：
 
   ```python
   def run(service: HostedService, *, mode: Literal["notebook", "launcher"], idle_minutes: int, deps: RunDeps | None = None) -> None
@@ -3175,10 +3175,10 @@ selfhost/colab/
 
   - **`emit` 只在由启动器启动时调用**，手动运行笔记本时为空操作。
   - **出错时：** 任一步抛出 `HostError`、`TailscaleError`、`ModelError`、`DriveError`、`SecretProblem` 时，由启动器启动就 `emit("exiting", reason="error", step=<步骤名>)`，步骤名取 `copying`、`secrets`、`resources`、`preparing`、`models`、`tailscale`、`unmount`、`starting`、`serving` 之一；然后重新抛出。
-- [ ] 13. **`__init__.py`。** `from . import drive, models, paths, resources, run, secrets, service, state, status_line, tailscale, watchdog`。
+- [x] 13. **`__init__.py`。** `from . import drive, models, paths, resources, run, secrets, service, state, status_line, tailscale, watchdog`。
   - **为什么要在这里全部导入：** 宿主从 Drive 导入后，Drive 会被卸载；之后再导入的子模块就找不到了（§8）。全部在包导入时加载完，卸载后不再需要文件。
   - 导出 `HostedService`、`Paths`、`run`。
-- [ ] 14. **测试。**
+- [x] 14. **测试。**
 
   **`conftest.py` 提供的夹具：**
   - 伪 `google.colab` 包，放进 `sys.modules`：
@@ -3198,7 +3198,7 @@ selfhost/colab/
   | `test_tailscale.py` | 有身份时 `up` 的参数里没有 `--auth-key`；首次时有 `--auth-key=file:`，并且 `$FAKE_BIN_LOG` 里**找不到**认证 key 的值（阳性对照：临时文件在命令运行期间确实含有这个值，由伪命令读出并记下它的长度） |
   | `test_watchdog.py` | `in_flight=1` 时一直不释放（时钟前进 2 倍空闲时长）；空闲到时调用 `unassign` 一次，返回 `idle`；进程退出后照样计时，返回 `process_exit`，退出信息只打印一次；`status` 收到 `exiting` |
   | `test_run.py` | **顺序：** 用伪 `RunDeps` 走完整流程，记录每个动作的顺序，断言 `unmount` 在 `service.start` 之前、tailscaled 状态复制回 Drive 在 `unmount` 之前。**读密钥：** 由启动器启动时 `emit` 依次输出 `copying`、`preparing`、`models`、`tailscale`、`starting`、`serving`；手动运行笔记本时 stdout 里没有任何 `unwritten-host` 开头的行；再次部署（本地已有 `tailscaled.state`）时，伪 `userdata` 没有被要过认证 key（断言 `get` 的调用参数里没有它）。**失败：** 资源不足时在复制模型前停下（`ensure_models` 没被调用），状态行是 `exiting`、`reason=error`、`step=resources`。**泄露：** 整个过程的 stdout 里找不到令牌的值 |
-- [ ] 15. **`README.md`。** 按[根目录 AGENTS.md §9](../AGENTS.md#9-源码目录的-readme) 只写四件事：
+- [x] 15. **`README.md`。** 按[根目录 AGENTS.md §9](../AGENTS.md#9-源码目录的-readme) 只写四件事：
   1. 宿主负责什么；
   2. 不归它管的（服务的协议、模型、启动参数）；
   3. 服务接入时先看 `unwritten_colab/service.py` 的 `HostedService`；
@@ -3260,10 +3260,10 @@ selfhost/colab/
 
 **步骤。**
 
-- [ ] 1. **核对前提。**
+- [x] 1. **核对前提。**
   - T04、T05 已合入：`ls packages/core/src/providers/file.ts packages/core/src/providers/keys.ts` 都存在；`rg -n "illustration" packages/core/src/store/schema.ts` 有命中。
   - `rg -n "createEndpoint\(input" packages/core/src/llm/service.ts` 找到参照实现。
-- [ ] 2. **`services.ts` 加两个接口。** 签名照抄。类型都从 `@unwritten/contracts` 导入，`ImageDispatchGuard`、`ImageGenerateInput`、`ImageGenerateResult` 从 `./image/engine-types.ts` 导入，这个文件也由本任务新建，内容见第 3 步。
+- [x] 2. **`services.ts` 加两个接口。** 签名照抄。类型都从 `@unwritten/contracts` 导入，`ImageDispatchGuard`、`ImageGenerateInput`、`ImageGenerateResult` 从 `./image/engine-types.ts` 导入，这个文件也由本任务新建，内容见第 3 步。
 
   ```ts
   export interface ImageService {
@@ -3323,7 +3323,7 @@ selfhost/colab/
   - `ServiceFactories` 加：
     - `image(deps: CoreDeps & { llm: LlmService }): ImageService;`
     - `illustration(deps: CoreDeps & { llm: LlmService; image: ImageService }): IllustrationService;`
-- [ ] 3. **`image/engine-types.ts`。** T11 照它实现 `generate`：
+- [x] 3. **`image/engine-types.ts`。** T11 照它实现 `generate`：
 
   ```ts
   export interface ImageDispatchGuard {
@@ -3359,7 +3359,7 @@ selfhost/colab/
   `guard` 只由游玩任务提供，包括玩家对正文插图的重试、重画及其按需生成的参考图。`model` 是本次确认的出图模型，Unwritten 图像协议取 `null`。`assertCurrent` 同步检查尝试和接收方，失效时抛 `AbortError`。作者参考、画风预览、付费测试按原手动契约调用。
 
   `manual` 为 true 表示玩家手动点了重试、重画、预览，不看离线记录（[插图与出图服务 §5.1](../docs/image.md#51-调用入口)）。
-- [ ] 4. **`image/capability-cache.ts`。** 进程内的能力缓存，T11 写入，本任务读：
+- [x] 4. **`image/capability-cache.ts`。** 进程内的能力缓存，T11 写入，本任务读：
 
   ```ts
   export interface ProbeRecord {
@@ -3376,7 +3376,7 @@ selfhost/colab/
     delete(serviceId: string): void;
   };
   ```
-- [ ] 5. **`image/config.ts`。** 纯函数，不读写文件：
+- [x] 5. **`image/config.ts`。** 纯函数，不读写文件：
   - **`serviceView(entry, env, probe, wake, lastSuccessAt)`：** 把 `ImageServiceEntry` 转成 `ImageServiceView`。
     - `key` 和 `launcher.key` 用 `keyStatus`（`providers/keys.ts`）；
     - `idleMinutes` 缺省为 `IMAGE_IDLE_MINUTES`；
@@ -3394,8 +3394,8 @@ selfhost/colab/
   - **`applyUpdate(entry, input)`：**
     - **地址不能改。** 更新输入里没有 `baseUrl` 字段，所以服务地址天然改不了。启动器地址也不能改：`launcher.action === 'set'` 而原来已有启动器时，地址变了就抛 `invalid_input`；要换地址，先 `remove` 再 `set`。
     - key 按 `KeyChange` 的三种动作处理，写法同 `llm/service.ts` 的 `updateEndpoint`。
-- [ ] 6. **`image/token.ts`。** `export function generateServiceToken(): string { return randomBytes(32).toString('base64url'); }`。测试：长度 43；1000 次不重复；只含 `[A-Za-z0-9_-]`。
-- [ ] 7. **`image/settings.ts`。** 读写 `app_settings.illustration`：
+- [x] 6. **`image/token.ts`。** `export function generateServiceToken(): string { return randomBytes(32).toString('base64url'); }`。测试：长度 43；1000 次不重复；只含 `[A-Za-z0-9_-]`。
+- [x] 7. **`image/settings.ts`。** 读写 `app_settings.illustration`：
   - **读写：** 读时用 T05 的 `IllustrationSettingsSchema` 解析；不合格时当作 `DEFAULT_ILLUSTRATION_SETTINGS`，并记一条 `warn` 事件 `image.settings.invalid`。写时先用同一个 schema 校验。
   - **`currentTarget(state, llm)`：**
     - `image.service` 为空、或指向的服务不存在 → `null`；
@@ -3413,7 +3413,7 @@ selfhost/colab/
       - `aspectPreference === 'auto'`：选中的档位是 `default`，或至少有一个比例有这档；
       - 固定比例：比例在 `aspects` 里，并且选中的档位是 `default` 或这个比例有这档。
   - **`setOutputPreferences(input)`：** 只写 `defaults`，不校验能力，因为能力可能稍后才探测到。
-- [ ] 8. **`image/service.ts`：`createImageService(deps)`。**
+- [x] 8. **`image/service.ts`：`createImageService(deps)`。**
   - **存储：** 用 `deps.providers ?? createProvidersStore(...)`（同 T04 第 6 步），`subscribe` 存储变化。变化后，`imageServices` 或 `image` 部分的 JSON 和上次不同时，发布 `image.config_changed`。比较用 `JSON.stringify(file.imageServices) + JSON.stringify(file.image)`。
   - **`listServices`：** 状态不是 `ok` 时，返回 `services: []` 和对应的 `status`、`problem`，写法同 `llm/service.ts` 的 `view`。
   - **`createService`、`updateService`、`removeService`、`select`：**
@@ -3428,8 +3428,8 @@ selfhost/colab/
     - `openai-images`：由配置算；
     - `unwritten-image`：取能力缓存。
   - **占位：** `testService`、`prepareGeneration`、`assertFormat`、`generate`、`wake`、`continueWake`、`usageSummary` 写 §2.9 的占位，由 T11 实现。`pruneCalls` 返回 0，`whenIdle` 返回 `Promise.resolve()`，T11 替换。
-- [ ] 9. **`illustration/service.ts`：`createIllustrationService(deps)`。** 每个方法都写 §2.9 的占位，`recoverInterrupted` 返回 0，`collectGarbage`、`whenIdle` 返回 `Promise.resolve()`。后续任务逐个替换，见 §3 的顺序表。
-- [ ] 10. **`api/router.ts` 把 T02 的临时路由改为全部真实服务调用。**
+- [x] 9. **`illustration/service.ts`：`createIllustrationService(deps)`。** 每个方法都写 §2.9 的占位，`recoverInterrupted` 返回 0，`collectGarbage`、`whenIdle` 返回 `Promise.resolve()`。后续任务逐个替换，见 §3 的顺序表。
+- [x] 10. **`api/router.ts` 把 T02 的临时路由改为全部真实服务调用。**
 
   | 契约路径 | 调用 |
   | --- | --- |
@@ -3448,7 +3448,7 @@ selfhost/colab/
   | `works.setIllustrationStyle` | `services.illustration.setWorkStyle` |
 
   写法照现有的 `base.<路径>.handler(({ input, context }) => …)`。替换全部后删掉临时处理函数，用 `rg -n "not implemented: rpc\."` 核对 `api/router.ts` 零命中。把 T02 的临时路由用例改成鉴权后收到真实 `ImageConfigView`，检查旧过程仍成功。
-- [ ] 11. **`api/http-app.ts`。** 在 `app.all('/api/*', …)` 之前加：
+- [x] 11. **`api/http-app.ts`。** 在 `app.all('/api/*', …)` 之前加：
 
   ```ts
   app.post('/api/portrait/upload', bodyLimit({ maxSize: PORTRAIT_UPLOAD_MAX_BODY_BYTES, onError: (c) => c.json({ error: 'payload_too_large' }, 413) }));
@@ -3457,12 +3457,12 @@ selfhost/colab/
   - `bodyLimit` 从 `hono/body-limit` 导入；
   - 先核对 oRPC 的路径确实是 `/api/portrait/upload`：在测试里发一次，看路由命中；
   - 这个上限在 oRPC 解析 multipart 之前生效（D12）。
-- [ ] 12. **`app.ts`、`main.ts`。**
+- [x] 12. **`app.ts`、`main.ts`。**
   - `app.ts`：在 `const play = …` 之后加 `const image = factories.image({ ...deps, llm });` 和 `const illustration = factories.illustration({ ...deps, llm, image });`，放进 `services` 对象；`waitForTasks` 加上 `image.whenIdle()`、`illustration.whenIdle()`；恢复阶段加 `illustration.recoverInterrupted()` 和 `image.pruneCalls()`。启动时的清理由 T29 加。
   - `main.ts`：`factories` 加 `image: (deps) => createImageService(deps)`、`illustration: (deps) => createIllustrationService(deps)`。
   - `app.test.ts`、`app.integration.test.ts`、`desktop/channel.test.ts` 的 `ServiceFactories` 补两个新工厂。用 `rg -n "ServiceFactories|: Services" packages/core/src --glob '*.test.ts'` 核对显式声明，通过 `pnpm typecheck` 找出上下文推断的工厂。
   - `app.test.ts` 和 `api/http-app.test.ts` 的 `fakeServices` 也要给 `Services.image`、`Services.illustration` 填值。已有真实装配的测试用真实工厂；已有类型化替身的测试用同形替身，HTTP 列表用例返回完整 `ImageConfigView`。
-- [ ] 13. **测试。**
+- [x] 13. **测试。**
 
   `image/service.test.ts`：
   - **新建：** 建一个 `unwritten-image` 服务，再 `listServices`：
@@ -3544,18 +3544,18 @@ selfhost/colab/
 
 **步骤。**
 
-- [ ] 1. **核对前提**，记下读数：
+- [x] 1. **核对前提**，记下读数：
   - `rg -n "EntityProfileSchema = " packages/core/src/story/types.ts`：规划时是 `z.object({ text: z.string() })`。
   - `rg -n "profile: \{ text:" packages/core/src --glob '!*.test.ts' --glob '!test-support/**'`：规划时三处，`story/writer.ts`、`authoring/service.ts`、`authoring/plan-edit.ts`。这三处都要改，第 4 步。
   - `rg -n "tx.insert\(turns\)" packages/core/src --glob '!*.test.ts'`：规划时三处，`play/service.ts`、`play/start.ts`、`play/opening-job.ts`。本任务只改 `play/service.ts` 那一处；开场图由 T18 处理。
   - `rg -n "工具说明的 token 棘轮|上下文的 token 棘轮" packages/core/src`：两个棘轮测试的位置。
-- [ ] 2. **`story/types.ts`。**
+- [x] 2. **`story/types.ts`。**
   - `EntityProfileSchema` 改成 `z.object({ text: z.string(), appearance: AppearanceTextSchema.optional() })`。
   - `NewEntityChangeSchema` 加 `appearance: z.string().nullable().default(null)`。
   - `ProjEntity` 加 `appearance: string | null` 和 `sourcePara: number | null`。
   - 加一个常量 `APPEARANCE_TRAIT_KEY = 'appearance'`。
   - `ValidatedChangesSchema` 加 `droppedAppearances: z.number().int().nonnegative().default(0)`。`EMPTY_CHANGES` 同步加 `droppedAppearances: 0`。
-- [ ] 3. **`story/changes.ts`：解析和校验**（`parseChanges`，按符号名找）。
+- [x] 3. **`story/changes.ts`：解析和校验**（`parseChanges`，按符号名找）。
   - **`new_entity` 的 `appearance`：**
     - 只对 `kind === 'character'` 读；
     - 用 `AppearanceTextSchema.safeParse(原值)`：通过就保留去首尾空白后的值；不通过，或者原值不是字符串，就记为 `null`，并让 `droppedAppearances` 加一；
@@ -3566,12 +3566,12 @@ selfhost/colab/
     - `same_visible_identity` 为字符串 `"true"` 时，写进 `data: { same_visible_identity: 1 }`，其他值忽略。
   - **`knowledge` 引用了一个形象特征**（本次的行或已有事实，`kind === 'trait'` 并且 `key === 'appearance'`）时，产生一条校验错误，文字见附录 B.3（[回合循环 §5](../docs/turn-loop.md#5-提交一回合propose_turn-与-ask_clarification)：形象特征不能作为 `knowledge` 的引用）。
   - 开场预览、开场、每局生成共用这同一套解析，不另写。用 `rg -n "parseChanges\(" packages/core/src --glob '!*.test.ts'` 核对调用方，都会自动得到新行为。
-- [ ] 4. **写入实体档案的三处**都带上形象：
+- [x] 4. **写入实体档案的三处**都带上形象：
   - `story/writer.ts`（规划时第 59 行）：`profile: { text: entity.profile, ...(entity.appearance ? { appearance: entity.appearance } : {}) }`。同一行实体的 `sourcePara` 在 `entityOrigin === 'turn'` 时取已校验的 `entity.para`，否则为 `null`。不依赖 `known_as`。
   - `authoring/service.ts`（规划时第 396 行，采用开场预览时写入新实体）：同样写；
   - `authoring/plan-edit.ts`（规划时第 178 行，确认方案时写入方案人物）：用方案项的 `appearance`，`null` 时不写这个键。
   - 写入前用 `EntityProfileSchema.parse` 校验（[packages/core/AGENTS.md §2](../packages/core/AGENTS.md#2-契约与错误)）。
-- [ ] 5. **`story/projection.ts`。**
+- [x] 5. **`story/projection.ts`。**
   - `loadProjection` 读实体时，填 `appearance: row.profile.appearance ?? null` 和 `sourcePara: row.sourcePara`，旧记录的 `null` 原样传下去。
   - 新增两个函数：
 
@@ -3583,10 +3583,10 @@ selfhost/colab/
     - `appearanceFacts`：返回投影里 `subjectId === entityId`、`kind === 'trait'`、`key === APPEARANCE_TRAIT_KEY` 的事实，按 `depth`、再按 `para` 升序。
     - `currentAppearance`：取 `appearanceFacts` 的最后一条的 `statement`；没有就用实体的 `appearance`；都没有返回 `null`。
     - 这是 **narrator 视角**的当前形象，不按主角可见性过滤。主角视角的形象由 T14 按段落另算。
-- [ ] 6. **`story/render.ts`。** 新增 `renderAppearanceBlock(input: { protagonistAppearance: string | null; present: Array<{ code: string; appearance: string | null }> }): string`。输出格式见附录 C.3：
+- [x] 6. **`story/render.ts`。** 新增 `renderAppearanceBlock(input: { protagonistAppearance: string | null; present: Array<{ code: string; appearance: string | null }> }): string`。输出格式见附录 C.3：
   - 都没有形象时返回空字符串；
   - 没有形象的人物不列出。
-- [ ] 7. **`play/propose-turn-tool.ts`。**
+- [x] 7. **`play/propose-turn-tool.ts`。**
   - `PROPOSE_TURN_PARAMETERS.properties` 加 `illustrate: { type: 'string', description: <附录 B.1 的说明> }`，**不加进 `required`**（可省略）。
   - `changes` 的说明里：
     - `new_entity` 那一行的示例加 `"appearance":"此刻看得见的样子，只写长相、身形、衣着"`；
@@ -3601,41 +3601,41 @@ selfhost/colab/
     - 去空白后必须是 `^[1-9]\d*$`，并且值 ≤ `paragraphCount`，否则 → `null`。
   - `ProposedTurnDraft` 加 `illustratePara: number | null`。在解析草稿的函数里（按 `ProposedTurnDraft` 的构造处找）用 `parseIllustrate(args.illustrate, paragraphs.length)` 填。
   - **不合格的 `illustrate` 不产生错误**（D23）。
-- [ ] 8. **`play/narrator-prompt.ts`。** `NARRATOR_SYSTEM_PROMPT` 加两段，文字照附录 B.2：插图标记的选法；形象只写看得见的样子。
-- [ ] 9. **`play/context.ts`。**
+- [x] 8. **`play/narrator-prompt.ts`。** `NARRATOR_SYSTEM_PROMPT` 加两段，文字照附录 B.2：插图标记的选法；形象只写看得见的样子。
+- [x] 9. **`play/context.ts`。**
   - `NarratorContextInput` 加 `protagonistAppearance: string | null`。
   - 在在场人物那一块之后，插入 `renderAppearanceBlock(...)` 的结果，空字符串时不插：
     - `present` 取 `presentIdsAtHead(p)` 里的人物（不含主角），`code` 用 codebook 的短编号，`appearance` 用 `currentAppearance`；
     - 主角的形象用 `input.protagonistAppearance`；
     - 位置按现有的块顺序找「在场」那一块，按函数名找，规划时用的是 `renderSceneBlock`。
   - 返回值加 `appearanceLines: number`，并加进 `turn.context` 样本的 `data`。
-- [ ] 10. **`play/service.ts`。**
+- [x] 10. **`play/service.ts`。**
   - 构建上下文时，读开局行的 `illustration`，用 T05 的 `PlaythroughIllustrationSchema.safeParse`：
     - 通过，并且 `protagonistInFrame` 为 true：传 `protagonistAppearance`；
     - 否则传 `null`，因为主角不入画时，narrator 不需要主角的样子。
   - 续写提交事务里的 `tx.insert(turns).values({...})`（规划时第 450 行）加 `illustratePara: draft.illustratePara`。
   - `getRoute` 返回的 `RouteView` 填上 `playthroughId`（路线所属的开局 id，`routes.playthrough_id`）。
-- [ ] 11. **`play/cast-tool.ts`（`propose_cast`）。**
+- [x] 11. **`play/cast-tool.ts`（`propose_cast`）。**
   - 每个人物那一行的 JSON 加可选的 `appearance`，说明文字照附录 B.4；
   - 解析时同第 3 步：不合格就丢弃，不报错；
   - 在 `play/opening-job.ts` 将本局人物传给 `writeChanges` 的地方带上解析后的形象，确保后台开场成功时写入实体档案。`playthroughs.cast` 里暂存的形状也加这个字段（按 `cast-tool.ts` 里人物类型的定义找，规划时第 24 行附近有 `profile: string`）。
-- [ ] 12. **`play/opening-tool.ts`、`play/opening-prompt.ts`、`story/opening-proposal.ts`、`authoring/preview-prompt.ts`。**
+- [x] 12. **`play/opening-tool.ts`、`play/opening-prompt.ts`、`story/opening-proposal.ts`、`authoring/preview-prompt.ts`。**
   - 开场和预览里的 `new_entity` 已经由第 3 步的解析带上形象，这里只改给模型的说明：`new_entity` 的示例加 `appearance`，文字照附录 B.4。
   - `story/opening-proposal.ts` 里转换预览新实体的地方，按 `NewEntityChange` 的用法找，把 `appearance` 原样带过去，`authoring/service.ts` 采用时才写得进去（第 4 步）。
-- [ ] 13. **`authoring/plan-tool.ts`、`authoring/plan-prompt.ts`、`authoring/plan-edit.ts`。**
+- [x] 13. **`authoring/plan-tool.ts`、`authoring/plan-prompt.ts`、`authoring/plan-edit.ts`。**
   - `propose_plan` 的人物行（`kind: 'entity'`）加可选的 `appearance`，说明照附录 B.4。
   - 解析时：
     - `entityKind === 'character'` 时用 `AppearanceTextSchema` 校验，不通过就记为 `null`，不报错；
     - 非人物一律为 `null`。
   - `updatePlanItem`（`plan-edit.ts`）接受人物项的 `appearance`：contracts 的 schema 已经校验过长度，这里只确认非人物不能带，带了抛 `invalid_input`。
   - 方案生成的提示词里加一句：人物的形象只写看得见的样子，写法同附录 B.2 第二段。
-- [ ] 14. **token 棘轮。**
+- [x] 14. **token 棘轮。**
   - 两个棘轮测试（`story/tools.test.ts` 的「工具说明的 token 棘轮」、`play/context.test.ts` 的「上下文的 token 棘轮」）**先跑一次，记下变红时报出的新数字**。
   - 把上限改成「新数字向上取整到 50 的倍数」。
   - 在汇报里逐段写明涨幅来自哪里：`illustrate` 参数说明、`new_entity` 示例、`trait` 说明、系统提示的两段、形象块（[packages/core/AGENTS.md §4](../packages/core/AGENTS.md#4-模型调用)）。
   - **不要**为了通过直接把数字调大一大截。
-- [ ] 15. **`test-support/llm-steps.ts`。** `proposeTurnStep` 的输入加可选的 `illustrate?: string`，有值时放进参数。不改其他函数的行为。
-- [ ] 16. **测试。** 新用例写在对应文件的测试里：
+- [x] 15. **`test-support/llm-steps.ts`。** `proposeTurnStep` 的输入加可选的 `illustrate?: string`，有值时放进参数。不改其他函数的行为。
+- [x] 16. **测试。** 新用例写在对应文件的测试里：
 
   | 文件 | 用例 |
   | --- | --- |
@@ -3698,15 +3698,15 @@ selfhost/colab/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T05、T07 已合入。用 `rg -n "portraitSets|illustrations|imageCalls" packages/core/src/store/schema.ts` 核对三张表，再核对 `image/validate.ts` 与 `image/limits.ts` 的图片校验和扩展名。
-- [ ] 2. **`illustration/constants.ts`。** 本模块的常量都放在这里，后续任务也往这里加：
+- [x] 1. **核对前提。** T05、T07 已合入。用 `rg -n "portraitSets|illustrations|imageCalls" packages/core/src/store/schema.ts` 核对三张表，再核对 `image/validate.ts` 与 `image/limits.ts` 的图片校验和扩展名。
+- [x] 2. **`illustration/constants.ts`。** 本模块的常量都放在这里，后续任务也往这里加：
 
   ```ts
   export const IMAGE_GC_GRACE_MS = 10 * 60 * 1000;
   export const PORTRAIT_PREVIEW_TTL_DAYS = 7;
   export const ILLUSTRATION_MAX_REFERENCES = 4;
   ```
-- [ ] 3. **`illustration/storage.ts`。** 导出：
+- [x] 3. **`illustration/storage.ts`。** 导出：
 
   ```ts
   export interface StagedImage {
@@ -3745,7 +3745,7 @@ selfhost/colab/
     - 读 `pathOf(ref)`，文件不存在（`ENOENT`）时返回 `null`，由调用方返回 `image_file_missing`；
     - 读出的字节长度和 `ref.bytes` 不一致时，同样返回 `null`，并记 `warn` 事件 `image.store.mismatch`，因为文件被人换过。
   - **`clearTemp`：** 删掉 `tmp/` 下全部文件，启动时调用（D9）。
-- [ ] 4. **`illustration/gc.ts`。**
+- [x] 4. **`illustration/gc.ts`。**
 
   ```ts
   export interface GcResult {
@@ -3778,8 +3778,8 @@ selfhost/colab/
 
   - **SQL 写法：** JSON 列用 SQLite 的 `json_each`，例如 `SELECT value FROM playthroughs, json_each(playthroughs.illustration, '$.authorPortraitSetIds')`。不要把整张表读进内存再解析大 JSON：开局多了以后会慢。
   - **`storageSummary`：** `referencedFiles` 的结果按哈希去重后，累加 `bytes`（§9.5：无引用的待清理文件不计入）。
-- [ ] 5. **检查交接。** 核对 `storage.ts` 和 `gc.ts` 导出与第 3、4 步一致。T13 使用同一个 `createImageStore` 实例接 `storageSummary` 和 `collectGarbage`。
-- [ ] 6. **测试。** 用 `makeTempDataDir()` 和真的 `openDatabase`。造数据时照 `test-support/story-fixtures.ts` 的 `seedStory` 建作品、版本、开局、回合，再直接插 `portrait_sets`、`illustrations` 行。
+- [x] 5. **检查交接。** 核对 `storage.ts` 和 `gc.ts` 导出与第 3、4 步一致。T13 使用同一个 `createImageStore` 实例接 `storageSummary` 和 `collectGarbage`。
+- [x] 6. **测试。** 用 `makeTempDataDir()` 和真的 `openDatabase`。造数据时照 `test-support/story-fixtures.ts` 的 `seedStory` 建作品、版本、开局、回合，再直接插 `portrait_sets`、`illustrations` 行。
 
   `storage.test.ts`：
   - `stage` 一张 `pngBytes(4, 4)`：`tmp/` 下有一个 `.part` 文件，`blobs/` 为空；`commit` 后 `blobs/<hash>.png` 存在，`tmp/` 为空，`transaction` 的返回值原样返回。
@@ -3857,12 +3857,12 @@ selfhost/colab/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T20 已合入：`rg -n "imageConfig" apps/client/src/shared/api/query.ts` 有命中。
-- [ ] 2. **`SettingsNav.tsx`。**
+- [x] 1. **核对前提。** T20 已合入：`rg -n "imageConfig" apps/client/src/shared/api/query.ts` 有命中。
+- [x] 2. **`SettingsNav.tsx`。**
   - `SETTINGS_SECTION_IDS` 加 `images: 'settings-images'`；
   - 导航列表在 `models` 之后加 `{ id: SETTINGS_SECTION_IDS.images, labelKey: 'settings:nav.images' }`。
-- [ ] 3. **`SettingsPage.tsx`。** 在模型那一节之后加 `<ImageServiceSection />`。它自己发起查询，和模型那一节互不影响。
-- [ ] 4. **`ImageServiceSection.tsx`。**
+- [x] 3. **`SettingsPage.tsx`。** 在模型那一节之后加 `<ImageServiceSection />`。它自己发起查询，和模型那一节互不影响。
+- [x] 4. **`ImageServiceSection.tsx`。**
   - 用 `useQuery(queryKeys.imageConfig, () => api.image.services.list())`。
   - `status` 不是 `ok` 时，复用 `ConfigProblem` 显示问题，并禁用所有写操作。写法同 `SettingsPage` 里的 `writesDisabled`。
   - **结构，从上到下：**
@@ -3874,7 +3874,7 @@ selfhost/colab/
     6. `OutputDefaultsPanel`；
     7. `ImageUsagePanel`。
   - 没有任何服务时，只显示说明和添加表单。
-- [ ] 5. **`ImageServiceCard.tsx`。** 一张卡显示一个服务（`ImageServiceView`）。
+- [x] 5. **`ImageServiceCard.tsx`。** 一张卡显示一个服务（`ImageServiceView`）。
   - **显示：**
     - 名字；
     - 协议：`settings:images.protocol.unwritten-image` 或 `.openai-images`；
@@ -3895,11 +3895,11 @@ selfhost/colab/
     - 「测试启动器」：`test({ target: 'launcher' })`，显示实现名、版本、就绪状态、当前状态。状态用 `settings:images.launcherState.<状态>`。
     - 编辑时可以加上、移除启动器，改它的 key 和空闲分钟数。空闲分钟数用 `shared/ui/NumberField`，范围 `IDLE_MINUTES_MIN`–`IDLE_MINUTES_MAX`，从 contracts 取。
     - 生成启动器令牌同样用 `TokenReveal`。
-- [ ] 6. **`TokenReveal.tsx`。**
+- [x] 6. **`TokenReveal.tsx`。**
   - 一个按钮「生成令牌」，点了调用 `api.image.services.generateToken()`，在只读文本框里显示结果，旁边一个「复制」按钮（`navigator.clipboard.writeText`）。
   - 提示文案 `settings:images.tokenOnce`：只显示这一次，请复制到服务一侧。
   - **令牌只存在本次表单的 React state 里。** `TokenReveal` 以当前值和 `onChange` 接表单，生成后把值填进对应输入框。提交时直接传给 `create` 或 `update`，避免让 React Query 变更缓存持有含密钥的输入。提交成功或取消时清空，没有挂载的表单不保留该值（§2 第 4 条）。
-- [ ] 7. **`AddImageServiceForm.tsx`。**
+- [x] 7. **`AddImageServiceForm.tsx`。**
   - **字段：**
     - 协议：两个选项；
     - 名称；
@@ -3912,7 +3912,7 @@ selfhost/colab/
   - **可选的按需启动：** 一个复选框「通过启动器按需开关」，勾上后出现启动器地址、key（带 `TokenReveal`）、空闲分钟数（默认 `IMAGE_IDLE_MINUTES`）。
   - **地址警告：** 用明文 `http` 填非本机地址时，显示 `settings:images.plainHttpWarning`，同模型服务的警告。判断「本机」照 `AddEndpointForm` 现有的写法。
   - **提交：** 调用 `api.image.services.create({ requestId, baseRevision, … })`，`requestId` 在表单打开时生成一次，同一次提交重发时不变。
-- [ ] 8. **`AutoIllustrationPanel.tsx`**（§2「游玩时生成插图」）。
+- [x] 8. **`AutoIllustrationPanel.tsx`**（§2「游玩时生成插图」）。
   - 查询 `api.image.autoIllustration.get()`，键是 `queryKeys.autoIllustration`。
   - **一个开关「游玩时生成插图」：**
     - **打开时**不直接开启，而是弹出 `ConfirmDialog`。确认框里分两段，接收方的名字从 `queryKeys.imageConfig`（服务名）和 `queryKeys.llm`（端点名、模型 id）取：
@@ -3922,7 +3922,7 @@ selfhost/colab/
     - **关闭时**直接调用 `set({ enabled: false, confirm: null })`。
   - `view.current === null` 时，开关禁用，下面写 `settings:auto.unavailable`（没选出图服务，或 `background` 用途没配好）。
   - `view.confirmed` 不为空、但 `enabled` 为 false 时，下面写 `settings:auto.reconfirm`：接收方变了，需要重新确认。
-- [ ] 9. **`OutputDefaultsPanel.tsx`**（§2「默认出图规格」）。
+- [x] 9. **`OutputDefaultsPanel.tsx`**（§2「默认出图规格」）。
   - 查询 `api.image.outputPreferences.get()`。
   - 比例：「自动」或固定为 `aspects` 里的某一项。
   - 分辨率：`tiers` 里的每一档，文案用 `IMAGE_TIER_LABEL_KEYS`（T20），后面显示该档的实际宽×高：
@@ -3931,13 +3931,13 @@ selfhost/colab/
   - 只有一档时显示这一档，并写明 `settings:output.onlyTier`。
   - `preferenceAvailable` 为 false 时，提示 `settings:output.unavailable`。
   - 改动立即调用 `set`。字段名、自动比例和宽高用附录 A.4 的 `play:format.*`。
-- [ ] 10. **`ImageUsagePanel.tsx`。**
+- [x] 10. **`ImageUsagePanel.tsx`。**
   - 查询 `api.image.usage.summary()` 和 `api.image.storage.summary()`。
   - 按服务列出最近 7 天、30 天的张数和 token，不显示费用（§11）。
   - 显示「插图和人物参考共占用 X」，`X` 用 `shared/lib/format.ts` 里已有的字节格式化函数；没有的话在本文件里写一个，只用 `Intl.NumberFormat`。
   - 隐私说明 `settings:images.privacy` 放在这一节末尾（§2 的「隐私说明」一行）。
-- [ ] 11. **i18n。** 照附录 A.2 加 `settings.json` 的键。
-- [ ] 12. **测试**（浏览器项目，`shared/test/render.tsx` 渲染，`createFakeApi` 注册处理函数）。
+- [x] 11. **i18n。** 照附录 A.2 加 `settings.json` 的键。
+- [x] 12. **测试**（浏览器项目，`shared/test/render.tsx` 渲染，`createFakeApi` 注册处理函数）。
 
   `ImageServiceSection.test.tsx`：
   - **服务卡：** 伪接口返回两个服务，一个 `unwritten-image`、一个 `openai-images`。两张卡都能按服务名找到；`openai-images` 卡上有「生成测试图」，另一张没有。
@@ -4011,9 +4011,9 @@ selfhost/colab/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T20 已合入：`ls apps/client/src/shared/lib/image-import.ts apps/client/src/shared/ui/WakePrompt.tsx` 存在。
-- [ ] 1a. **文件位置。** 第 2、3、8、9 步的 `StylePicker`、`StylePreview`、`PortraitSetEditor`、`PortraitSlotCard` 放在 `apps/client/src/shared/ui/illustration/`；`IllustrationStyleSection` 留在 `features/authoring/`。
-- [ ] 2. **`StylePicker.tsx`。**
+- [x] 1. **核对前提。** T20 已合入：`ls apps/client/src/shared/lib/image-import.ts apps/client/src/shared/ui/WakePrompt.tsx` 存在。
+- [x] 1a. **文件位置。** 第 2、3、8、9 步的 `StylePicker`、`StylePreview`、`PortraitSetEditor`、`PortraitSlotCard` 放在 `apps/client/src/shared/ui/illustration/`；`IllustrationStyleSection` 留在 `features/authoring/`。
+- [x] 2. **`StylePicker.tsx`。**
 
   ```tsx
   export function StylePicker(props: {
@@ -4025,7 +4025,7 @@ selfhost/colab/
 
   - `RadioGroup` 列出五个预设，文案用 `STYLE_PRESET_LABEL_KEYS`，外加一项「自己写」。选「自己写」时出现 `TextField`，上限 `ILLUSTRATION_STYLE_TEXT_MAX_LENGTH`，不能换行。
   - 传了 `authorDefault` 时（开局页用），多一个按钮「恢复作者默认」。
-- [ ] 3. **`StylePreview.tsx`。**
+- [x] 3. **`StylePreview.tsx`。**
 
   ```tsx
   export function StylePreview(props: { workId: string; style: IllustrationStyle; viewWorkId: string }): JSX.Element;
@@ -4036,7 +4036,7 @@ selfhost/colab/
   - 生成中显示 `GeneratingMarker`（按导出名找）；失败显示 `errors:<code>`。
   - 没有选出图服务（`queryKeys.imageConfig` 里 `selectedServiceId === null`）时，按钮禁用，旁边写 `authoring:style.noService`。
   - 示例图的 `alt` 用 `t('authoring:style.previewAlt')`：它是固定题材，不是作品内容。
-- [ ] 4. **`IllustrationStyleSection.tsx`。** 补充设定里的「插图」节（[创作流程 §2](../docs/authoring-flow.md#2-写背景只补自己在意的设置)那张表的「插图」一行）。
+- [x] 4. **`IllustrationStyleSection.tsx`。** 补充设定里的「插图」节（[创作流程 §2](../docs/authoring-flow.md#2-写背景只补自己在意的设置)那张表的「插图」一行）。
   - 只在配了出图服务时出现：`imageConfig.services.length > 0`。
   - 默认收起，用和其他节相同的折叠写法。
   - 内容：
@@ -4044,19 +4044,19 @@ selfhost/colab/
     - `StylePreview`。
   - **画风不随草稿保存。** 改动后立即调用 `api.works.setIllustrationStyle({ workId, style })`，成功后失效 `queryKeys.work(workId)`。不计入草稿的修订号（D26），所以不走 `useAutosave`。
   - 文案说明 `authoring:style.description`：作为新开局的默认值，玩家开局时可以改。
-- [ ] 5. **`SettingsSections.tsx`。**
+- [x] 5. **`SettingsSections.tsx`。**
   - 在八节之后渲染 `<IllustrationStyleSection work={…} />`。现在这个组件只拿到 `settings`，所以给它加一个可选 prop `work?: WorkDetail`，由 `AuthoringPage` 传入；没传时不渲染插图节。
   - 不改八节的现有行为。
-- [ ] 6. **`PlanItemEditor.tsx` 的 `EntityForm`。**
+- [x] 6. **`PlanItemEditor.tsx` 的 `EntityForm`。**
   - 人物（`entityKind === 'character'`）多一个 `TextArea`「形象」：
     - 上限 `APPEARANCE_MAX_LENGTH`，不能换行，回车不插入换行：用 `onKeyDown` 拦下 `Enter`；
     - 说明文字 `authoring:plan.appearanceHint`：只写此刻看得见的样子，不写身份和秘密；
     - 空字符串保存为 `null`。
   - 非人物不显示这个字段。
-- [ ] 7. **`PlanItemCard.tsx`。**
+- [x] 7. **`PlanItemCard.tsx`。**
   - 人物卡显示形象。没有时显示 `authoring:plan.noAppearance`，这是作者可以选择不写的提示，不是错误。
   - 显示参考组入口「人物参考」，展开后渲染 `PortraitSetEditor`。
-- [ ] 8. **`PortraitSetEditor.tsx`。**
+- [x] 8. **`PortraitSetEditor.tsx`。**
 
   ```tsx
   export function PortraitSetEditor(props: {
@@ -4081,7 +4081,7 @@ selfhost/colab/
   - **待复核：** 有待复核的视角时，提示 `authoring:portrait.reviewHint`：替换正面后，其他视角要确认一下再采用。
   - **出错时：** `stale_revision` 时显示 `errors:stale_revision`，并重取草稿。其他错误用 `ErrorNotice`。
   - **生成设置：** 一个可折叠的「生成设置」，内容是比例和档位，选项取自 `queryKeys.imageOutput`。初次打开时比例用可用的竖图比例，优先 `3:4`，档位优先 `1k`（§6.2「默认使用可用的竖图比例，优先用 1K」）。生成时把选择作为 `format` 传给 `generate`。
-- [ ] 9. **`PortraitSlotCard.tsx`。**
+- [x] 9. **`PortraitSlotCard.tsx`。**
   - **有图时：** `useImageBlob(…, set.updatedAt)` 显示缩略图，`alt` 是 `t('authoring:portrait.slotAlt', { slot: 位置名 })`。
   - **状态，用文字说明：**
     - 空；
@@ -4097,9 +4097,9 @@ selfhost/colab/
     - 「生成」：`portrait.generate`。正面没图时，非正面的位置不能生成，按钮禁用。
     - 「移除」：`portrait.update` 的 `remove`。
   - 导入错误用 `aria-describedby` 关联到这个位置（[a11y](../docs/a11y.md)「导入错误与对应位置关联」）。
-- [ ] 10. **`AuthoringPage.tsx`。** 在页面顶部工具栏下面挂 `<WakePrompt serviceId={imageConfig.selectedServiceId} />`；`imageConfig` 用 `useQuery(queryKeys.imageConfig, …)` 取。
-- [ ] 11. **i18n。** 照附录 A.5 加 `authoring.json` 的键。在补齐视角和生成主角参考的操作旁用 `portrait.sendNotice` 列出当前出图服务。三个位置的说明、导入错误和按钮名走静态键或固定枚举映射。
-- [ ] 12. **测试**（浏览器项目）。
+- [x] 10. **`AuthoringPage.tsx`。** 在页面顶部工具栏下面挂 `<WakePrompt serviceId={imageConfig.selectedServiceId} />`；`imageConfig` 用 `useQuery(queryKeys.imageConfig, …)` 取。
+- [x] 11. **i18n。** 照附录 A.5 加 `authoring.json` 的键。在补齐视角和生成主角参考的操作旁用 `portrait.sendNotice` 列出当前出图服务。三个位置的说明、导入错误和按钮名走静态键或固定枚举映射。
+- [x] 12. **测试**（浏览器项目）。
 
   `IllustrationStyleSection.test.tsx`：
   - 没有出图服务时这一节不渲染；
@@ -4177,11 +4177,11 @@ selfhost/colab/
 
 **步骤。**
 
-- [ ] 1. **核对前提。**
+- [x] 1. **核对前提。**
   - T20 已合入。
   - `rg -n "image-dim" packages/tokens/tokens.json` 规划时零命中，由本任务加。
   - `rg -n "pulse" packages/tokens/tokens.json` 有命中：占位的呼吸用已有的 `--uw-motion-duration-pulse`。
-- [ ] 2. **`illustration-layout.ts`**（纯函数）。
+- [x] 2. **`illustration-layout.ts`**（纯函数）。
   - `frameAspect(view)`：
     - 有完成图时用 `view.image` 的宽高；
     - 否则用 `view.format.size` 的宽高；
@@ -4189,11 +4189,11 @@ selfhost/colab/
     - 都没有返回 `null`，表示自动比例尚未确定，只显示一行状态，不留画框。
   - `placementOf(turn)`：返回插图要插在哪一段之后。`para === 0` 时在第一段之前，`para === n` 时在第 n 段之后。
   - 测试：上面每种情况各一条。
-- [ ] 3. **`TurnArticle.tsx`。**
+- [x] 3. **`TurnArticle.tsx`。**
   - `turn.illustration` 不为空，并且 `status` 不是 `dismissed`、`cancelled` 时，在 `placementOf` 给出的位置插入 `<IllustrationFrame illustration={…} turnId={…} routeId={…} paraAnchorId={…} />`。
   - 为此 `TurnArticle` 加一个 prop `routeId: string`，`PlayPage` 传入。
   - 段落的 `id` 和 `tabIndex` 不变。
-- [ ] 4. **`IllustrationFrame.tsx`。** 按状态显示：
+- [x] 4. **`IllustrationFrame.tsx`。** 按状态显示：
 
   | 状态 | 显示 |
   | --- | --- |
@@ -4220,15 +4220,15 @@ selfhost/colab/
   - **画面说明**只在大图里显示，这里不显示（[设计准则](../docs/design-guidelines.md)）。
   - **阅读位置：** 画框出现或展开、图到达、收起、移除时，正在读的正文留在原处。用 `useFollowLatest`（按导出名找）现有的锚定办法；没有现成办法时，在改变高度前后各量一次锚点段落的 `getBoundingClientRect().top`，用 `scrollBy` 补偿差值。
   - **上报：** 在 `shared/lib/log.ts` 的 `ClientSample` 加与 T02 契约同形的 `client.illustration_visible` 变体。用 `performance.now()` 从本次挂载首次观察插图记录计到解码完成，调用 `reportSample(api, { metric: 'client.illustration_visible', durationMs, outcome: 'ok', requestId: illustration.id })`。用当前阅读页内的插图 id 记已上报状态，重画或渲染刷新时不会再报同一个 id。测试模拟两次解码，伪 `log.client` 只收到一条，类型检查覆盖契约。
-- [ ] 5. **`IllustrationFailed.tsx`。** 收成一行：
+- [x] 5. **`IllustrationFailed.tsx`。** 收成一行：
   - 原因：`errors:<code>`；`stage` 不为空时前面加 `ILLUSTRATION_STAGE_LABEL_KEYS[stage]`。
   - 按钮「重试」「不要这张图」，名称里写明是第几回合的插图：`t('play:illustration.retryNamed', { turn })`。
   - `code === 'image_output_format_unavailable'` 时，「重试」先打开一个小对话框，让玩家选这一次的比例和档位（选项取自 `queryKeys.imageOutput`），确认后调用 `retry` 并带上 `format`（§7.4「规格不可用」）。
-- [ ] 6. **`useIllustrationActions.ts`。** 封装 `api.illustration.retry`、`reroll`、`dismiss`：
+- [x] 6. **`useIllustrationActions.ts`。** 封装 `api.illustration.retry`、`reroll`、`dismiss`：
   - 每次调用生成新的 `requestId`；
   - 成功后失效 `queryKeys.route(routeId)`；
   - 调用期间返回 `pending` 状态，供按钮禁用。
-- [ ] 7. **`IllustrationLightbox.tsx`。** Base UI 的 `Dialog`。
+- [x] 7. **`IllustrationLightbox.tsx`。** Base UI 的 `Dialog`。
   - **内容：**
     - 大图；
     - 画面说明，作为对话框的描述（`Dialog.Description`）；
@@ -4240,29 +4240,29 @@ selfhost/colab/
   - **焦点：**
     - Esc 关闭后焦点回到插图按钮；
     - 移除插图后，焦点回到该图所属的段落；移除开场图后，焦点回到第一段（[a11y §8](../docs/a11y.md#8-游玩页)）。
-- [ ] 8. **`PlayPage.tsx`。**
+- [x] 8. **`PlayPage.tsx`。**
   - 给 `TurnArticle` 传 `routeId`；
   - 顶部挂 `<WakePrompt serviceId={…} />`，`serviceId` 取页面上任一条未完成插图的 `serviceId`，没有时取 `imageConfig.selectedServiceId`；
   - **进入页面时预热：** 页面挂载、并且路线已加载时，调用一次 `api.image.prewarm({ playthroughId })`。失败时静默：预热失败不打扰阅读，诊断由 core 记。
     - `playthroughId` 取 `route.playthroughId`（T02 加、T12 填）。为 `null` 时不预热。
-- [ ] 9. **`packages/tokens/tokens.json`。** 加两个 token：
+- [x] 9. **`packages/tokens/tokens.json`。** 加两个 token：
   - `color.image-dim`：浅色主题 `transparent`，深色主题在纯黑上取低透明度，例如 `rgb(0 0 0 / 12%)`；
   - `size.image-max-block`：数值 `50`，按视口高度的百分比用于“画框不超过阅读区可见高度的一半”；同时更新 `docs/theme.md`。
   - 然后跑 `node packages/tokens/build-css.mjs`（按现有的构建方式）、`node scripts/check-tokens.mjs` 和 token 契约测试。
   - 这是本任务唯一改 `packages/` 的地方。
-- [ ] 10. **`JournalSubject.tsx`、`JournalPortrait.tsx`。**
+- [x] 10. **`JournalSubject.tsx`、`JournalPortrait.tsx`。**
   - `subject.portrait` 不为空时，条目起始端显示一个小方块缩略图：
     - 用 `useImageBlob({ view: { kind: 'route', routeId }, image: { kind: 'portrait', setId, slot: 'front' } }, portrait.updatedAt)`；
     - `alt` 是 `subject.name`，即人物在主角口中的称呼，这是作品内容，原样用（[a11y §8](../docs/a11y.md#8-游玩页)）；
     - 小圆角，裁成正面头肩像（[设计准则](../docs/design-guidelines.md)「参考图缩略图」）。
   - `portrait` 为空时不显示，也不留空位。
-- [ ] 11. **动效。** 按[动效](../docs/motion.md)：
+- [x] 11. **动效。** 按[动效](../docs/motion.md)：
   - 占位呼吸用 `--uw-motion-duration-pulse`；
   - 到图淡入用 `--uw-motion-duration-fast` 加 `--uw-motion-ease-standard`；
   - **不做位移。**
   - `prefers-reduced-motion: reduce` 时占位不呼吸，图片直接出现或只做淡入（[docs/milestone-4.md](../docs/milestone-4.md) 验收「系统开启减少动态效果」）。
-- [ ] 12. **i18n。** 照附录 A.4 加标「T24」的键。
-- [ ] 13. **测试**（浏览器项目）。
+- [x] 12. **i18n。** 照附录 A.4 加标「T24」的键。
+- [x] 13. **测试**（浏览器项目）。
 
   `IllustrationFrame.test.tsx`，每种状态一条：
   - `queued` 加 `waking`：框里有「正在唤醒出图服务」，`aria-busy="true"`；
@@ -4363,7 +4363,7 @@ plugins/comfyui/
 
 **步骤。**
 
-- [ ] 1. **核对前提。**
+- [x] 1. **核对前提。**
   - T03、T25 已合入：`uv sync --directory plugins/comfyui` 成功；`ls selfhost/colab/unwritten_colab/run.py` 存在。
   - T08 已合入：`ls packages/core/src/image/conformance/unwritten-image.conformance.test.ts` 存在。
 - [ ] 2. **模板与锁定文件。**
@@ -4409,7 +4409,7 @@ plugins/comfyui/
     - `commit`、`size`、`sha256` 要从 Hugging Face 上核对后填：用 `curl -sI https://huggingface.co/Comfy-Org/Qwen-Image-2.1/resolve/<commit>/<path>` 看 `x-linked-size` 和 `x-linked-etag`，etag 就是 sha256；
     - 核不到时停下来汇报，**不要编造哈希**。
   - **`comfyui.lock`：** 写 ComfyUI 仓库地址和一个发布满两周的 commit，记进台账。
-- [ ] 3. **`server/config.py`。**
+- [x] 3. **`server/config.py`。**
   - 从环境变量读：
     - `UNWRITTEN_IMAGE_TOKEN`：必填，短于 32 个字符时 `sys.exit` 并打印 `token too short`，**不打印令牌**；
     - `UNWRITTEN_IMAGE_PORT`：默认 8190；
@@ -4421,7 +4421,7 @@ plugins/comfyui/
     - `WEBP_QUALITY = 92`；
     - `MAX_REFERENCE_EDGE = 4096`；
     - `POLL_INTERVAL_S = 1`。
-- [ ] 4. **`server/app.py`**（§6.2 的表）。
+- [x] 4. **`server/app.py`**（§6.2 的表）。
   - **启动：** aiohttp 应用，`client_max_size = maxReferences × ceil(maxReferenceBytes × 4 / 3) + 65536`，只监听 `127.0.0.1`。
   - **鉴权中间件：**
     - 拦在所有路由前面，用 `hmac.compare_digest` 比较 `Authorization: Bearer <令牌>`；
@@ -4438,7 +4438,7 @@ plugins/comfyui/
     | `DELETE /v1/jobs/{id}` | `jobs.cancel`，返回 204 |
 
   - **错误响应**全部用 `{"error": {"code", "message"}}`，`message` 用英文短句，不带用户内容。
-- [ ] 5. **`server/manifest.py`。**
+- [x] 5. **`server/manifest.py`。**
   - **GPU 型号：** 运行 `nvidia-smi --query-gpu=name --format=csv,noheader`，取第一行，`UNWRITTEN_GPU_NAME` 可以覆盖它；用这个型号在 `resolutions` 里查清单，查不到时 `resolutions` 为空。
   - **`info()` 返回 `/v1/info` 的 JSON**（[插图与出图服务 §3.2](../docs/image.md#32-get-v1info)）：
     - `protocol`：`unwritten-image/1`；
@@ -4453,7 +4453,7 @@ plugins/comfyui/
       - `negativePrompt`：四份模板的 `negativePromptEffective` 全为 true 时才是 true（§5）；
       - `maxReferences`、`maxReferenceBytes`、`maxPromptLength`：照 manifest。
   - `size_allowed(aspect, width, height)`：尺寸在本机清单里有才算允许。
-- [ ] 6. **`server/jobs.py`**（§6.2 的「`POST /v1/jobs`」「执行」「保留期」「幂等」）。
+- [x] 6. **`server/jobs.py`**（§6.2 的「`POST /v1/jobs`」「执行」「保留期」「幂等」）。
   - **`submit` 按顺序校验，任一条不过就返回对应的错误码，并且不入队：**
     1. 字段类型和必填，不过返回 `invalid_request`；
     2. `prompt` 不超过 `maxPromptLength`；
@@ -4477,14 +4477,14 @@ plugins/comfyui/
   - **保留期：** 结果完成 `RESULT_RETENTION_S` 后丢弃，幂等键随之失效。
   - **状态文件：** 每次任务开始、结束时，用 `state_file.write` 更新 `inFlight` 和 `lastActivityAt`。
   - **日志：** 只记任务 id、状态和耗时，不记提示词和图片。用 `logging`，格式里不放请求体。
-- [ ] 7. **`server/workflow.py`**（§5 的绑定、删除没用的槽位、`{{ref:N}}`）。
+- [x] 7. **`server/workflow.py`**（§5 的绑定、删除没用的槽位、`{{ref:N}}`）。
   - **`fill(template, binding, request, ref_files)`** 返回填好的副本，不修改传入的 `template`：
     - 把 `{{ref:N}}` 换成 `<imageN>`；
     - 填进提示词、seed、宽、高。seed 为空时用 `secrets.randbelow(2**31)`，并把实际值返回给调用方；
     - 第 1 到 `len(ref_files)` 个槽位的 `LoadImage` 节点填文件名；
     - 其余槽位：删掉对应的 `LoadImage` 节点，并从编码节点的输入里删掉那个 `image_N` 键（§5）。
   - **输出尺寸：** 请求有 `size` 时用它；没有时用 `defaultSizes[quality][aspect]`。
-- [ ] 8. **`server/images.py`。**
+- [x] 8. **`server/images.py`。**
   - **`load_reference(data_bytes)`：**
     - 用 Pillow 的 `Image.open` 打开，`verify()`；
     - 再重新打开并 `convert("RGB")`；
@@ -4494,14 +4494,14 @@ plugins/comfyui/
     - 打开 ComfyUI 的输出，用 `img.save(buf, "WEBP", quality=WEBP_QUALITY)`；
     - **不传 `exif`、`icc_profile`、`xmp` 参数**，所以不带元数据（§6.2「结果」）；
     - 返回字节。
-- [ ] 9. **`server/selftest.py`、`state_file.py`、`__main__.py`。**
+- [x] 9. **`server/selftest.py`、`state_file.py`、`__main__.py`。**
   - **`selftest.run()`**（§6.4）：
     - 用固定的英文提示词 `a plain ceramic cup on a wooden table, soft daylight` 和默认尺寸，先跑两份文生图，再拿文生图的结果当参考图跑两份编辑；
     - 四份都成功才 `ready = True`；
     - 失败时 `notReadyReason` 是 `out_of_memory` 或 `workflow_error`（§6.3 的映射），进程不退出。
   - **`state_file.write(path, *, ready, reason, in_flight, last_activity_at)`：** 先写到同目录的临时文件，再 `os.replace` 覆盖。路径固定 `/tmp/unwritten-comfyui.state`，测试里用环境变量 `UNWRITTEN_STATE_FILE` 覆盖。
   - **`__main__.py`：** 读配置，启动 aiohttp，后台跑自检，状态是 `starting`，结束后写状态文件。
-- [ ] 10. **测试。**
+- [x] 10. **测试。**
   - **`tests/fake_comfy.py`：** aiohttp 写的伪 ComfyUI（§10），实现：
     - `POST /prompt`：记下收到的图，返回 `prompt_id`；可配置成返回节点错误；
     - `GET /history/{id}`：几次轮询后出现输出；可配置成执行出错，信息里有 `CUDA out of memory`；
@@ -4520,7 +4520,7 @@ plugins/comfyui/
     | `test_manifest.py` | `UNWRITTEN_GPU_NAME` 设成清单里有的型号时报告 `resolutions`，设成没有的型号时 `resolutions` 为 `{}`；`negativePromptEffective` 有一份为 false 时，`negativePrompt` 为 false |
     | `test_selftest.py` | 四份都成功时 `ready`；把一份模板的输入名改坏，伪 ComfyUI 返回节点错误：`ready` 为 false，原因是 `workflow_error`，`/v1/info` 照常可读 |
     | `test_state_file.py` | 任务开始时 `inFlight` 为 1，结束后为 0，`lastActivityAt` 更新 |
-- [ ] 11. **`tests/serve_with_fakes.py`**（T03 第 4 步的约定）。
+- [x] 11. **`tests/serve_with_fakes.py`**（T03 第 4 步的约定）。
   1. 起伪 ComfyUI；
   2. 用随机令牌启动包装：`secrets.token_urlsafe(32)`，端口用 0 让系统分配，`UNWRITTEN_GPU_NAME` 设成测试清单里的型号；
   3. 等自检完成；
@@ -4528,7 +4528,7 @@ plugins/comfyui/
   5. 一直运行到收到 `SIGTERM`。
 
   它用 `tests/workflows/` 的最小模板，所以 `pnpm test:python` 不需要 GPU。
-- [ ] 12. **`colab_service.py`**（§8.1、§8.2）。定义 `SERVICE = HostedService(...)`：
+- [x] 12. **`colab_service.py`**（§8.1、§8.2）。定义 `SERVICE = HostedService(...)`：
   - `name="comfyui"`、`hostname="unwritten-image"`、`tag="tag:unwritten-image"`；
   - `token_secret="UNWRITTEN_IMAGE_TOKEN"`、`authkey_secret="TS_AUTHKEY_IMAGE"`；
   - `min_vram_gib=24`、`min_ram_gib=None`、`port=8190`；
@@ -4538,12 +4538,12 @@ plugins/comfyui/
     2. `pip install -r requirements.txt`，再 `pip install --require-hashes -r plugins 的 requirements.txt`；
     3. 写 `extra_model_paths.yaml`，指向 `paths.models_dir`。
   - **`start(paths, token)`：** 用 §3 的参数启动 ComfyUI，等 `/system_stats`；再用 `python -m server` 启动包装，令牌经环境变量 `UNWRITTEN_IMAGE_TOKEN` 传入。返回两个进程。
-- [ ] 13. **`colab.ipynb`。** 只有两个代码单元格，**没有 markdown 单元格，也没有注释**：
+- [x] 13. **`colab.ipynb`。** 只有两个代码单元格，**没有 markdown 单元格，也没有注释**：
   1. `IDLE_SHUTDOWN_MINUTES = 30`，挂载 Drive，把 Drive 上 `unwritten/colab` 加进 `sys.path`，`import unwritten_colab`；
   2. 把 Drive 上 `unwritten/comfyui/code` 加进 `sys.path`，`from colab_service import SERVICE`，然后 `unwritten_colab.run(SERVICE, mode="notebook", idle_minutes=IDLE_SHUTDOWN_MINUTES)`。
 
   用 `json` 模块生成这个文件，不要手写 JSON；`cells` 里的每个单元格 `cell_type` 都是 `"code"`，`outputs` 为空。
-- [ ] 14. **`README.md`。** 第一段链接 [Qwen Research License](https://huggingface.co/Qwen/Qwen-Image-2.1/blob/main/LICENSE)（§4「许可」）。然后是入口地图，以及「在 Colab 上运行」「在本机运行」「按需启动」三节操作步骤，内容对应 §8.3、§9、§8.4。不超过 150 行。
+- [x] 14. **`README.md`。** 第一段链接 [Qwen Research License](https://huggingface.co/Qwen/Qwen-Image-2.1/blob/main/LICENSE)（§4「许可」）。然后是入口地图，以及「在 Colab 上运行」「在本机运行」「按需启动」三节操作步骤，内容对应 §8.3、§9、§8.4。不超过 150 行。
 
 **接线点。**
 
@@ -4608,11 +4608,11 @@ selfhost/strata/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T03、T25 已合入。
-- [ ] 2. **锁定文件。**
+- [x] 1. **核对前提。** T03、T25 已合入。
+- [x] 2. **锁定文件。**
   - **`strata.lock.json`：** `{ "version": "<版本>", "feed": "https://github.com/Niko1221/Strata/releases/download/v<版本>", "engine": "<配套的引擎版本>" }`。版本照 [Strata §4](../docs/strata.md#4-strata-与模型)，从发布页核对，写进台账。
   - **`models.lock.json`：** 列出 `ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF` 里 Q2_0 那一组文件，以及 Strata 首次启动时另外下载的附属文件（§4「模型文件钉版本」）。`commit`、`size`、`sha256` 的核对方法同 T26 第 2 步，核不到时停下来汇报。
-- [ ] 3. **`gateway/config.py`。**
+- [x] 3. **`gateway/config.py`。**
   - **环境变量：**
     - `UNWRITTEN_LLM_TOKEN`：必填，至少 32 个字符；
     - `STRATA_INTERNAL_KEY`：必填；
@@ -4622,7 +4622,7 @@ selfhost/strata/
     - `LLM_GATEWAY_MAX_BODY_BYTES = 8 * 1024 * 1024`；
     - `STRATA_HEALTH_INTERVAL_S = 60`；
     - `STRATA_LOAD_TIMEOUT_S = 1800`。
-- [ ] 4. **`gateway/app.py`**（§6 的表）。
+- [x] 4. **`gateway/app.py`**（§6 的表）。
   - aiohttp，`client_max_size = LLM_GATEWAY_MAX_BODY_BYTES`，只监听 `127.0.0.1`。
   - **鉴权中间件：** 同 T26 第 4 步。错误格式用 OpenAI 的 `{"error": {"message", "type", "code"}}`（§6「错误格式」）。
   - **路由只有两个：** `GET /v1/models`、`POST /v1/chat/completions`。其余方法和路径一律 404，**不转给 Strata**。用一个兜底路由 `app.router.add_route("*", "/{tail:.*}", not_found)`。
@@ -4631,7 +4631,7 @@ selfhost/strata/
     - `messages` 里每条消息的 `content` 是字符串，或者是数组且每一项的 `type` 都是 `"text"`；有图片、音频、文件内容块时返回 400（§6「请求体」）；
     - **不检查**顶层的其他字段（§12 已知限制「网关不限制请求体的顶层字段」）。
   - **就绪闸门：** 自检通过之前，这两个接口返回 503。
-- [ ] 5. **`gateway/forward.py`**（§6「转发」「取消」「重定向与 CORS」）。
+- [x] 5. **`gateway/forward.py`**（§6「转发」「取消」「重定向与 CORS」）。
   - 用 `aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=None, sock_connect=10))`：**显式关掉总时长上限**，因为默认的 300 秒会截断长回答。
   - **请求头：** 只带 `Content-Type`、`Accept`，再加 `Authorization: Bearer <内部 key>`。不转发调用方的其他头。
   - `allow_redirects=False`。上游返回 3xx 时以 502 回应。
@@ -4641,7 +4641,7 @@ selfhost/strata/
     - 调用方断开（`asyncio.CancelledError`，或 `request.transport.is_closing()`）时，立即关闭到上游的响应和连接。
   - **日志：** 只记方法、路径、状态码和耗时（§6「日志」）。
   - **状态文件：** 请求开始和结束时更新 `inFlight`、`lastActivityAt`。
-- [ ] 6. **`gateway/selftest.py`**（§7）。
+- [x] 6. **`gateway/selftest.py`**（§7）。
   - 固定请求：
     - `messages` 只有一条 user 消息 `Call the ping tool with the word ok.`；
     - `tools` 里有一个 `ping` 工具，只有一个字符串参数 `word`；
@@ -4651,12 +4651,12 @@ selfhost/strata/
   - **成功的标准：** 流式结果里拼出一个 `ping` 调用，`arguments` 能 `json.loads` 成 `{"word": <字符串>}`。
   - **反复尝试：** 每 `STRATA_HEALTH_INTERVAL_S` 一次，每次最多等这么久。
   - **超时：** 超过 `STRATA_LOAD_TIMEOUT_S` 停止重试。最后一次拿到了完整回答、但没有合法的 `ping` 调用时，原因是 `self_test_failed`；否则是 `load_timeout`。
-- [ ] 7. **`gateway/health.py`**（§6「就绪」）。
+- [x] 7. **`gateway/health.py`**（§6「就绪」）。
   - 从启动起每 `STRATA_HEALTH_INTERVAL_S` 请求一次 `GET {STRATA_URL}/health`。
   - 连不上时，原因设成 `engine_down`，优先于 `starting`（§7）。
   - 重新连上后：自检还没通过就回到 `starting`，已经通过就回到就绪。
-- [ ] 8. **`state_file.py`、`__main__.py`。** 写法同 T26 第 9 步，路径 `/tmp/unwritten-strata.state`。`__main__` 同时启动网关、自检循环、健康检查循环。
-- [ ] 9. **测试。**
+- [x] 8. **`state_file.py`、`__main__.py`。** 写法同 T26 第 9 步，路径 `/tmp/unwritten-strata.state`。`__main__` 同时启动网关、自检循环、健康检查循环。
+- [x] 9. **测试。**
   - **`tests/fake_strata.py`：** aiohttp 写的伪 Strata（§11）。
     - 实现 `/health`、`/v1/models`、`/v1/chat/completions`：流式和非流式，带工具调用；
     - 记下收到的请求，包括请求头；
@@ -4673,7 +4673,7 @@ selfhost/strata/
     | `test_selftest.py` | 伪 Strata 前三次返回 503、之后正常：自检最终通过，状态文件变成就绪；伪 Strata 一直不调用工具：超时后原因是 `self_test_failed`；伪 Strata 一直 503：原因是 `load_timeout`。用可注入的时钟和睡眠，不真等 30 分钟 |
     | `test_health.py` | `/health` 连不上时原因是 `engine_down`，恢复后回到就绪 |
     | `test_logging.py` | 带一个特征字符串 `SENTINEL-PROMPT-42` 发请求，捕获日志（`caplog`），日志里找不到它；阳性对照：日志里有这一次请求的路径和状态码 |
-- [ ] 10. **`colab_service.py`**（§8）。
+- [x] 10. **`colab_service.py`**（§8）。
   - `SERVICE`：`name="strata"`、`hostname="unwritten-llm"`、`tag="tag:unwritten-llm"`、`token_secret="UNWRITTEN_LLM_TOKEN"`、`authkey_secret="TS_AUTHKEY_LLM"`、`min_vram_gib=12`、`min_ram_gib=48`、`port=8191`、`models_lock`。
   - **`prepare(paths)`：**
     1. `pip install --require-hashes -r requirements.txt`；
@@ -4683,7 +4683,7 @@ selfhost/strata/
     2. 用 §5 的完整参数运行 `strata launch`，`STRATA_UPDATE_CHECK=0` 和内部 key 经环境变量传；返回非零时抛错，并打印 Strata 的输出；
     3. 用 `python -m gateway` 启动网关，令牌和内部 key 经环境变量传；
     4. 返回网关进程。
-- [ ] 11. **`colab.ipynb`、`README.md`。** 写法同 T26 第 13、14 步。README 写 §9 的「在 Unwritten 里接上」步骤，以及 §12 已知限制里需要部署者知道的几条：日志、思考档位、单槽位。
+- [x] 11. **`colab.ipynb`、`README.md`。** 写法同 T26 第 13、14 步。README 写 §9 的「在 Unwritten 里接上」步骤，以及 §12 已知限制里需要部署者知道的几条：日志、思考档位、单槽位。
 
 **接线点。**
 
@@ -4744,15 +4744,15 @@ plugins/colab-launcher/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T03、T10、T25 已合入。`uv tool list` 里有没有 `google-colab-cli` 不重要：测试全部用伪 colab 命令。
-- [ ] 2. **`launcher/config.py`**（§3）。
+- [x] 1. **核对前提。** T03、T10、T25 已合入。`uv tool list` 里有没有 `google-colab-cli` 不重要：测试全部用伪 colab 命令。
+- [x] 2. **`launcher/config.py`**（§3）。
   - 读 `~/.config/unwritten/colab-launcher.json`，路径可以用环境变量 `UNWRITTEN_LAUNCHER_CONFIG` 覆盖。
   - **权限：** 文件权限不是 `0o600` 时拒绝启动，打印 `config file must be 0600`。
   - **`$变量名` 写法：** 三个密钥都支持，规则同 core 的 `resolveApiKey`：以 `$` 开头就从环境变量读。
   - **缺项时**不退出：进程照常启动，`/v1/info` 报告 `ready: false`、`notReadyReason: "not_configured"`。
   - **监听地址：** 配置里 `listen` 缺省为 `127.0.0.1`，只能是回环地址，否则拒绝启动。
   - **令牌**短于 32 个字符时拒绝启动，信息里不含令牌。
-- [ ] 3. **`launcher/cli.py`。** 每个 Colab CLI 命令一个函数，全部用 `asyncio.create_subprocess_exec`，**参数列表里不放任何密钥**（§6）：
+- [x] 3. **`launcher/cli.py`。** 每个 Colab CLI 命令一个函数，全部用 `asyncio.create_subprocess_exec`，**参数列表里不放任何密钥**（§6）：
 
   | 函数 | 命令 | 返回 |
   | --- | --- | --- |
@@ -4765,15 +4765,15 @@ plugins/colab-launcher/
   | `stop(session)` | `colab stop -s <会话>` | 会话不存在时的退出码 1 也算成功（§4「宿主的入口结束」） |
 
   - `colab` 可执行文件的路径用环境变量 `UNWRITTEN_COLAB_BIN` 覆盖，测试指向伪命令。
-- [ ] 4. **`launcher/packaging.py`**（§5 第 2 步）。
+- [x] 4. **`launcher/packaging.py`**（§5 第 2 步）。
   - **`pack(host_dir, service_dir) -> Path`：** 打一个 tar 包，内容是 `colab/` 和 `<名称>/code/` 两个目录。
     - 不含 `tests/`、`.venv/`、`__pycache__/`、`.pytest_cache/`、`.ruff_cache/`、`*.ipynb`；
     - 放在临时目录。
   - **`write_launch_file(token, authkey, idle_minutes) -> Path`：** 写一个权限 `0o600` 的临时 `launch.json`，内容是 `{"token", "tailscaleAuthKey", "idleMinutes"}`。上传后由调用方立即删除。
-- [ ] 5. **`launcher/status_lines.py`。**
+- [x] 5. **`launcher/status_lines.py`。**
   - `parse(line) -> dict | None`：只解析以 `unwritten-host ` 开头的行，后面必须是 JSON 对象，并且有 `phase` 字符串；其余行返回 `None`。
   - 解析出的对象只取 `phase`、`reason`、`step` 三个键，其余键丢掉。
-- [ ] 6. **`launcher/machine.py`：状态机**（§4 的表、§5 的步骤）。
+- [x] 6. **`launcher/machine.py`：状态机**（§4 的表、§5 的步骤）。
   - **状态：** `stopped`、`starting`、`needs_action`、`running`、`stopping`、`failed`；`since` 是进入当前状态的 Unix 秒。
   - **`start(idle_minutes)`：**
     - 在 `starting`、`needs_action`、`running` 时什么也不做；
@@ -4790,7 +4790,7 @@ plugins/colab-launcher/
   - **失败：** 任一步失败时，按 §4 的映射进入 `failed`，`reason` 取 `quota`、`not_signed_in`、`action_expired`、`start_error` 之一，然后执行一次 `stop` 释放运行时（§4「失败后」）。
   - **会话检查：** 在 `running` 时，每 `LAUNCHER_SESSION_CHECK_S`（60）调用一次 `sessions()`，会话不在了就进入 `stopped`。
   - **启动器重启：** 启动时调用一次 `sessions()`，会话在就进入 `running`，只靠会话检查跟踪；不在就是 `stopped`。
-- [ ] 7. **`launcher/app.py`**（[插图与出图服务 §12.2](../docs/image.md#122-启动器协议-unwritten-launcher1)）。
+- [x] 7. **`launcher/app.py`**（[插图与出图服务 §12.2](../docs/image.md#122-启动器协议-unwritten-launcher1)）。
   - aiohttp，只监听 `127.0.0.1`。鉴权同 T26。
   - **路由：**
     - `GET /v1/info`：`protocol: "unwritten-launcher/1"`、`implementation`、`ready`、`notReadyReason`、`capabilities: {}`；
@@ -4800,7 +4800,7 @@ plugins/colab-launcher/
     - `POST /v1/stop`：返回 202。
   - **幂等键：** 按 [插件 §3.4](../docs/plugins.md#34-有副作用的请求)记住 `idempotencyKey`：同一个键、同一个请求体，返回同一个结果；同一个键、不同请求体，返回 409 `idempotency_conflict`。
   - **日志：** 只记状态变化、CLI 命令名、退出码、耗时，不记 CLI 的完整输出（§6）。
-- [ ] 8. **`bootstrap.py`**（[Colab 宿主 §8.1](../docs/colab-host.md#81-由启动器启动)）。在运行时里执行：
+- [x] 8. **`bootstrap.py`**（[Colab 宿主 §8.1](../docs/colab-host.md#81-由启动器启动)）。在运行时里执行：
   1. 解包 `/content/unwritten/upload.tar` 到 `/content/unwritten/`；
   2. 把 `colab/`、`<名称>/code/` 加进 `sys.path`；
   3. 读 `launch.json` 的 `idleMinutes`：只读这一个字段，密钥留给宿主读，读完由宿主删；
@@ -4808,14 +4808,14 @@ plugins/colab-launcher/
   5. `unwritten_colab.run(SERVICE, mode="launcher", idle_minutes=…)`。
 
   服务名从 tar 包里唯一的那个 `<名称>/code/` 目录得出，不硬编码。
-- [ ] 9. **`launchd/…plist.template`、`README.md`。**
+- [x] 9. **`launchd/…plist.template`、`README.md`。**
   - plist 模板里的路径用 `{{UV}}`、`{{REPO}}` 占位，README 写明怎样替换后放进 `~/Library/LaunchAgents/`（§3「常驻」）。plist 是 XML，**不写注释**。
   - README 写：
     1. 安装 Colab CLI：`uv tool install google-colab-cli==<colab-cli.lock 里的版本>`；
     2. 运行一次 `colab sessions` 登录；
     3. 写配置文件并 `chmod 600`；
     4. 在 Unwritten 设置页填启动器地址和令牌。
-- [ ] 10. **测试。**
+- [x] 10. **测试。**
   - **`tests/fake_colab.py`：** 伪 colab 命令，状态存在 `$FAKE_COLAB_DIR` 里。
     - 每次调用把参数追加写进 `calls.log`，**连同环境变量的键名**（不写值）；
     - `sessions` 列出已建的会话；
@@ -4836,7 +4836,7 @@ plugins/colab-launcher/
     | `test_status_lines.py` | 只认 `unwritten-host ` 开头的行；额外的键被丢掉；不合格的 JSON 返回 `None` |
     | `test_restart.py` | 伪 colab 里已有同名会话时，新的启动器进程一启动状态就是 `running`；会话被删掉后，一个检查周期内变成 `stopped` |
     | `test_secrets.py` | 用特征值做令牌和认证 key，跑完正常路径后：`calls.log` 里的参数找不到它们；日志找不到它们（阳性对照：伪运行时目录里上传的 `launch.json` 内容里有它们） |
-- [ ] 11. **`tests/serve_with_fakes.py`**（T03 第 4 步的约定）：
+- [x] 11. **`tests/serve_with_fakes.py`**（T03 第 4 步的约定）：
   1. 设好伪 colab 的环境变量，默认要授权；
   2. 写一份临时配置，权限 0600；
   3. 用随机令牌启动启动器；
@@ -4895,10 +4895,10 @@ plugins/colab-launcher/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T06、T08、T09、T10 已合入：
+- [x] 1. **核对前提。** T06、T08、T09、T10 已合入：
   - `rg -n "not implemented: image\." packages/core/src/image/service.ts` 列出七个占位：`testService`、`prepareGeneration`、`assertFormat`、`generate`、`wake`、`continueWake`、`usageSummary`；
   - `ls packages/core/src/image/unwritten-client.ts packages/core/src/image/openai-client.ts packages/core/src/image/launcher-client.ts` 都存在。
-- [ ] 2. **常量**放在 `image/engine.ts` 顶部并导出（[插图与出图服务 §5.1](../docs/image.md#51-调用入口)、§12.3）：
+- [x] 2. **常量**放在 `image/engine.ts` 顶部并导出（[插图与出图服务 §5.1](../docs/image.md#51-调用入口)、§12.3）：
 
   ```ts
   export const IMAGE_POLL_INTERVAL_MS = 2_000;
@@ -4908,8 +4908,8 @@ plugins/colab-launcher/
   export const IMAGE_WAKE_TIMEOUT_MS = 1_800_000;
   export const IMAGE_CALL_RETENTION_DAYS = 90;
   ```
-- [ ] 3. **`image/queue.ts`。** 每个服务一个 `PQueue({ concurrency: 1 })`，按 `serviceId` 懒建。`run(serviceId, priority, task)` 把任务加进去，`priority` 用 `p-queue` 的 `priority` 选项：`quality === 'fast'` 的预览给 1，其余给 0（§5.1：开局页的预览优先）。`onIdle()` 等所有队列空闲。
-- [ ] 4. **`image/probe.ts`。**
+- [x] 3. **`image/queue.ts`。** 每个服务一个 `PQueue({ concurrency: 1 })`，按 `serviceId` 懒建。`run(serviceId, priority, task)` 把任务加进去，`priority` 用 `p-queue` 的 `priority` 选项：`quality === 'fast'` 的预览给 1，其余给 0（§5.1：开局页的预览优先）。`onIdle()` 等所有队列空闲。
+- [x] 4. **`image/probe.ts`。**
   - **`probe(entry)`：**
     - `unwritten-image`：用 `createUnwrittenImageClient(...).info(signal)`，单次时间上限 10 秒，得到 `ProbeRecord`；
     - `openai-images`：不探测，返回 `null`，能力来自配置。
@@ -4924,7 +4924,7 @@ plugins/colab-launcher/
     | 其他错误 | `invalid` |
 
   - **离线记录：** `offlineSince(serviceId)` 返回最近一次 `offline` 的时刻；在 `IMAGE_OFFLINE_TTL_MS` 以内时，算作「最近连不上过」。
-- [ ] 5. **`image/calls.ts`。**
+- [x] 5. **`image/calls.ts`。**
   - `recordCall(db, row)`：往 `image_calls` 插一行，返回 `id`。
   - `usageSummary(db, entries, now)`：按 `service_id` 统计最近 7 天、30 天：
     - `status = 'ok'` 的行数是张数；
@@ -4932,7 +4932,7 @@ plugins/colab-launcher/
     - `name` 从当前配置里找；服务已删除时为 `null`。
   - `pruneCalls(db, now)`：删掉 90 天以前的行，返回行数。
   - `lastSuccessAt(db)`：返回 `Map<serviceId, 最近一次 ok 的 created_at>`。
-- [ ] 6. **`image/wake.ts`**（§12.3）。导出 `createWaker(deps)`：
+- [x] 6. **`image/wake.ts`**（§12.3）。导出 `createWaker(deps)`：
 
   ```ts
   ensureAwake(serviceId: string, trigger: 'prewarm' | 'demand'): Promise<void>
@@ -4961,7 +4961,7 @@ plugins/colab-launcher/
   - **每次状态变化**都发布 `image.service_state`。
   - **启动器连不上**时抛 `image_launcher_offline`，401 时抛 `image_launcher_unauthorized`，这两个来自 T10 客户端的映射。
   - **`continueWake`：** 调用启动器的 `continue`，`idempotencyKey` 是 `ContinueWakeInput.requestId`。
-- [ ] 7. **`image/engine.ts`：`generate`。** 对一个 `ImageGenerateInput`，在该服务的队列里，按顺序：
+- [x] 7. **`image/engine.ts`：`generate`。** 对一个 `ImageGenerateInput`，在该服务的队列里，按顺序：
   1. **找配置并固定本次实际出图目标。** 出队后，以及每次调用出图客户端前，运行 `input.guard?.assertCurrent()`。服务存在且守卫有效时，取当前配置，与守卫的 `model` 比较（Unwritten 图像协议取 `null`）。不符按 `AbortError` 中断。客户端由刚核对过的同一个配置对象构造，之后直接发请求。技术重试、能力刷新之后再次经过相同检查。没有守卫的手动调用沿用现有配置检查。
   2. **共用 `prepareGeneration`（`image/engine.ts`）。** 插图需要先得知当前能力再调用镜头模型，手动画图同样走这个方法。OpenAI 兼容服务返回配置的能力。Unwritten 图像协议按以下步骤走：
      - 入口和任何探测或唤醒等待返回后，若传了守卫，运行 `assertCurrent()`，并用该次取到的配置检查模型。已有唤醒时加入同一个等待。否则，自动请求遇到 TTL 内的离线记录且没有启动器时立即返回 `image_offline`。手动请求仍探测。
@@ -4989,13 +4989,13 @@ plugins/colab-launcher/
      - 成功时返回 `ImageGenerateResult`。
   - **`signal` 中止时，** 调用记录的状态是 `aborted`，然后重新抛出 `AbortError`。
   - **任何错误的 `message` 里都不放提示词。**
-- [ ] 8. **`image/test-service.ts`：`testService`**（§2「测试连接」「生成测试图」）。
+- [x] 8. **`image/test-service.ts`：`testService`**（§2「测试连接」「生成测试图」）。
   - `target: 'service'`：
     - `unwritten-image`：`probe`，返回 `service`；
     - `openai-images`：`paid` 为 false 时调用 `listModels`；为 true 时用附录 B.6 的固定提示词，走 `generate`（`ref.kind: 'test'`、`manual: true`、`quality: 'fast'`、`aspect: '1:1'`），返回 `generated` 的宽高。
   - `target: 'launcher'`：调用启动器的 `info` 和 `state`，返回 `launcher`。服务没配启动器时返回 `ok: false`、`code: 'image_launcher_offline'`。
   - 出错时 `ok: false`，`code` 是错误码，**不抛出**：测试结果要显示给用户，不当作接口错误。
-- [ ] 9. **改 `image/service.ts`。**
+- [x] 9. **改 `image/service.ts`。**
   - 用引擎替换七个占位。服务的 `assertFormat` 调用引擎的 `assertGenerationFormat`，T18 通过该接口提前检查已确定规格；
   - `whenIdle` 改成等队列和唤醒都空闲；
   - `pruneCalls` 调用 `calls.pruneCalls`。
@@ -5005,7 +5005,7 @@ plugins/colab-launcher/
     - `lastSuccessAt`：取 `calls.lastSuccessAt`。
   - **`wake(serviceId, trigger)`：** 先检查该服务存在并且配置了启动器，再用与 `prepareGeneration` 相同的探测入口。已在线时直接结束；连接失败才启动或加入单飞，用实际触发方作 `trigger`。预热入口返回 `void`，内部任务纳入 `whenIdle`，失败由第 6 步的诊断记一次。`IllustrationService.prewarm` 用它（T18）。
   - **`prepareGeneration`：** 转交引擎。给 T18 返回本次取得的能力；没有可用服务时按前两个步骤的错误码失败。
-- [ ] 10. **测试。** 用 T08 的伪出图服务、T09 的伪 OpenAI 图像服务、T10 的伪启动器。
+- [x] 10. **测试。** 用 T08 的伪出图服务、T09 的伪 OpenAI 图像服务、T10 的伪启动器。
 
   `engine.test.ts`：
   - **正常路径：** `unwritten-image` 出一张图，`image_calls` 多一行 `ok`，返回的宽高等于请求的尺寸。
@@ -5094,19 +5094,19 @@ plugins/colab-launcher/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T06、T12 已合入：`rg -n "illustratePara" packages/core/src/play/service.ts` 有命中；`rg -n "suggestAppearance" packages/core/src/illustration/service.ts` 是占位。
-- [ ] 2. **`illustration/style.ts`。**
+- [x] 1. **核对前提。** T06、T12 已合入：`rg -n "illustratePara" packages/core/src/play/service.ts` 有命中；`rg -n "suggestAppearance" packages/core/src/illustration/service.ts` 是占位。
+- [x] 2. **`illustration/style.ts`。**
   - `STYLE_PRESET_PROMPTS: Record<StylePreset, string>`：英文片段，照附录 B.7。
   - `styleFragment(style)`：预设返回片段，自定义返回 `null`，自定义画风由镜头描述写进提示词，见 T16。
   - `styleRecord(style)`：存进 `portrait_sets.style` 的形状，就是 `IllustrationStyle` 本身。
   - `effectiveStyle(stored)`：`stored ?? DEFAULT_ILLUSTRATION_STYLE`。
-- [ ] 3. **`illustration/appearance.ts`。**
+- [x] 3. **`illustration/appearance.ts`。**
   - `appearanceHash(text)`：`sha256(text.trim().normalize('NFC'))`，小写十六进制（[插图与出图服务 §9.2](../docs/image.md#92-表)：去首尾空白、NFC 规范化）。
   - 测试：
     - 首尾空白不同、哈希相同；
     - 组合字符和预组字符（`'é'` 与 `'é'`）的哈希相同；
     - 内容不同、哈希不同。
-- [ ] 4. **`play/start.ts` 的 `getStartInfo`。** 返回值加 `illustration`：
+- [x] 4. **`play/start.ts` 的 `getStartInfo`。** 返回值加 `illustration`：
   - `available`：`image.selectedServiceId() !== null`；
   - `autoEnabled`：`image.activeTarget() !== null`；
   - `authorStyle`：`effectiveStyle(works.illustration_style)`；
@@ -5115,7 +5115,7 @@ plugins/colab-launcher/
   - `protagonistEntityId`：发布版本里 `is_protagonist = 1` 的实体 id。
 
   `getStartInfo` 拿不到 `image` 服务时（现有调用方只传了 `CoreDeps`），给它加一个参数 `image: Pick<ImageService, 'selectedServiceId' | 'activeTarget'>`，调用方是 `play/service.ts` 的 `getStartInfo` 方法。`PlayService` 的工厂在 `main.ts` 里拿不到 `image`，所以 `ServiceFactories.play` 的依赖加上 `image`，`app.ts` 里 `play` 的创建挪到 `image` 之后。装配和测试夹具改动归本任务。用 `rg -n "createPlayService\(|getStartInfo\(|ServiceFactories" packages/core/src` 列出直接调用和工厂。生产使用真实 `image` 服务，其他调用沿用 T06 的测试服务默认值（不选出图服务）。
-- [ ] 5. **`play/start.ts` 的 `startPlaythrough`。** 在建开局行的事务里，把输入转成 `PlaythroughIllustration` 写进 `playthroughs.illustration`：
+- [x] 5. **`play/start.ts` 的 `startPlaythrough`。** 在建开局行的事务里，把输入转成 `PlaythroughIllustration` 写进 `playthroughs.illustration`：
   - **输入没有 `illustration`：** 写纯文字，`style` 取 `authorStyle`，其余同 `TEXT_ONLY_PLAYTHROUGH_ILLUSTRATION`。
   - **有：** `enabled`、`style`、`aspectPreference`、`resolutionTier`、`protagonistInFrame`、`protagonistAppearance` 原样写入。`protagonistInFrame` 为 false 时，`protagonistAppearance` 写 `null`。
   - **`authorPortraitSetIds`：** 对发布版本里每个人物实体，查 `portrait_sets` 中 `scope = 'work'`、`state = 'active'`、`entity_id = 实体 id`、`appearance_hash = appearanceHash(实体当前档案的 appearance)` 的组，有就记下 `实体 id → 组 id`（§6.2：按实际选用的版本匹配已采用的作者参考组，锁定组 id）。
@@ -5127,7 +5127,7 @@ plugins/colab-launcher/
     - 正面已就绪、且未超过预览保留期；实际打开已锁定这份引用的旧局时遵守 §9.4 的保留规则。
   - **全部写入前**用 `PlaythroughIllustrationSchema.parse` 校验。
   - 不调用任何模型：主角形象的补写在插图流程里（D21）。
-- [ ] 6. **给自动插图固定背景模型。** 在 `llm/types.ts` 的 `LlmCompleteInput` 加 `guard?: { endpointId: string; modelId: string; assertCurrent: () => void }`。在 `llm/run.ts` 的 `createCompleter` 拿到 `targetFor(input.purpose)` 的结果后，核对实际的 `RuntimeTarget.endpointId`、`modelId` 和守卫一致。每次调用 `completeOnce` 前（包括传输重试）运行 `assertCurrent()`，将已核对的 `target` 直接传给 `completeOnce`。目标不符、确认失效或尝试取消时以 `AbortError` 结束，放在吞掉或重试传输异常的逻辑之外。其他 `complete` 调用仍按原用途解析。
+- [x] 6. **给自动插图固定背景模型。** 在 `llm/types.ts` 的 `LlmCompleteInput` 加 `guard?: { endpointId: string; modelId: string; assertCurrent: () => void }`。在 `llm/run.ts` 的 `createCompleter` 拿到 `targetFor(input.purpose)` 的结果后，核对实际的 `RuntimeTarget.endpointId`、`modelId` 和守卫一致。每次调用 `completeOnce` 前（包括传输重试）运行 `assertCurrent()`，将已核对的 `target` 直接传给 `completeOnce`。目标不符、确认失效或尝试取消时以 `AbortError` 结束，放在吞掉或重试传输异常的逻辑之外。其他 `complete` 调用仍按原用途解析。
 
   **`illustration/suggest.ts`：`suggestAppearance(deps, { workId }, options?)`**（§6.1、[游玩流程 §2.1](../docs/gameplay-flow.md#21-插图)「按设定写一个」）。
   1. 取发布版本的主角实体档案 `text`。公开材料有两份：`store/plan.ts` 的 `readPublicSetting(meta)`（公开设定或世界），以及 `readSettings(meta).protagonist.text`（作者写的主角设定）。**不取**幕后设定、秘密和 `settings.secrets`。
@@ -5137,7 +5137,7 @@ plugins/colab-launcher/
      - 仍不通过时抛 `invalid_output`。
   4. 返回 `{ appearance }`。**不写库**：玩家在开局页看了再决定用不用。
   - **为什么只用 `complete()`：** `background` 用途不要求工具调用（[LLM 端点 §7](../docs/llm-endpoints.md#7-用途分配)）。
-- [ ] 7. **`illustration/service.ts`。**
+- [x] 7. **`illustration/service.ts`。**
   - 建一个 `const store = createImageStore(deps.dataDir, deps.logger)` 放在服务实例的闭包里。用 `storageSummary(deps.db)` 和 `collectGarbage({ db: deps.db, store, now: Date.now(), logger: deps.logger })` 替换占位。T17、T18、T19 复用这个存储。测 `storageSummary` 返回实际去重占用、`collectGarbage` 删除测试目录里已超过保护期的孤儿文件；删掉任一接线相应断言变红。
   - **`suggestAppearance`：** 调用第 6 步。作品不存在或没发布时抛 `not_found`、`not_published`。
   - **`setWorkStyle`：**
@@ -5146,7 +5146,7 @@ plugins/colab-launcher/
     - **不碰** `work_versions`，不改 `content_rev`；
     - 提交后发布 `works.changed`。
   - **`WorkDetail.illustrationStyle`：** 切换 T02 填下的默认值，改 `library/service.ts` 的 `get`。这一行属于本任务：在 `library/service.ts` 读作品时带上 `illustration_style`。改动只限这一处，执行时用 `rg -n "blurb" packages/core/src/library/service.ts` 找到组装 `WorkDetail` 的地方。
-- [ ] 8. **测试。**
+- [x] 8. **测试。**
 
   `play/start.test.ts` 加：
   - 不带 `illustration` 开局：开局行是纯文字，`style` 等于作品的默认画风；
@@ -5213,8 +5213,8 @@ plugins/colab-launcher/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T12 已合入：`rg -n "export function appearanceFacts" packages/core/src/story/projection.ts` 有命中。
-- [ ] 2. **导出的形状。**
+- [x] 1. **核对前提。** T12 已合入：`rg -n "export function appearanceFacts" packages/core/src/story/projection.ts` 有命中。
+- [x] 2. **导出的形状。**
 
   ```ts
   export interface ScenePerson {
@@ -5248,7 +5248,7 @@ plugins/colab-launcher/
   ```
 
   - `code` 是本次请求内的短编号 `C1`、`C2`…，按 `people` 的顺序编号，主角如果在列表里，总是 `C1`（D6）。
-- [ ] 3. **规则。** 以下「这一刻」指 `(目标回合的深度, para)`。
+- [x] 3. **规则。** 以下「这一刻」指 `(目标回合的深度, para)`。
   - **正文：**
     - `paragraphs` 是目标回合第 1 段到第 `para` 段；
     - `earlierText` 是上一回合的全部正文，按段拼接、超出 `SCENE_EARLIER_TEXT_MAX_CHARS` 时从**开头**截掉，保留最近的部分；
@@ -5276,7 +5276,7 @@ plugins/colab-launcher/
     - `paragraphs` 为空，从所选版本的 `readPlan(meta)` 里找 `kind: 'summary', key: 'situation'` 的公开开场处境，按 `opening-prompt.ts` 的 `planSummary` 所用字段读取。规划时 `readPublicSetting` 只读 `public_setting` 或 `world`，它不提供开场处境；
     - 入画时只加已有公开形象的主角；直接取公开处境文字作为 `earlierText`，并按上条处理地点；
     - 缺公开初始处境时 `skip: true`（§7.1）。测试让开场首段及结束场景都有另一个地点，断言两处均未进入第 0 段材料。
-- [ ] 4. **测试。** 用 `test-support/story-fixtures.ts` 的 `seedNorthCape` 或 `seedStory` 造一条路线，必要时在测试里补插事实。用例对应 [插图与出图服务 §14](../docs/image.md#14-验收)和 [docs/milestone-4.md](../docs/milestone-4.md#验收) 的几条：
+- [x] 4. **测试。** 用 `test-support/story-fixtures.ts` 的 `seedNorthCape` 或 `seedStory` 造一条路线，必要时在测试里补插事实。用例对应 [插图与出图服务 §14](../docs/image.md#14-验收)和 [docs/milestone-4.md](../docs/milestone-4.md#验收) 的几条：
   - **后来才揭晓的不进来：** 第 2 段的图，第 5 段才揭晓人物身份并出现新地点。`people` 里那个人的 `knownAs` 是第 2 段时的称呼（伪装），`place` 不是新地点，`bannedNames` 里有他的真名，`unknownNames` 里也有他的真名。
   - **同一回合里后来才知道的称呼：** 第 4 段主角才得知一个称呼，`para: 2` 时 `unknownNames` 里有它，`para: 4` 时没有。
   - **同一回合里的先后：** 第 1 段的相遇事实给出亲见阳性对照，第 3 段记录登记，目标人物没有 `known_as`、也不在上一回合场景。段落投影在第 2 段排除该人物，在第 3 段纳入。另复制成 `sourcePara: null` 的旧记录，第 3 段也不会因登记这一来源被纳入。
@@ -5332,8 +5332,8 @@ plugins/colab-launcher/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T22 已合入：`rg -n "export function PortraitSetEditor|export function StylePicker" apps/client/src/shared/ui/illustration` 都有命中。
-- [ ] 2. **`start-illustration.ts`**（纯函数）。
+- [x] 1. **核对前提。** T22 已合入：`rg -n "export function PortraitSetEditor|export function StylePicker" apps/client/src/shared/ui/illustration` 都有命中。
+- [x] 2. **`start-illustration.ts`**（纯函数）。
   - **`initialChoice(info: StartIllustrationInfo): StartIllustrationInput`：**
     - `enabled`：`info.available && info.autoEnabled`。自动出图开着时，新开局默认有插图；
     - `style`：`info.lastStyle ?? info.authorStyle`；
@@ -5343,7 +5343,7 @@ plugins/colab-launcher/
     - `protagonistSnapshotId: null`。
   - **`summaryText(choice, t)`：** 摘要，例如 `本局插图 · 水彩 · 自动比例 · 1K`，或 `本局纯文字`（§2.1「插图默认收起，摘要显示…」）。各片段用 i18n 键拼成列表后，用 `t('play:start.illustration.summary', { parts })` 显示，`parts` 的连接符也来自文案，**不在代码里写死**。
   - **`toStartInput(choice)`：** `enabled` 为 false 时，其余字段照传，core 会忽略。`protagonistInFrame` 为 false 时，`protagonistAppearance` 和 `protagonistSnapshotId` 都置为 `null`。
-- [ ] 3. **`StartIllustrationPanel.tsx`。**
+- [x] 3. **`StartIllustrationPanel.tsx`。**
   - 只在 `info.illustration.available` 时渲染。
   - 默认收起，标题行显示摘要，用 Base UI 的 `Collapsible`。
   - **展开后，从上到下：**
@@ -5358,12 +5358,12 @@ plugins/colab-launcher/
        - `PortraitSetEditor`：`scope: 'pending'`，`target: { kind: 'protagonist' }`，`appearance` 用当前文本框的值，`mode: 'player'`，`onSnapshot` 记下 `protagonistSnapshotId`。
   - 说明文字 `play:start.illustration.styleLocked`：画风开局后锁定。
   - **离线时**（服务状态是 `offline`），预览和生成显示离线原因，但「开始故事」照常可用（§2.1：服务离线时，仍可选本机图片，预览生成显示离线原因，开局照常）。
-- [ ] 4. **`StartPage.tsx`。**
+- [x] 4. **`StartPage.tsx`。**
   - 在主角填写项之后渲染 `StartIllustrationPanel`，选择存在页面的 state 里；
   - 提交 `play.start` 时带上 `illustration: toStartInput(choice)`；
   - 页面顶部挂 `<WakePrompt serviceId={imageConfig.selectedServiceId} />`。用 T20 的 `queryKeys.imageConfig` 查询 `api.image.services.list()`，未返回时传 `null`。
-- [ ] 5. **i18n。** 照附录 A.4 加标「T23」的键。
-- [ ] 6. **测试。**
+- [x] 5. **i18n。** 照附录 A.4 加标「T23」的键。
+- [x] 6. **测试。**
 
   `start-illustration.test.ts`：
   - `initialChoice` 在四种 `available × autoEnabled` 组合下的 `enabled`；
@@ -5423,8 +5423,8 @@ plugins/colab-launcher/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T13、T14 已合入：`rg -n "export function sceneMaterials" packages/core/src/story/scene-projection.ts`、`rg -n "'illustration'" packages/core/src/llm/types.ts` 都有命中。
-- [ ] 2. **`shot-parse.ts`**（附录 C.1、D5）。
+- [x] 1. **核对前提。** T13、T14 已合入：`rg -n "export function sceneMaterials" packages/core/src/story/scene-projection.ts`、`rg -n "'illustration'" packages/core/src/llm/types.ts` 都有命中。
+- [x] 2. **`shot-parse.ts`**（附录 C.1、D5）。
 
   ```ts
   export type ShotLabel = 'PROMPT' | 'NEGATIVE' | 'CAPTION' | 'REFS' | 'ASPECT';
@@ -5437,7 +5437,7 @@ plugins/colab-launcher/
     - 同一标签出现两次算一条错误。
   - 值去首尾空白，空值记为空字符串。
   - 输入首尾有成对的 Markdown 围栏时去掉这一对，留下断开的围栏由格式校验报错，见附录 C.1。
-- [ ] 3. **`shot-prompt.ts`。**
+- [x] 3. **`shot-prompt.ts`。**
   - `SHOT_SYSTEM_PROMPT`：附录 B.8 原文。
   - `buildShotPrompt(input: ShotInput): string`：按附录 C.2 拼出给模型的用户提示。`ShotInput`：
 
@@ -5459,7 +5459,7 @@ plugins/colab-launcher/
     - `referenceViews` 的键是 `ScenePerson.code`，值是这个人可用的参考位置，由 T18 按参考组算好传进来；
     - `maxReferences` 是 `Math.min(ILLUSTRATION_MAX_REFERENCES, 能力的 maxReferences)`。
   - `buildCorrectionPrompt(original, previousOutput, errors)`：原提示加上「你上一次的输出」和逐条的错误，格式见附录 C.2 末尾。
-- [ ] 4. **`shot.ts`：`describeShot(deps, input, ref, { signal, guard })`。** `guard` 使用 T13 的 `NonNullable<LlmCompleteInput['guard']>`。
+- [x] 4. **`shot.ts`：`describeShot(deps, input, ref, { signal, guard })`。** `guard` 使用 T13 的 `NonNullable<LlmCompleteInput['guard']>`。
 
   ```ts
   export interface ShotResult {
@@ -5493,7 +5493,7 @@ plugins/colab-launcher/
 
   3. **结束时**在 `finally` 用同一单调时钟记 `illustration.shot`，按结果写 `ok`、`error` 或 `interrupted`，`data` 只有 `corrections`、`refs` 个数和 `autoAspect`。
   - 每条错误的文字照附录 B.8 的错误清单，**写死在常量里**。
-- [ ] 5. **`shot-compose.ts`**（§7.3），纯函数：
+- [x] 5. **`shot-compose.ts`**（§7.3），纯函数：
 
   ```ts
   export function composeFinalPrompt(input: {
@@ -5515,7 +5515,7 @@ plugins/colab-launcher/
     - `negativePrompt` 为 true 时：负面提示词是 `shot.negative` 加上固定要避开的词，用 `', '` 连接。
     - `negativePrompt` 为 false 时，负面提示词为 `null`。
   - **`dropReference`**（§8「某个人物改用文字时」）：把 `{{ref:<index+1>}}` 换成 `replacement`（这个人这一刻可见的外貌文字），后面的引用序号依次减一，并从 `refs` 里删掉这一项。T18 在某个人选不到合格参考图时用它（§7.2 第 3 步）。
-- [ ] 6. **测试。** 用 `createScriptedLlm`。
+- [x] 6. **测试。** 用 `createScriptedLlm`。
 
   `shot-parse.test.ts`：
   - 五个标签都在；
@@ -5584,22 +5584,22 @@ plugins/colab-launcher/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T11、T13、T15 已合入：
+- [x] 1. **核对前提。** T11、T13、T15 已合入：
   - `rg -n "not implemented: image\." packages/core/src/image/service.ts` 零命中；
   - `ls packages/core/src/illustration/storage.ts packages/core/src/illustration/appearance.ts` 都存在。
-- [ ] 2. **`portrait-prompt.ts`**（附录 B.9）。
+- [x] 2. **`portrait-prompt.ts`**（附录 B.9）。
   - `frontPrompt(appearance, style)`：用形象文字里的稳定外貌特征加画风，固定构图是平视的头肩像、放松表情、简单衣着、素净背景。
   - `viewPrompt(view, style)`：`three_quarter`、`full_body` 的固定构图，用 `{{ref:1}}` 指代正面图。
   - `previewPrompt(style)`：画风预览用固定题材，附录 B.10。
   - 预设画风用 `styleFragment`；自定义画风的原文直接放进提示词，标为 `style: <原文>`。自定义画风可能是中文，出图模型对它的理解不保证，写进 `docs` 的已知限制由 T00 负责，本任务不处理。
-- [ ] 3. **`portrait-views.ts`。** `toView(row)`：把一行 `portrait_sets` 转成 `PortraitSetView`。
+- [x] 3. **`portrait-views.ts`。** `toView(row)`：把一行 `portrait_sets` 转成 `PortraitSetView`。
   - `slots` 按 `front`、`three_quarter`、`full_body` 的顺序；
   - 每个位置的 `task` 从 `task` 列取，`status: 'running' | 'failed'`；
   - 没有任务时为 `null`。
-- [ ] 4. **`portrait-runner.ts`。** 后台执行生成任务：
+- [x] 4. **`portrait-runner.ts`。** 后台执行生成任务：
   - `run(task: () => Promise<void>)` 把任务放进一个集合，`whenIdle()` 等集合清空。
   - 生成请求本身经 `image.generate` 进入按服务的队列，这里不另外限制并发。
-- [ ] 5. **`portraits.ts`。** 每个导出函数对应一个过程，参数是 `deps`（`db`、`bus`、`logger`、`image`、`store`、`runner`）加输入。`ImageDispatchGuard` 从 `services.ts` 导入，不直接导入 `image/` 的内部文件。
+- [x] 5. **`portraits.ts`。** 每个导出函数对应一个过程，参数是 `deps`（`db`、`bus`、`logger`、`image`、`store`、`runner`）加输入。`ImageDispatchGuard` 从 `services.ts` 导入，不直接导入 `image/` 的内部文件。
 
   **`draft`：**
   - **`scope: 'work'`，`target.kind` 必须是 `entity`：**
@@ -5692,8 +5692,8 @@ plugins/colab-launcher/
     - 组在、但正面还在生成：等同一个进程内的 Promise。用一个 `Map<键, Promise>` 单飞，键是这三个值拼起来；
     - 没有组：插入一行 `state: 'draft'`，唯一索引挡住并发插入，插入冲突时重新查一次；然后生成正面，成功后设成 `active`。
   - 组没有正面而需要生成时，把调用方固定的 `serviceId`、`guard` 和 `signal` 传给 `image.generate`。生成完经 T15 的写入守卫提交，在锁内再运行 `guard.assertCurrent()`。生成失败由 T18 记录；失效时按 `AbortError` 中断。
-- [ ] 6. **`illustration/service.ts`。** 把七个占位换成第 5 步的函数。`whenIdle` 改成等 `runner`。`recoverInterrupted` 在 T18 统一实现，本任务先在 `portraits.ts` 导出 `failInterruptedPortraitTasks(db, logger)`。把所有 `running` 任务改成 `failed`、`image_interrupted`，提交后按 §2.5 给每个改动的任务记一条恢复事件，返回改了几个。
-- [ ] 7. **测试。** 用 T08 的伪出图服务做出图后端。T06、T11 已经合入，用真的 `createImageService` 加伪服务的配置，不用替身。
+- [x] 6. **`illustration/service.ts`。** 把七个占位换成第 5 步的函数。`whenIdle` 改成等 `runner`。`recoverInterrupted` 在 T18 统一实现，本任务先在 `portraits.ts` 导出 `failInterruptedPortraitTasks(db, logger)`。把所有 `running` 任务改成 `failed`、`image_interrupted`，提交后按 §2.5 给每个改动的任务记一条恢复事件，返回改了几个。
+- [x] 7. **测试。** 用 T08 的伪出图服务做出图后端。T06、T11 已经合入，用真的 `createImageService` 加伪服务的配置，不用替身。
 
   | 用例 | 断言 |
   | --- | --- |
@@ -5772,10 +5772,10 @@ plugins/colab-launcher/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T11、T12、T13、T15、T16、T17 已合入：
+- [x] 1. **核对前提。** T11、T12、T13、T15、T16、T17 已合入：
   - `rg -n "export function describeShot|export function ensurePlaythroughFront|export function sceneMaterials" packages/core/src` 三个都有；
   - `rg -n "not implemented: illustration\.(retry|reroll|dismiss|prewarm)" packages/core/src/illustration/service.ts` 列出四个占位。
-- [ ] 2. **`enqueue.ts`。**
+- [x] 2. **`enqueue.ts`。**
 
   ```ts
   export function illustrationEnabled(
@@ -5791,7 +5791,7 @@ plugins/colab-launcher/
   - `illustrationEnabled`：`settings.enabled && activeTarget !== null`（§7.1「启用条件」）。
   - `enqueueIllustration`：插入一行 `status: 'queued'`，`format_preference` 取本局的 `{ aspectPreference, resolutionTier }`，`attempts: 0`，返回新行的 id。
   - **只在事务里调用，** 由调用方传入 `tx`。
-- [ ] 3. **回合提交时登记**（§7.1）。
+- [x] 3. **回合提交时登记**（§7.1）。
   - **`play/service.ts` 的续写提交**（T12 加了 `illustratePara` 的同一个 `tx.insert(turns)`）：
     - 事务之前，读开局行的 `illustration` 和 `image.activeTarget()`。`activeTarget` 是同步的，取一次传进事务；
     - 事务里，`draft.illustratePara !== null` 并且 `illustrationEnabled(...)` 时，调用 `services.illustration.enqueue(tx, { turnId, playthroughId, para, settings, now })`；
@@ -5808,7 +5808,7 @@ plugins/colab-launcher/
     - **先后关系：** `illustration` 只依赖已有的 image、llm 和 CoreDeps，先创建它，再把 `() => illustration.kick()` 交给 play。三个提交点使用同一个回调。
     - `IllustrationService` 接口加 `kick(): void`。
     - 这些装配和类型化夹具改动都归本任务。用 `rg -n "createPlayService\(|ServiceFactories|: Services" packages/core/src` 核对调用与夹具，真实装配传实际回调，已有纯文字替身用空回调。
-- [ ] 4. **`references.ts`：选参考组和参考图**（§6.2「路线上的可见身份」、§7.2 第 3 步）。
+- [x] 4. **`references.ts`：选参考组和参考图**（§6.2「路线上的可见身份」、§7.2 第 3 步）。
 
   ```ts
   export function referenceViewsFor(db, input: {
@@ -5841,7 +5841,7 @@ plugins/colab-launcher/
     - **按顺序选一张：** 镜头要的视角、正面、同组其他视角；取第一张不超过 `maxReferenceBytes` 的（§7.2 第 3 步）。
     - **组里每一张都超过上限：** 抛 `ImageError('image_reference_too_large', 'final')`。
     - **这个人没有可见形象、也没有组：** 返回 `{ drop: <这个人此刻的称呼或「一个人」> }`。调用方用 `dropReference` 把引用换成文字（§8）。
-- [ ] 5. **`pipeline.ts`：一次尝试**（§7.2）。`ImageError`、`ImageDispatchGuard` 从 `services.ts` 导入，不直接导入 `image/` 的内部文件。
+- [x] 5. **`pipeline.ts`：一次尝试**（§7.2）。`ImageError`、`ImageDispatchGuard` 从 `services.ts` 导入，不直接导入 `image/` 的内部文件。
 
   ```ts
   export async function runAttempt(deps, row: IllustrationRow, signal: AbortSignal): Promise<void>
@@ -5885,7 +5885,7 @@ plugins/colab-launcher/
       - 错误码怎样取：`ImageError`、`LlmRunError` 用它的 `code`；唤醒类的码（`image_wake_*`、`image_launcher_*`）一律把 `stage` 记成 `wake`；其他异常记 `internal`。
     - **这一行已有完成图**（重画失败）：`status` 保持 `done`，旧图和它的规格、说明、宽高、参考文件**全部不变**；`error` 记错误码，`active_attempt_id` 清空（§7.4、§9.2 说明第三条）。
     - 记 `illustration.failed`，发布事件。
-- [ ] 6. **`worker.ts`：工作循环**（D16）。
+- [x] 6. **`worker.ts`：工作循环**（D16）。
   - `kick()`：没在跑且 `deps.shutdown` 未中止时开始一轮。
   - **每轮：** 取 `status = 'queued'`，或者 `status = 'done' AND active_attempt_id IS NOT NULL` 的行（后者是待处理的重画），按 `created_at, id` 取队首（D16）。
     - 先核对开局仍在、开关和当前确认均有效。无效时把排队图标为 `cancelled`，已完成图只清除当前重画登记，提交后发布事件再取下一行，避免反复取到同一行。
@@ -5896,7 +5896,7 @@ plugins/colab-launcher/
   - 一次只处理一行，处理完再取下一行，直到取不到为止。
   - **中止：** 每行一个 `AbortController`，按插图 id 记在表里，供取消用。`AbortSignal.any` 合并行和 core 的 shutdown 信号。关停后退出循环，未取到的队列记录留库给下次启动。
   - `whenIdle()` 等当前这一轮结束。
-- [ ] 7. **`cancel.ts`：停用时取消**（§7.1 最后一条）。
+- [x] 7. **`cancel.ts`：停用时取消**（§7.1 最后一条）。
   - 订阅 `deps.bus` 的 `image.config_changed` 和 `llm.config_changed`，订阅生命周期用 `deps.shutdown` 收回。收到后比较上一次和当前的完整已确认目标。确认失效或任一接收方改变时执行取消，单纯改分辨率偏好不取消：
     1. 在事务里收集受影响记录及它们各自的 `active_attempt_id`。把 `queued`、`running` 改成 `cancelled`，清掉尝试。带待处理重画的 `done` 只清尝试，保留完成数据。
     2. 提交后在工作循环持有的控制器表按插图 id 和尝试 id 找本次控制器并中止。已经开始的 `queued`（含正在等待授权）、`running` 和 `done` 重画都走这里，仅登记的行没有控制器。找到旧尝试时不能误中止同一张图的下一次尝试。
@@ -5904,14 +5904,14 @@ plugins/colab-launcher/
   - 记 `illustration.cancelled`，`reason: 'disabled'` 或 `'service_changed'`。
   - 给每一条受影响的插图发布 `illustration.updated`。
   - **重新开启后不补画**被取消的（§7.1）：被取消的行就停在 `cancelled`，不会再被工作循环取到。
-- [ ] 8. **`views.ts`。** `illustrationView(row): IllustrationView`：
+- [x] 8. **`views.ts`。** `illustrationView(row): IllustrationView`：
   - `rerolling`：`status === 'done' && active_attempt_id !== null`；
   - `format`：已确定的规格；没有完成图时，取 `attempt_data.format ?? row.format`；
   - `image`：`file` 的宽高；
   - 等待或生成中的第一次出图，`serviceId` 取 `attempt_data.serviceId`。已有完成图保留已落库服务标识。还在初始队列并且比例固定时，`format` 可由比例、档位偏好给出，`size` 暂空。
   - 其余字段一一对应。
-- [ ] 9. **`play/service.ts` 的 `getRoute`。** 调用 `services.illustration.forRoute(routeId)` 取得这条路线上的插图视图，按回合挂到 `TurnView.illustration`。没有插图的回合为 `null`（D15）。
-- [ ] 10. **`illustration/service.ts`。**
+- [x] 9. **`play/service.ts` 的 `getRoute`。** 调用 `services.illustration.forRoute(routeId)` 取得这条路线上的插图视图，按回合挂到 `TurnView.illustration`。没有插图的回合为 `null`（D15）。
+- [x] 10. **`illustration/service.ts`。**
   - **`retry(input)`**（§7.2「失败后不再自动重试」）：
     - 这一行必须是 `failed`，否则抛 `request_not_retryable`；
     - 启用条件不满足时抛 `illustration_not_enabled`；
@@ -5935,7 +5935,7 @@ plugins/colab-launcher/
     - 返回改了的总行数。
   - **`whenIdle()`**：等工作循环和 T17 的 `runner`。
   - **`kick()`**：交给工作循环。
-- [ ] 11. **测试。**
+- [x] 11. **测试。**
 
   **`enqueue.test.ts`、`views.test.ts`：** 纯函数的每种情况。
 
@@ -6025,8 +6025,8 @@ plugins/colab-launcher/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T18 已合入：`grep -n "not implemented:" packages/core/src/illustration/service.ts` 只剩 `file`。
-- [ ] 2. **`journal-portraits.ts`。**
+- [x] 1. **核对前提。** T18 已合入：`grep -n "not implemented:" packages/core/src/illustration/service.ts` 只剩 `file`。
+- [x] 2. **`journal-portraits.ts`。**
 
   ```ts
   export function journalPortraits(db: Database, input: {
@@ -6040,9 +6040,9 @@ plugins/colab-launcher/
   - **只给主角见过的人物。** 判断「见过」：人物和主角之间的 `acquaintance` 阶段是 `met` 或 `familiar`，用 `acquaintanceStage`，按符号名找（§10「主角见过的人物才可能返回」）。
   - **用哪一组：** 当前路线可见的形象身份，用 T14 的同一套规则，以路线 head 的最后一段为「这一刻」，算出 `identityFactId`。然后按 T18 第 4 步的顺序找参考组：本局锁定的作者组，或本局的 `playthrough` 组。组里的正面有图才算数。
   - 欠缺可见参考时，不给这个人缩略图（§10）。
-- [ ] 3. **`story/journal.ts`。** `buildJournal(p, routeId, portraits?)`：`portraits` 是一个 `Map<entityId, { setId, updatedAt }>`，有时给对应的 `JournalSubject` 填 `portrait`。不传时都是 `null`。**`story` 不导入 `illustration`**：缩略图由调用方算好传进来。
-- [ ] 4. **`play/service.ts` 的 `getJournal`。** 读开局行的 `illustration`，调用 `services.illustration.journalPortraits(...)`，把结果传给 `buildJournal`。`play` 不直接导入 `illustration/` 的内部文件。用 `rg -n "from '\.\./illustration/" packages/core/src/play` 确认零命中。
-- [ ] 5. **`file-access.ts`：`resolveImageFile(db, store, input)`**（§10 第一条）。
+- [x] 3. **`story/journal.ts`。** `buildJournal(p, routeId, portraits?)`：`portraits` 是一个 `Map<entityId, { setId, updatedAt }>`，有时给对应的 `JournalSubject` 填 `portrait`。不传时都是 `null`。**`story` 不导入 `illustration`**：缩略图由调用方算好传进来。
+- [x] 4. **`play/service.ts` 的 `getJournal`。** 读开局行的 `illustration`，调用 `services.illustration.journalPortraits(...)`，把结果传给 `buildJournal`。`play` 不直接导入 `illustration/` 的内部文件。用 `rg -n "from '\.\./illustration/" packages/core/src/play` 确认零命中。
+- [x] 5. **`file-access.ts`：`resolveImageFile(db, store, input)`**（§10 第一条）。
   - **`view.kind: 'work'`：**
     - 只允许 `image.kind: 'portrait'`；
     - 组的 `work_id` 必须等于 `view.workId`，`scope` 是 `work` 或 `pending`。作品编辑看作品的组，开局预览看预览所属作品的组。
@@ -6052,8 +6052,8 @@ plugins/colab-launcher/
   - **核对不过**一律抛 `not_found`，不区分「没有」和「不许看」（§2.6）。
   - **读文件：** `store.read(ref)`，返回 `null` 时抛 `image_file_missing`（§7.4「文件找不到了」）。
   - **返回：** `new File([bytes], `${id}.${ext}`, { type: ref.mime })`。文件名里只用记录 id，不用哈希（§10：存储哈希留在 core）。
-- [ ] 6. **`illustration/service.ts`。** `file(input)` 调用 `resolveImageFile`。
-- [ ] 7. **`api/http-app.ts`。** 给取图的响应加 `X-Content-Type-Options: nosniff`：
+- [x] 6. **`illustration/service.ts`。** `file(input)` 调用 `resolveImageFile`。
+- [x] 7. **`api/http-app.ts`。** 给取图的响应加 `X-Content-Type-Options: nosniff`：
 
   ```ts
   app.use('/api/image/file', async (c, next) => {
@@ -6063,8 +6063,8 @@ plugins/colab-launcher/
   ```
 
   放在 `app.all('/api/*', …)` 之前。先在测试里确认 oRPC 对 `image.file` 的路径是 `/api/image/file`。
-- [ ] 8. **`api/client-assets.ts`。** `img-src 'self' data:` 改成 `img-src 'self' data: blob:`，其他指令不变。`api/http-app.test.ts` 里断言 CSP 的用例同步改。
-- [ ] 9. **测试。**
+- [x] 8. **`api/client-assets.ts`。** `img-src 'self' data:` 改成 `img-src 'self' data: blob:`，其他指令不变。`api/http-app.test.ts` 里断言 CSP 的用例同步改。
+- [x] 9. **测试。**
 
   `file-access.test.ts`：
   - **作品视图：** 能取本作品的组；取另一部作品的组抛 `not_found`；作品视图取插图抛 `not_found`。
@@ -6129,18 +6129,18 @@ plugins/colab-launcher/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** 用 `rg -n 'startCore\(|createLibraryService\(|onIllustrationQueued|recoverInterrupted|collectGarbage|clearTemp' packages/core/src --glob '!*.test.ts'` 列出调用点。定位 T15 建的图片存储、T18 接的三处登记和 T19 接的取图。检查 `ServiceFactories` 在生产和测试的构造点。任一前提不成立，按 §0.3 汇报。
-- [ ] 2. **`services.ts`、`illustration/service.ts`，准备存储。** 在 `IllustrationService` 加 `prepareStorage(): Promise<void>`。实现先在 T15 建的存储上执行 `store.clearTemp()`，然后等待同一服务的 `collectGarbage()`。`app.ts` 只调服务接口。这样启动清理与正常写图仍走同一个存储和写入锁。用 `rg -n ": Services|ServiceFactories" packages/core/src --glob '*.test.ts'` 核对 T06 的测试夹具，给仍使用替身的 `IllustrationService` 补 `prepareStorage`；真实工厂直接用投产实现。
-- [ ] 3. **`library/service.ts`，从删除提交准确触发。** 给 `ServiceFactories.library` 和 `createLibraryService` 的依赖加 `onWorkDeleted?: () => void`，由 `startCore` 在生产装配一定传入。保留 `delete` 的同步返回和既有事件。在删除事务成功、受影响行数大于零时调回调一次，位置与 `works.changed` 同在提交之后。`library/service.test.ts` 用 spy 验证回调里已查不到作品，第二次删同一个 id 时计数仍为 1。作品保存、发布和画风更新共用 `works.changed`，所以清理触发点落在删除方法里。
-- [ ] 4. **`app.ts`，接生命周期。**
+- [x] 1. **核对前提。** 用 `rg -n 'startCore\(|createLibraryService\(|onIllustrationQueued|recoverInterrupted|collectGarbage|clearTemp' packages/core/src --glob '!*.test.ts'` 列出调用点。定位 T15 建的图片存储、T18 接的三处登记和 T19 接的取图。检查 `ServiceFactories` 在生产和测试的构造点。任一前提不成立，按 §0.3 汇报。
+- [x] 2. **`services.ts`、`illustration/service.ts`，准备存储。** 在 `IllustrationService` 加 `prepareStorage(): Promise<void>`。实现先在 T15 建的存储上执行 `store.clearTemp()`，然后等待同一服务的 `collectGarbage()`。`app.ts` 只调服务接口。这样启动清理与正常写图仍走同一个存储和写入锁。用 `rg -n ": Services|ServiceFactories" packages/core/src --glob '*.test.ts'` 核对 T06 的测试夹具，给仍使用替身的 `IllustrationService` 补 `prepareStorage`；真实工厂直接用投产实现。
+- [x] 3. **`library/service.ts`，从删除提交准确触发。** 给 `ServiceFactories.library` 和 `createLibraryService` 的依赖加 `onWorkDeleted?: () => void`，由 `startCore` 在生产装配一定传入。保留 `delete` 的同步返回和既有事件。在删除事务成功、受影响行数大于零时调回调一次，位置与 `works.changed` 同在提交之后。`library/service.test.ts` 用 spy 验证回调里已查不到作品，第二次删同一个 id 时计数仍为 1。作品保存、发布和画风更新共用 `works.changed`，所以清理触发点落在删除方法里。
+- [x] 4. **`app.ts`，接生命周期。**
   1. 按依赖顺序创建共用的 providers 存储、llm、image、illustration，再创建依赖它们的 play 和 library。把 `illustration` 服务和 `onIllustrationQueued: () => illustration.kick()` 一起传给 play，删掉 T18 如果留下的占位闭包。确认其他工厂仍能拿到原来的依赖。
   2. 删除回调调 `illustration.collectGarbage()`。用一个进程内 `Set<Promise<void>>` 跟踪还在跑的删除清理，任务结束后移出。每次成功删除都提交一次清理，由 T15 的写入锁串行执行。用 `catch` 记录 §2.5 的 `image.gc.failed`，处理为已结束的任务，避免未处理的 Promise 拒绝。删除已经提交，RPC 继续返回成功。
   3. 在现有恢复阶段调用 `illustration.recoverInterrupted()` 和 `image.pruneCalls()`，将恢复数量加入现有 `recovery.interrupted` 的 `data.illustrations`。随后等 `illustration.prepareStorage()` 结束，再继续启动 HTTP。此时可用的暂存文件只来自上一次进程。准备失败同样记 `image.gc.failed`，保留正常开局和正文路径。
   4. 恢复和清理结束、HTTP 监听成功后调用一次 `illustration.kick()`。工作循环接续仍在排队的记录。T18 恢复过的任务保持显式失败，等待玩家按张重试。
   5. 保留 `stopRuntime` 的顺序：发出 shutdown 信号、关 HTTP、等服务和清理、关库。把 images、illustrations 的 `whenIdle()` 和删除清理集合纳入 `waitForTasks`。开始等待清理之前 HTTP 已关闭，避免漏等最后一次删除。logger 在数据库和任务处置完才关闭，沿用现有的启动失败和退出处理。
-- [ ] 5. **`main.ts`，核对两个入口。** 独立运行和 desktop 分别传同一份 `factories` 给 `startCore`。实际工厂用 `createLibraryService`、`createImageService`、`createIllustrationService`、`createPlayService`。保留 T01 放在第一行的外发请求入口安装。两个入口都走第 4 步的流程。
-- [ ] 6. **`app.test.ts`，验证清理失败与关停。** 用服务替身让 `prepareStorage` 拒绝，验证 core 仍能处理作品列表查询。再让删除清理由一个可控 Promise 阻塞，经真实 library 删除后调用 `core.close()`，确认关闭未完成，放行后才完成。最后从 `diagnostics.db` 读取该次运行的事件，断言 `image.gc.failed` 的 `data.trigger`、`data.code`。在错误对象里塞入虚构原始文字，断言诊断库没有它。测试结束要放行 Promise 并关闭 core，即使用例中间失败也执行清理。
-- [ ] 7. **`app.integration.test.ts`，验证磁盘上的结果。** 用该文件现有的 `boot`、`configureModels`、`publishDefaultWork` 搭出真实服务，目录用 `makeTempDataDir()`。读库的方式照本文件已有的 `DatabaseSync` 用例。读取新增诊断前调用 `core.services.logger.flush()`，用动作前后计数锁定本次记录。启动前写入测试数据时，先关掉用 `openDatabase` 打开的连接，再启动 core。
+- [x] 5. **`main.ts`，核对两个入口。** 独立运行和 desktop 分别传同一份 `factories` 给 `startCore`。实际工厂用 `createLibraryService`、`createImageService`、`createIllustrationService`、`createPlayService`。保留 T01 放在第一行的外发请求入口安装。两个入口都走第 4 步的流程。
+- [x] 6. **`app.test.ts`，验证清理失败与关停。** 用服务替身让 `prepareStorage` 拒绝，验证 core 仍能处理作品列表查询。再让删除清理由一个可控 Promise 阻塞，经真实 library 删除后调用 `core.close()`，确认关闭未完成，放行后才完成。最后从 `diagnostics.db` 读取该次运行的事件，断言 `image.gc.failed` 的 `data.trigger`、`data.code`。在错误对象里塞入虚构原始文字，断言诊断库没有它。测试结束要放行 Promise 并关闭 core，即使用例中间失败也执行清理。
+- [x] 7. **`app.integration.test.ts`，验证磁盘上的结果。** 用该文件现有的 `boot`、`configureModels`、`publishDefaultWork` 搭出真实服务，目录用 `makeTempDataDir()`。读库的方式照本文件已有的 `DatabaseSync` 用例。读取新增诊断前调用 `core.services.logger.flush()`，用动作前后计数锁定本次记录。启动前写入测试数据时，先关掉用 `openDatabase` 打开的连接，再启动 core。
 
   | 用例 | 输入与动作 | 断言 |
   | --- | --- | --- |
@@ -6150,7 +6150,7 @@ plugins/colab-launcher/
   | 取图的真实接线 | 完成一张插图；同一个取图请求依次使用该路线、另一条无权路线、无令牌 | 合法请求取到已知字节和 MIME，带 `nosniff`；无权路线为 `not_found`；无令牌请求在鉴权层被拒绝 |
 
   从 `app.integration.test.ts` 现有读取诊断库的方式取 `image.gc`、`image.generate` 和恢复事件。按动作前后的计数差确认新增记录。轮询可观察的状态，使用明确的超时。进程、数据库、伪服务和临时目录由 `finally` 释放，重启用例复用同一数据目录至全部断言结束。
-- [ ] 8. **最终核对。** `rg -n 'not implemented:' packages/core/src --glob '!*.test.ts'` 零命中。先运行本任务三处测试，再跑 §0.5。对照 §2.5 核对诊断名和字段。复测旧配置。在 `main.ts` 核对两个入口都调用第 4 步这套装配。
+- [x] 8. **最终核对。** `rg -n 'not implemented:' packages/core/src --glob '!*.test.ts'` 零命中。先运行本任务三处测试，再跑 §0.5。对照 §2.5 核对诊断名和字段。复测旧配置。在 `main.ts` 核对两个入口都调用第 4 步这套装配。
 
 **接线点。**
 
@@ -6192,13 +6192,13 @@ plugins/colab-launcher/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** 用 `rg --files e2e` 和 `rg -n 'startFakeImageServer|startFakeLauncher|startFakeOpenAiImages' packages/core/src/test-support` 核对文件和导出。规划时没有 `evals/`，Playwright 用 Desktop Chrome、单 worker。核对 `pnpm --filter @unwritten/e2e e2e --list` 可以列出 M1–M3 与 desktop 用例。任一前提不成立，按 §0.3 汇报。
-- [ ] 2. **`e2e/tests/support/milestone-4.ts`，提供隔离的环境。**
+- [x] 1. **核对前提。** 用 `rg --files e2e` 和 `rg -n 'startFakeImageServer|startFakeLauncher|startFakeOpenAiImages' packages/core/src/test-support` 核对文件和导出。规划时没有 `evals/`，Playwright 用 Desktop Chrome、单 worker。核对 `pnpm --filter @unwritten/e2e e2e --list` 可以列出 M1–M3 与 desktop 用例。任一前提不成立，按 §0.3 汇报。
+- [x] 2. **`e2e/tests/support/milestone-4.ts`，提供隔离的环境。**
   1. 按 `milestone-3.spec.ts` 的 `startApp` 用 `mkdtempSync` 建目录，起伪文本模型、伪图片服务，需要时另起伪启动器。启动构建后的 `packages/core/dist/main.js`，使用临时数据目录与 `info` 日志等级。读取 `UNWRITTEN_CORE_URL` 后把 URL 交给测试。失败时给出超时或退出码，不把含令牌的启动行写入汇报。保持默认浏览器只与 core 通信。
   2. 支持三种配置：只有版本 1 模型配置、版本 2 选中出图服务且尚未确认、版本 2 含启动器。配置流程本身用 UI 保存；与它无关的用例可用固定配置减少重复。narrator 和镜头模型使用不同的模型 id。保留原有伪文本模型的工具步骤，镜头步骤输出附录 C.1 的纯文本，不发工具调用。
   3. 按 T08/T10 的接口用 `setReady`、`holdNextJob` 或请求记录推进状态。需要等待外部请求时用 `expect.poll`，记录具体方法和路径，区分探测、付费生成和取图。把 `jobDelayMs` 设到足够浏览器观察占位的值；测试等待占位和完成条件，不睡固定时长。恢复自动状态前核对已经观察到失败或授权。
   4. 每个用例在 `finally` 关 core 再关伪服务，最后删临时目录。启动半途失败时同样清理。使用自有虚构域名的授权地址，测试只检查链接目标或拦截新页，避免发外网请求。
-- [ ] 3. **`milestone-4.spec.ts`，按下面的编号写独立用例。** 使用角色和可读名称定位。文案从附录 A 取，至少一条用例写死产品名称验证 i18n 接线。每条涉及读图的用例都等 `img` 解码完成，验证 `naturalWidth > 0`，避免把空框当成功。验证缺失时同时确认正文、按钮、网络或其他图片已实际出现。
+- [x] 3. **`milestone-4.spec.ts`，按下面的编号写独立用例。** 使用角色和可读名称定位。文案从附录 A 取，至少一条用例写死产品名称验证 i18n 接线。每条涉及读图的用例都等 `img` 解码完成，验证 `naturalWidth > 0`，避免把空框当成功。验证缺失时同时确认正文、按钮、网络或其他图片已实际出现。
 
   | 编号 | 在浏览器里做什么 | 最终断言 |
   | --- | --- | --- |
@@ -6214,10 +6214,10 @@ plugins/colab-launcher/
   E04 结束后用 T29 的诊断库读法核对产出的插图 id，至少一条 `client.illustration_visible` 有对应 `request_id` 和 `outcome: ok`，同一 mount 中同一 id 的样本只有一条。按 §2.5、附录 D.2 验证敏感样本值没有进入诊断库。
 
   用 9:16 能力时显式配置对应比例。窄视口与减少动态由浏览器自动化覆盖，200% 系统放大和读屏发声留给 T31。E02、E05 用 `holdNextJob` 阻塞已登记任务，观察按钮、请求或占位后再释放。
-- [ ] 4. **`evals/illustration.md`，定好真实评测。** 按附录 D 写五个可重复的场景：多人交接钥匙、同一人物换装、未选择与已选择后的照明、线索近景、遮面到揭晓。每个场景写清开局设置、在第几段截取、需要观察的画面动作以及不应期待的后续信息。用同一段正文、同一画风、同一档位对照「正面＋全身」和「加斜侧脸」；服务支持 seed 时固定 seed。记录明确结果与证据，不从单次样本推总成功率。
+- [x] 4. **`evals/illustration.md`，定好真实评测。** 按附录 D 写五个可重复的场景：多人交接钥匙、同一人物换装、未选择与已选择后的照明、线索近景、遮面到揭晓。每个场景写清开局设置、在第几段截取、需要观察的画面动作以及不应期待的后续信息。用同一段正文、同一画风、同一档位对照「正面＋全身」和「加斜侧脸」；服务支持 seed 时固定 seed。记录明确结果与证据，不从单次样本推总成功率。
 
   每次留一行，填场景、模型和服务版本、GPU、比例、档位及实际宽高、选择的段号、参考位置、镜头修正次数、出图和总耗时、判定、依据。另记开场后仍可提交行动的读数。用 §2.5 已有样本取时间，用诊断 id 串起记录；真实提示词、正文、图片、授权页和 URL 都不进版本控制。逐项核对谁递钥匙、谁收手、钥匙还在哪里。图像质量、角色能否辨认由 T31 人工观看，不把关键词命中当作画质合格。
-- [ ] 5. **跑门禁。** 先跑 `pnpm build`，再跑 `pnpm --filter @unwritten/e2e e2e milestone-4.spec.ts`，最后跑根目录 `pnpm e2e`，含之前所有里程碑和 desktop。按 §0.5 保存退出码和输出。评测文件只产生走查方案；真实结果由 T31 写台账。
+- [x] 5. **跑门禁。** 先跑 `pnpm build`，再跑 `pnpm --filter @unwritten/e2e e2e milestone-4.spec.ts`，最后跑根目录 `pnpm e2e`，含之前所有里程碑和 desktop。按 §0.5 保存退出码和输出。评测文件只产生走查方案；真实结果由 T31 写台账。
 
 **接线点。** Playwright 由现有 `testDir: './tests'` 发现 spec，`milestone-4.spec.ts` 通过 support 文件启动已有 core 入口。`evals/illustration.md` 由 T31 使用。客户端在 E01/E06/E08 的可读名称和提示来自约定的 i18n 键，性能数据沿 T24 与 core 的日志路径进入诊断库。
 
@@ -6324,6 +6324,7 @@ plugins/colab-launcher/
 | `images.protocol.openai-images` | OpenAI 图像接口 |
 | `images.model` | 模型 ID |
 | `images.token` | 令牌 |
+| `images.newToken` | 新令牌 |
 | `images.apiKey` | API 密钥 |
 | `images.generateToken` | 生成令牌 |
 | `images.copyToken` | 复制令牌 |
@@ -6331,6 +6332,7 @@ plugins/colab-launcher/
 | `images.plainHttpWarning` | 这个地址使用明文 HTTP。发送的密钥和图片可能被网络上的其他人看到。 |
 | `images.references` | 最多使用 {{count}} 张参考图 |
 | `images.noReferences` | 只靠形象文字保持人物一致。 |
+| `images.separator` | ` · `（两侧各一个空格） |
 | `images.negativeSupported` | 支持负面提示词 |
 | `images.negativeUnsupported` | 不支持负面提示词 |
 | `images.referenceLimit` | 最多参考图 |
@@ -6448,10 +6450,9 @@ plugins/colab-launcher/
 | T24 | `illustration.open` | 放大查看插图 |
 | T24 | `illustration.altFallback`、`illustration.lightboxTitle` | 插图 |
 | T24 | `illustration.missing` | 图片找不到了 |
-| T24 | `illustration.retryNamed` | 重试第 {{turn}} 回合的插图 |
-| T24 | `illustration.retryOpening` | 重试开场插图 |
-| T24 | `illustration.dismissNamed` | 不要第 {{turn}} 回合的插图 |
-| T24 | `illustration.dismissOpening` | 不要开场插图 |
+| T24 | `illustration.named` | 第 {{turn}} 回合的插图 |
+| T24 | `illustration.opening` | 开场插图 |
+| T24 | `illustration.failedAt` | {{stage}}，{{reason}} |
 | T24 | `illustration.retryFormat` | 为这张图选择规格 |
 | T24 | `illustration.reroll` | 重画 |
 | T24 | `illustration.rerolling` | 正在重画 |
@@ -6465,6 +6466,8 @@ plugins/colab-launcher/
 | T23 | `start.illustration.separator` | ` · `（两侧各一个空格） |
 | T23 | `start.illustration.autoOff` | 请先在设置里开启「游玩时生成插图」。 |
 | T23 | `start.illustration.styleLocked` | 画风会沿用到本局结束。 |
+| T23 | `start.illustration.modeLabel` | 正文配图 |
+| T23 | `start.illustration.protagonistLabel` | 主角入画 |
 | T23 | `start.illustration.inFrame` | 画进插图 |
 | T23 | `start.illustration.outOfFrame` | 用主角视角，不画主角 |
 | T23 | `start.illustration.appearance` | 主角形象 |
@@ -6490,6 +6493,7 @@ T21–T24 的比例和档位字段复用 T20 的 `play:format.*` 和 `play:tier.
 | `plan.appearance` | 形象 |
 | `plan.appearanceHint` | 只写此刻看得见的样子。身份和秘密留在设定里。 |
 | `plan.noAppearance` | 还没有写形象。 |
+| `plan.entity.appearance` | 形象：{{text}} |
 | `portrait.heading` | 人物参考 |
 | `portrait.slotHint.front` | 平视的头肩像，能看清五官、发际线和左右不对称的特征 |
 | `portrait.slotHint.three_quarter` | 四分之三角度的头肩像，可看清鼻梁、下颌和侧面轮廓 |
@@ -6508,10 +6512,9 @@ T21–T24 的比例和档位字段复用 T20 的 `play:format.*` 和 `play:tier.
 | `portrait.choose` | 选择图片 |
 | `portrait.chooseNamed` | 为{{slot}}选择图片 |
 | `portrait.useImage` | 使用这张 |
-| `portrait.generateNamed` | 生成{{slot}}参考图 |
-| `portrait.retryNamed` | 重试{{slot}}参考图 |
-| `portrait.confirmNamed` | 确认{{slot}}参考图 |
-| `portrait.removeNamed` | 移除{{slot}}参考图 |
+| `portrait.generate` | 生成 |
+| `portrait.remove` | 移除 |
+| `portrait.confirm` | 确认可用 |
 | `portrait.sendNotice` | 生成图片时，出图服务「{{service}}」会收到提示词和本次选用的参考图。 |
 | `portrait.importProblem.type` | 请选择 PNG、JPEG 或 WebP 图片。 |
 | `portrait.importProblem.too_large` | 图片文件太大。请选择一张更小的图。 |

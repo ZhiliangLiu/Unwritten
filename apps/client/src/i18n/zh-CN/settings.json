@@ -186,6 +186,7 @@
     },
     "model": "模型 ID",
     "token": "令牌",
+    "newToken": "新令牌",
     "apiKey": "API 密钥",
     "generateToken": "生成令牌",
     "copyToken": "复制令牌",

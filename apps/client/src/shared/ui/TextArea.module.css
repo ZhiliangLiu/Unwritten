@@ -1,6 +1,11 @@
 .multiLine {
-  min-block-size: calc(var(--uw-typography-body-line-height) * 1em * var(--uw-textarea-rows));
-  max-block-size: calc(var(--uw-typography-body-line-height) * 1em * 10);
+  min-block-size: calc(
+    var(--uw-typography-body-line-height) * 1em * var(--uw-textarea-rows) + 2 * var(--uw-space-2) + 2 *
+      var(--uw-border-width)
+  );
+  max-block-size: calc(
+    var(--uw-typography-body-line-height) * 1em * 10 + 2 * var(--uw-space-2) + 2 * var(--uw-border-width)
+  );
   padding-block: var(--uw-space-2);
   field-sizing: content;
   resize: none;

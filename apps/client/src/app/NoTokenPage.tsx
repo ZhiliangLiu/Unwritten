@@ -8,8 +8,8 @@ export function NoTokenPage({ expired }: { expired: boolean }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     document.title = t('common:app.documentTitle', { title: heading });
-    headingRef.current?.focus();
-  }, [heading, t]);
+    if (expired) headingRef.current?.focus();
+  }, [expired, heading, t]);
   return (
     <main className={styles.center}>
       <h1 className={styles.heading} tabIndex={-1} ref={headingRef}>

@@ -367,7 +367,7 @@ export function ImageServiceCard({
               disabled={disabled}
             />
             <Select
-              label={t('settings:images.apiKey')}
+              label={service.protocol === 'unwritten-image' ? t('settings:images.token') : t('settings:images.apiKey')}
               value={editKeyAction}
               onValueChange={(value) => setEditKeyAction(value as 'keep' | 'set' | 'remove')}
               options={[

@@ -5,6 +5,12 @@ import { PageToolbar } from './PageToolbar.tsx';
 import type { PageToolbarStart } from './PageToolbar.tsx';
 import styles from './Page.module.css';
 
+let launchPageShown = false;
+
+export function resetLaunchPageForTests(): void {
+  launchPageShown = false;
+}
+
 export function Page({
   title,
   heading,
@@ -30,6 +36,10 @@ export function Page({
     document.title = t('common:app.documentTitle', { title });
     if (!firstRenderRef.current) return;
     firstRenderRef.current = false;
+    if (!launchPageShown) {
+      launchPageShown = true;
+      return;
+    }
     containerRef.current?.querySelector<HTMLElement>('h1')?.focus();
   }, [t, title]);
 

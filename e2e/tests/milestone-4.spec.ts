@@ -111,8 +111,8 @@ test('E01 纯文字、版本升级与确认开启', async ({ page }) => {
     await page.getByRole('textbox', { name: '服务名称' }).fill('本地出图');
     await page.getByRole('textbox', { name: '服务地址' }).fill(app.services.proxyUrl ?? '');
     await page.getByRole('button', { name: '生成令牌' }).click();
-    await expect(page.getByRole('textbox', { name: '令牌' })).toBeVisible();
-    const generatedToken = await page.getByRole('textbox', { name: '令牌' }).inputValue();
+    await expect(page.getByRole('textbox', { name: '新令牌' })).toBeVisible();
+    const generatedToken = await page.getByRole('textbox', { name: '新令牌' }).inputValue();
     expect(generatedToken.length).toBeGreaterThanOrEqual(43);
     await page.getByRole('button', { name: '保存出图服务' }).click();
     await expect(page.getByRole('heading', { name: '本地出图' })).toBeVisible();
@@ -126,7 +126,7 @@ test('E01 纯文字、版本升级与确认开启', async ({ page }) => {
     await page.getByRole('link', { name: '设置' }).click();
     await page.getByRole('link', { name: '出图服务' }).click();
     await expect(page.getByText('已配置')).toBeVisible();
-    await expect(page.getByRole('textbox', { name: '令牌' })).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: '新令牌' })).toHaveCount(0);
     await page.getByRole('radiogroup', { name: '用于出图' }).getByText('本地出图').click();
     await expect.poll(async () => (await app.api.image.services.list()).selectedServiceId).not.toBeNull();
 
@@ -938,7 +938,6 @@ test('E05 离线恢复只重试一张，关闭自动出图后旧结果不出现'
     );
     app.services.background.shot(shotText({ caption: '排队中应当取消的图' }));
     await submitAction(page, '把钥匙收进衣袋');
-    const jobsBeforeCancel = imageJobRequests(app.services.image!).length;
     const beforeCancelRoute = await app.api.play.getRoute({
       routeId: new URL(page.url()).pathname.split('/').at(-1)!,
     });
@@ -956,6 +955,7 @@ test('E05 离线恢复只重试一张，关闭自动出图后旧结果不出现'
     await settings.getByRole('link', { name: '出图服务' }).click();
     await settings.getByRole('checkbox', { name: '游玩时生成插图' }).click();
     await expect.poll(async () => (await app.api.image.autoIllustration.get()).enabled).toBe(false);
+    const jobsAtDisable = imageJobRequests(app.services.image!).length;
     await settings.close();
 
     await waitUntil(
@@ -975,7 +975,7 @@ test('E05 离线恢复只重试一张，关闭自动出图后旧结果不出现'
       { label: 'cancelled illustrations', timeoutMs: 20_000 },
     );
     releaseRunning();
-    expect(imageJobRequests(app.services.image!).length).toBe(jobsBeforeCancel);
+    expect(imageJobRequests(app.services.image!).length).toBe(jobsAtDisable);
 
     const routePath = new URL(page.url()).pathname;
     await page.goto(`${new URL(app.url).origin}${routePath}#token=${app.token}`);
