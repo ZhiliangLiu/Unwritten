@@ -14,7 +14,7 @@ import { newImageServiceId } from '../providers/ids.ts';
 import { keyStatus } from '../providers/keys.ts';
 import type { ImageServiceEntry } from '../providers/schema.ts';
 import type { ProbeRecord } from './capability-cache.ts';
-import { openAiCapabilities, prefillOpenAiOptions } from './openai-capabilities.ts';
+import { openAiCapabilities, resolveOpenAiOptions, type ResolvedOpenAiImageOptions } from './openai-capabilities.ts';
 
 export interface ImageWakeView {
   state: ImageServiceState;
@@ -30,8 +30,8 @@ export function validateBaseUrl(raw: string): string {
   return baseUrl;
 }
 
-function openAiOptions(entry: ImageServiceEntry): { maxReferences: number; sizes: 'fixed' | 'custom' } {
-  return entry.capabilities ?? prefillOpenAiOptions(entry.model ?? '');
+function openAiOptions(entry: ImageServiceEntry): ResolvedOpenAiImageOptions {
+  return resolveOpenAiOptions(entry.capabilities, entry.model ?? '');
 }
 
 export function serviceView(
@@ -87,7 +87,7 @@ export function createEntry(input: CreateImageServiceInput): ImageServiceEntry {
     if (input.launcher !== null) throw appError('invalid_input', 'launcher is only available for unwritten-image');
     const model = requireModel(input);
     entry.model = model;
-    entry.capabilities = input.openai ?? prefillOpenAiOptions(model);
+    entry.capabilities = resolveOpenAiOptions(input.openai ?? undefined, model);
   } else if (input.launcher !== null) {
     entry.launcher = { baseUrl: validateBaseUrl(input.launcher.baseUrl) };
     if (input.launcher.apiKey !== null) entry.launcher.apiKey = input.launcher.apiKey;
@@ -112,7 +112,10 @@ export function applyUpdate(entry: ImageServiceEntry, input: UpdateImageServiceI
     const model = requireModel(input);
     const keepCapabilities = input.openai === null && entry.model === model && entry.capabilities !== undefined;
     next.model = model;
-    next.capabilities = input.openai ?? (keepCapabilities ? entry.capabilities : prefillOpenAiOptions(model));
+    next.capabilities = resolveOpenAiOptions(
+      input.openai ?? (keepCapabilities ? entry.capabilities : undefined),
+      model,
+    );
     if (input.launcher.action !== 'keep') {
       throw appError('invalid_input', 'launcher is only available for unwritten-image');
     }

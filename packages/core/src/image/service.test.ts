@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { OPENAI_IMAGE_DEFAULTS } from '@unwritten/contracts';
 import type { CreateImageServiceInput, UpdateImageServiceInput } from '@unwritten/contracts';
 import { createEventBus } from '../events/bus.ts';
 import type { Logger } from '../log/logger.ts';
@@ -211,10 +212,15 @@ describe('createImageService', () => {
         createInput({
           protocol: 'openai-images',
           model: 'gpt-image-2',
-          openai: { maxReferences: 4, sizes: 'fixed' },
+          openai: { maxReferences: 4, sizes: 'fixed', outputFormat: 'jpeg' },
         }),
       );
-      expect(created.config.services[0]?.openai).toEqual({ maxReferences: 4, sizes: 'fixed' });
+      expect(created.config.services[0]?.openai).toEqual({
+        ...OPENAI_IMAGE_DEFAULTS,
+        maxReferences: 4,
+        sizes: 'fixed',
+        outputFormat: 'jpeg',
+      });
 
       const kept = await service.updateService(
         updateInput({
@@ -225,7 +231,12 @@ describe('createImageService', () => {
           openai: null,
         }),
       );
-      expect(kept.services[0]?.openai).toEqual({ maxReferences: 4, sizes: 'fixed' });
+      expect(kept.services[0]?.openai).toEqual({
+        ...OPENAI_IMAGE_DEFAULTS,
+        maxReferences: 4,
+        sizes: 'fixed',
+        outputFormat: 'jpeg',
+      });
 
       const explicit = await service.updateService(
         updateInput({
@@ -235,7 +246,11 @@ describe('createImageService', () => {
           openai: { maxReferences: 2, sizes: 'custom' },
         }),
       );
-      expect(explicit.services[0]?.openai).toEqual({ maxReferences: 2, sizes: 'custom' });
+      expect(explicit.services[0]?.openai).toEqual({
+        ...OPENAI_IMAGE_DEFAULTS,
+        maxReferences: 2,
+        sizes: 'custom',
+      });
 
       const changed = await service.updateService(
         updateInput({
@@ -245,7 +260,11 @@ describe('createImageService', () => {
           openai: null,
         }),
       );
-      expect(changed.services[0]?.openai).toEqual({ maxReferences: 16, sizes: 'fixed' });
+      expect(changed.services[0]?.openai).toEqual({
+        ...OPENAI_IMAGE_DEFAULTS,
+        maxReferences: 16,
+        sizes: 'fixed',
+      });
     } finally {
       opened.close();
       temp.cleanup();

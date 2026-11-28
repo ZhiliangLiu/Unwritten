@@ -1,5 +1,11 @@
-import type { ImageProtocol, OpenAiSizeMode } from '@unwritten/contracts';
-import { IDLE_MINUTES_MAX, IDLE_MINUTES_MIN, IMAGE_IDLE_MINUTES } from '@unwritten/contracts';
+import type {
+  ImageProtocol,
+  OpenAiOutputFormat,
+  OpenAiReferenceTransport,
+  OpenAiResponseFormat,
+  OpenAiSizeMode,
+} from '@unwritten/contracts';
+import { IDLE_MINUTES_MAX, IDLE_MINUTES_MIN, IMAGE_IDLE_MINUTES, OPENAI_IMAGE_DEFAULTS } from '@unwritten/contracts';
 import { useQueryClient } from '@tanstack/react-query';
 import { TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
@@ -8,6 +14,7 @@ import { useApi } from '../../shared/api/context.tsx';
 import { queryKeys } from '../../shared/api/query.ts';
 import { Button } from '../../shared/ui/Button.tsx';
 import { Card } from '../../shared/ui/Card.tsx';
+import { Disclosure } from '../../shared/ui/Disclosure.tsx';
 import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
 import { Icon } from '../../shared/ui/Icon.tsx';
 import { NumberField } from '../../shared/ui/NumberField.tsx';
@@ -21,6 +28,22 @@ import styles from './AddImageServiceForm.module.css';
 const SIZE_MODE_LABEL_KEYS: Record<OpenAiSizeMode, string> = {
   fixed: 'settings:images.sizeModes.fixed',
   custom: 'settings:images.sizeModes.custom',
+};
+
+const OUTPUT_FORMAT_LABEL_KEYS: Record<OpenAiOutputFormat, string> = {
+  webp: 'settings:images.compat.outputFormats.webp',
+  png: 'settings:images.compat.outputFormats.png',
+  jpeg: 'settings:images.compat.outputFormats.jpeg',
+};
+
+const RESPONSE_FORMAT_LABEL_KEYS: Record<OpenAiResponseFormat, string> = {
+  omit: 'settings:images.compat.responseFormats.omit',
+  b64_json: 'settings:images.compat.responseFormats.b64_json',
+};
+
+const REFERENCE_TRANSPORT_LABEL_KEYS: Record<OpenAiReferenceTransport, string> = {
+  edits: 'settings:images.compat.referenceTransports.edits',
+  inline: 'settings:images.compat.referenceTransports.inline',
 };
 
 function isPlainHttpToRemoteHost(baseUrl: string, apiKey: string): boolean {
@@ -53,6 +76,12 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
   const [model, setModel] = useState('');
   const [maxReferences, setMaxReferences] = useState<number | null>(0);
   const [sizes, setSizes] = useState<OpenAiSizeMode>('fixed');
+  const [outputFormat, setOutputFormat] = useState<OpenAiOutputFormat>(OPENAI_IMAGE_DEFAULTS.outputFormat);
+  const [responseFormat, setResponseFormat] = useState<OpenAiResponseFormat>(OPENAI_IMAGE_DEFAULTS.responseFormat);
+  const [referenceTransport, setReferenceTransport] = useState<OpenAiReferenceTransport>(
+    OPENAI_IMAGE_DEFAULTS.referenceTransport,
+  );
+  const [disableWatermark, setDisableWatermark] = useState<boolean>(OPENAI_IMAGE_DEFAULTS.disableWatermark);
   const [launcherEnabled, setLauncherEnabled] = useState(false);
   const [launcherUrl, setLauncherUrl] = useState('');
   const [launcherApiKey, setLauncherApiKey] = useState('');
@@ -68,6 +97,10 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
     setModel('');
     setMaxReferences(0);
     setSizes('fixed');
+    setOutputFormat(OPENAI_IMAGE_DEFAULTS.outputFormat);
+    setResponseFormat(OPENAI_IMAGE_DEFAULTS.responseFormat);
+    setReferenceTransport(OPENAI_IMAGE_DEFAULTS.referenceTransport);
+    setDisableWatermark(OPENAI_IMAGE_DEFAULTS.disableWatermark);
     setLauncherEnabled(false);
     setLauncherUrl('');
     setLauncherApiKey('');
@@ -85,6 +118,10 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
     const prefill = prefillOpenAiOptions(value);
     setMaxReferences(prefill.maxReferences);
     setSizes(prefill.sizes);
+    setOutputFormat(prefill.outputFormat);
+    setResponseFormat(prefill.responseFormat);
+    setReferenceTransport(prefill.referenceTransport);
+    setDisableWatermark(prefill.disableWatermark);
   }
 
   async function submit() {
@@ -99,7 +136,17 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
         baseUrl: baseUrl.trim(),
         apiKey: apiKey.trim() || null,
         model: protocol === 'openai-images' ? model.trim() : null,
-        openai: protocol === 'openai-images' ? { maxReferences: maxReferences ?? 0, sizes } : null,
+        openai:
+          protocol === 'openai-images'
+            ? {
+                maxReferences: maxReferences ?? 0,
+                sizes,
+                outputFormat,
+                responseFormat,
+                referenceTransport,
+                disableWatermark,
+              }
+            : null,
         launcher:
           protocol === 'unwritten-image' && launcherEnabled
             ? { baseUrl: launcherUrl.trim(), apiKey: launcherApiKey.trim() || null }
@@ -212,6 +259,53 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
                 disabled={disabled}
               />
             </div>
+            <Disclosure summary={t('settings:images.compat.heading')} heading='h4' className={styles.compat}>
+              <div className={styles.grid}>
+                <Select
+                  label={t('settings:images.compat.outputFormat')}
+                  value={outputFormat}
+                  onValueChange={(value) => setOutputFormat(value as OpenAiOutputFormat)}
+                  options={(Object.keys(OUTPUT_FORMAT_LABEL_KEYS) as OpenAiOutputFormat[]).map((value) => ({
+                    value,
+                    label: t(OUTPUT_FORMAT_LABEL_KEYS[value]),
+                  }))}
+                  description={t('settings:images.compat.outputFormatHelp')}
+                  disabled={disabled}
+                />
+                <Select
+                  label={t('settings:images.compat.responseFormat')}
+                  value={responseFormat}
+                  onValueChange={(value) => setResponseFormat(value as OpenAiResponseFormat)}
+                  options={(Object.keys(RESPONSE_FORMAT_LABEL_KEYS) as OpenAiResponseFormat[]).map((value) => ({
+                    value,
+                    label: t(RESPONSE_FORMAT_LABEL_KEYS[value]),
+                  }))}
+                  description={t('settings:images.compat.responseFormatHelp')}
+                  disabled={disabled}
+                />
+                <Select
+                  label={t('settings:images.compat.referenceTransport')}
+                  value={referenceTransport}
+                  onValueChange={(value) => setReferenceTransport(value as OpenAiReferenceTransport)}
+                  options={(Object.keys(REFERENCE_TRANSPORT_LABEL_KEYS) as OpenAiReferenceTransport[]).map((value) => ({
+                    value,
+                    label: t(REFERENCE_TRANSPORT_LABEL_KEYS[value]),
+                  }))}
+                  description={t('settings:images.compat.referenceTransportHelp')}
+                  disabled={disabled}
+                />
+              </div>
+              <label className={styles.checkbox}>
+                <input
+                  type='checkbox'
+                  checked={disableWatermark}
+                  onChange={(event) => setDisableWatermark(event.target.checked)}
+                  disabled={disabled}
+                />
+                <span>{t('settings:images.compat.disableWatermark')}</span>
+              </label>
+              <p className={styles.hint}>{t('settings:images.compat.disableWatermarkHelp')}</p>
+            </Disclosure>
           </>
         ) : null}
         {protocol === 'unwritten-image' ? (

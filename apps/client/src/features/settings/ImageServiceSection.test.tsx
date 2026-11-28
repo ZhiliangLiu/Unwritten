@@ -305,6 +305,42 @@ describe('ImageServiceSection', () => {
     await unmount();
   });
 
+  it('添加 OpenAI 服务时提交兼容设置', async () => {
+    const { container, fake, getByRole, unmount } = await openSettings();
+    await getByRole('button', { name: '添加出图服务' }).click();
+    const protocolOption = Array.from(container.querySelectorAll('label')).find(
+      (label) => label.textContent?.trim() === 'OpenAI 图像接口',
+    );
+    if (!protocolOption) throw new Error('OpenAI protocol option not found');
+    protocolOption.click();
+    await getByRole('textbox', { name: '服务名称' }).fill('云图二');
+    await getByRole('textbox', { name: '服务地址' }).fill('https://api.example.com/v1');
+    await getByRole('textbox', { name: '模型 ID' }).fill('test-image');
+    await waitFor(() =>
+      Array.from(container.querySelectorAll('button')).some((button) => button.textContent?.trim() === '兼容设置'),
+    );
+    buttonIn(container, '兼容设置').click();
+    await waitFor(() =>
+      Array.from(container.querySelectorAll('button')).some((button) => button.textContent?.trim() === 'WebP'),
+    );
+    await chooseOption(buttonIn(container, 'WebP'), 'JPEG');
+    await chooseOption(buttonIn(container, '不发送（服务默认）'), 'Base64（b64_json）');
+    await chooseOption(buttonIn(container, '编辑接口'), '生成接口内联');
+    await getByRole('checkbox', { name: '关闭服务水印' }).click();
+    await getByRole('button', { name: '保存出图服务' }).click();
+    await waitFor(() => fake.calls.some((call) => call.path === 'image.services.create'));
+    const input = fake.calls.find((call) => call.path === 'image.services.create')!.input as { openai: unknown };
+    expect(input.openai).toEqual({
+      maxReferences: 0,
+      sizes: 'fixed',
+      outputFormat: 'jpeg',
+      responseFormat: 'b64_json',
+      referenceTransport: 'inline',
+      disableWatermark: true,
+    });
+    await unmount();
+  });
+
   it('编辑时不提交服务地址', async () => {
     const { container, fake, unmount } = await openSettings();
     await waitFor(() => cardByName(container, '本机出图') !== null);
@@ -319,6 +355,36 @@ describe('ImageServiceSection', () => {
     const call = fake.calls.find((item) => item.path === 'image.services.update')!;
     expect(Object.hasOwn(call.input as object, 'baseUrl')).toBe(false);
     expect((call.input as { name: string }).name).toBe('本机出图');
+    await unmount();
+  });
+
+  it('编辑 OpenAI 兼容设置并提交', async () => {
+    const { container, fake, getByRole, unmount } = await openSettings();
+    await waitFor(() => cardByName(container, '云图') !== null);
+    const card = cardByName(container, '云图')!;
+    buttonIn(card, '编辑').click();
+    await waitFor(() =>
+      Array.from(card.querySelectorAll('button')).some((button) => button.textContent?.trim() === '兼容设置'),
+    );
+    buttonIn(card, '兼容设置').click();
+    await waitFor(() =>
+      Array.from(card.querySelectorAll('button')).some((button) => button.textContent?.trim() === 'WebP'),
+    );
+    await chooseOption(buttonIn(card, 'WebP'), 'JPEG');
+    await chooseOption(buttonIn(card, '不发送（服务默认）'), 'Base64（b64_json）');
+    await chooseOption(buttonIn(card, '编辑接口'), '生成接口内联');
+    await getByRole('checkbox', { name: '关闭服务水印' }).click();
+    buttonIn(card, '保存出图服务').click();
+    await waitFor(() => fake.calls.some((call) => call.path === 'image.services.update'));
+    const input = fake.calls.find((call) => call.path === 'image.services.update')!.input as { openai: unknown };
+    expect(input.openai).toEqual({
+      maxReferences: 16,
+      sizes: 'custom',
+      outputFormat: 'jpeg',
+      responseFormat: 'b64_json',
+      referenceTransport: 'inline',
+      disableWatermark: true,
+    });
     await unmount();
   });
 

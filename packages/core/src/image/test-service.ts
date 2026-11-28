@@ -5,7 +5,7 @@ import type { ImageServiceEntry } from '../providers/schema.ts';
 import { PAID_TEST_PROMPT, type ImageEngine } from './engine.ts';
 import { ImageError } from './errors.ts';
 import { createLauncherClient } from './launcher-client.ts';
-import { openAiCapabilities, prefillOpenAiOptions } from './openai-capabilities.ts';
+import { openAiCapabilities, resolveOpenAiOptions } from './openai-capabilities.ts';
 import { createOpenAiImageClient } from './openai-client.ts';
 import type { Prober } from './probe.ts';
 
@@ -63,7 +63,7 @@ export function createServiceTester(deps: ServiceTesterDeps): ServiceTester {
     entry: ImageServiceEntry,
     input: TestImageServiceInput,
   ): Promise<TestImageServiceResult> => {
-    const options = entry.capabilities ?? prefillOpenAiOptions(entry.model ?? '');
+    const options = resolveOpenAiOptions(entry.capabilities, entry.model ?? '');
     const service = {
       implementation: null,
       model: entry.model ?? null,
@@ -77,6 +77,7 @@ export function createServiceTester(deps: ServiceTesterDeps): ServiceTester {
           baseUrl: entry.baseUrl,
           apiKey: resolveApiKey(entry.apiKey, deps.env),
           model: entry.model ?? '',
+          compat: options,
           fetch: deps.fetch,
         });
         await client.listModels(deps.shutdown);

@@ -170,6 +170,26 @@
   gap: var(--uw-space-3);
 }
 
+.compat {
+  display: grid;
+  gap: var(--uw-space-3);
+  inline-size: 100%;
+}
+
+.compatFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--uw-space-3);
+}
+
+.hint {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  color: var(--uw-color-text-muted);
+}
+
 .checkbox {
   display: flex;
   align-items: center;

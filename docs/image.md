@@ -63,13 +63,14 @@
 - **`image.service` 是用于出图的服务。** 为空时停止出图，开局页收起插图设置。已有图片照常显示和保存，作者仍可从本机录入人物参考。删除正在使用的服务时，确认框写明效果，删除后把它清空。
 - **按需启动是可选项。** 只有 `unwritten-image` 服务能配 `launcher` 和 `idleMinutes`。`launcher` 是启动器的地址和 key，key 的规则同服务的 `apiKey`；`idleMinutes` 默认 `IMAGE_IDLE_MINUTES`（30），取 5 到 720 之间的整数。规则见 §12。
 - **能力从哪来。** `unwritten-image` 服务的能力由服务自己报告（§3.2），配置里不写。`openai-images` 服务没法自报，能力写在 `capabilities` 里；添加服务时按模型 id 预填（§4.3），用户可以改。
+- **`openai-images` 的兼容设置。** `capabilities` 里还可以写 `outputFormat`、`responseFormat`、`referenceTransport` 和 `disableWatermark`，省略时分别按 `webp`、`omit`、`edits`、`false` 处理。它们改变 §4.1 的请求形状，用来接只兼容 OpenAI 图像接口一部分的服务。
 - **「游玩时生成插图」默认关闭。** 首次开启前，设置页列明实际使用的 `background` 和出图服务、各自接收的内容，并提示一张插图可能先生成多张参考图。确认关联的服务 id、`openai-images` 模型 id 和 `background` 的实际端点与模型，存入 `app_settings`。任一项变化后，设置页恢复关闭，重新确认后生效。每局仍可选择纯文字，生效规则见 §7.1。
 
 设置页的「出图服务」一节：
 
 | 操作 | 做什么 |
 | --- | --- |
-| 添加服务 | 选协议，填名称、地址、key。`unwritten-image` 可以点「生成令牌」；`openai-images` 另填模型 id，确认预填的能力 |
+| 添加服务 | 选协议，填名称、地址、key。`unwritten-image` 可以点「生成令牌」；`openai-images` 另填模型 id，确认预填的能力，必要时在「兼容设置」里改输出格式、响应格式、参考图传输方式和是否关闭服务水印 |
 | 测试连接 | `unwritten-image` 读取 `/v1/info`，显示实现名、模型、能力和就绪状态。`openai-images` 读取 `{baseUrl}/models`，成功后显示「连接成功」，出图能力由实际生成验证 |
 | 生成测试图 | `openai-images` 用固定的测试提示词画一张图。用户先确认可能产生费用，成功后显示「已成功出图」 |
 | 状态 | 显示最近一次的连接结果和时间，未就绪时显示原因。成功出过图时，显示最近一次出图时间 |
@@ -102,7 +103,7 @@ core 接口都是 contracts 里的 oRPC 过程：
 
 ### 3.1 参考图
 
-参考图以内联 base64 放在请求体里，请求里只有本次选中的图片字节和媒体类型。core 选择人物及视角（§7.2），然后按数组顺序用 `{{ref:N}}` 指定图片。人物、参考组 id、文件路径和图片来源都留在 core。除了取图接口直接返回字节，其余请求和响应都是 JSON。OpenAI 图像接口按同一顺序构造 multipart 的 `image[]`（§4.1）。
+参考图以内联 base64 放在请求体里，请求里只有本次选中的图片字节和媒体类型。core 选择人物及视角（§7.2），然后按数组顺序用 `{{ref:N}}` 指定图片。人物、参考组 id、文件路径和图片来源都留在 core。除了取图接口直接返回字节，其余请求和响应都是 JSON。OpenAI 图像接口按同一顺序构造 multipart 的 `image[]`（§4.1）；参考图传输方式选为内联时，按同一顺序构造生成请求里的 JSON `image` 数组。
 
 ### 3.2 `GET /v1/info`
 
@@ -223,12 +224,15 @@ core 每隔 `IMAGE_POLL_INTERVAL_MS`（默认 2000）查询一次状态。
 
 ### 4.1 请求
 
-- **不带参考图：** `POST {baseUrl}/images/generations`，JSON 请求体：`model`、`prompt`、`n: 1`、`size`、`quality`、`output_format: "webp"`、`moderation: "auto"`。
-- **带参考图：** `POST {baseUrl}/images/edits`，multipart 请求体：`model`、`prompt`、每张参考图一个 `image[]` 文件字段、`size`、`quality`、`output_format`、`n`。不用 JSON 的 `images` 数组，因为兼容这个接口的服务普遍只实现了 multipart 的写法。
+请求形状由兼容设置决定：`outputFormat` 取 `webp`、`png` 或 `jpeg`，`responseFormat` 取 `omit` 或 `b64_json`，`referenceTransport` 取 `edits` 或 `inline`。省略时用 §2 的默认值。
+
+- **不带参考图：** `POST {baseUrl}/images/generations`，JSON 请求体：`model`、`prompt`、`n: 1`、`size`、`quality`、`output_format`、`moderation: "auto"`。`output_format` 取兼容设置里的 `outputFormat`，默认 `webp`；`responseFormat` 为 `b64_json` 时加 `response_format: "b64_json"`；`disableWatermark` 为 true 时加 `watermark: false`。
+- **带参考图，编辑接口：** `referenceTransport` 为 `edits` 时走 `POST {baseUrl}/images/edits`，multipart 请求体：`model`、`prompt`、每张参考图一个 `image[]` 文件字段、`size`、`quality`、`output_format`、`n`。编辑接口只发 OpenAI 的字段，`responseFormat` 和 `disableWatermark` 只影响生成接口。不用 JSON 的 `images` 数组，因为兼容这个接口的服务普遍只实现了 multipart 的写法。
+- **带参考图，生成接口内联：** `referenceTransport` 为 `inline` 时走 `POST {baseUrl}/images/generations`，JSON 请求体和不带参考图时相同，另加 `image` 数组。每张参考图是一个 `data:<媒体类型>;base64,<数据>` 字符串，顺序与 `image[]` 相同。服务没有 `/images/edits` 时用这种方式。
 - **参考图的写法：** `{{ref:N}}` 换成 `input image N`。
 - **没有 seed，也没有负面提示词，** 所以能力固定为 `seed: false`、`negativePrompt: false`。
 - **质量：** `fast` 对应 `low`，`best` 对应 `high`。
-- **响应：** 取 `data[0].b64_json`，解码后按 §5.3 校验；`usage` 里的 token 数记进调用记录（§11）。
+- **响应：** 取 `data[0].b64_json`，解码后按 §5.3 校验；`usage` 里的 token 数记进调用记录（§11）。服务返回 `url` 而不是 `b64_json` 时，把 `responseFormat` 设为 `b64_json`，否则以 `image_invalid_response` 失败。
 - **时间上限：** 一次请求 `OPENAI_IMAGE_TIMEOUT_MS`（默认 180000，可配置）内没有返回，就按超时处理。取消时中止请求。
 
 ### 4.2 尺寸
@@ -254,7 +258,9 @@ core 把所选预设的宽高拼成 `size`。720 方图低于自定义模型的�
 | `gpt-image-1.5`、`gpt-image-1-mini`、`chatgpt-image-latest` | 16 | `fixed` |
 | 其他 | 0 | `fixed` |
 
-`maxReferences` 为 0 时不调编辑接口，人物一致性只靠形象文字，设置页写明这一点。模型更替很快，这张表随版本维护，模型 id 永远可以手填。
+预填只决定 `maxReferences` 和 `sizes`；兼容设置按 §4.1 的默认值填，用户可以按服务实际能力改。
+
+`maxReferences` 为 0 时不发参考图，人物一致性只靠形象文字，设置页写明这一点。`referenceTransport` 为 `edits` 时，有参考图就走编辑接口；为 `inline` 时，参考图随生成请求发送。模型更替很快，这张表随版本维护，模型 id 永远可以手填。
 
 OpenAI 图像接口的参考图按 core 的单张 `IMAGE_MAX_BYTES` 限制筛选。Unwritten 图像协议按服务报告的 `maxReferenceBytes` 筛选。
 
@@ -271,6 +277,8 @@ OpenAI 图像接口的参考图按 core 的单张 `IMAGE_MAX_BYTES` 限制筛选
 | 能确认尚未提交就已断网或超时 | `image_offline`、`image_timeout`。自动重试一次 |
 | 请求可能已提交，响应丢失、超时或收到 5xx | `image_outcome_unknown`。说明服务可能已出图或计费，交给用户决定是否重试 |
 | 301、302、303、307、308 | `image_redirected` |
+
+服务返回成功但响应里没有 `data[0].b64_json` 时，core 以 `image_invalid_response` 失败，不去下载 `url`。这类服务要把兼容设置里的 `responseFormat` 设为 `b64_json`。
 
 ## 5. image 模块
 

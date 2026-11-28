@@ -66,7 +66,14 @@ describe('serviceView', () => {
     const view = serviceView(entry, {}, null, UNKNOWN_WAKE_VIEW, 1234);
     expect(view.capabilities?.maxReferences).toBe(16);
     expect(view.capabilities?.aspects).toEqual(['1:1', '3:2', '2:3', '3:4', '4:3', '16:9', '9:16']);
-    expect(view.openai).toEqual({ maxReferences: 16, sizes: 'custom' });
+    expect(view.openai).toEqual({
+      maxReferences: 16,
+      sizes: 'custom',
+      outputFormat: 'webp',
+      responseFormat: 'omit',
+      referenceTransport: 'edits',
+      disableWatermark: false,
+    });
     expect(view.lastSuccessAt).toBe(1234);
   });
 
@@ -120,6 +127,24 @@ describe('createEntry', () => {
         }),
       ),
     ).toThrow(expect.objectContaining({ code: 'invalid_input' }));
+  });
+
+  it('openai-images 保存显式兼容设置，未写的键补默认值', () => {
+    const entry = createEntry(
+      createInput({
+        protocol: 'openai-images',
+        model: 'test-image',
+        openai: { maxReferences: 2, sizes: 'fixed', outputFormat: 'jpeg' },
+      }),
+    );
+    expect(entry.capabilities).toEqual({
+      maxReferences: 2,
+      sizes: 'fixed',
+      outputFormat: 'jpeg',
+      responseFormat: 'omit',
+      referenceTransport: 'edits',
+      disableWatermark: false,
+    });
   });
 
   it('unwritten-image 忽略模型和 openai 选项', () => {
@@ -194,6 +219,13 @@ describe('applyUpdate', () => {
       updateInput({ model: 'gpt-image-1.5', openai: null, launcher: { action: 'keep', key: { action: 'keep' } } }),
     );
     expect(updated.model).toBe('gpt-image-1.5');
-    expect(updated.capabilities).toEqual({ maxReferences: 16, sizes: 'fixed' });
+    expect(updated.capabilities).toEqual({
+      maxReferences: 16,
+      sizes: 'fixed',
+      outputFormat: 'webp',
+      responseFormat: 'omit',
+      referenceTransport: 'edits',
+      disableWatermark: false,
+    });
   });
 });
