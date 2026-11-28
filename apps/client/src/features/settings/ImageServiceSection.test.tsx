@@ -281,7 +281,7 @@ describe('ImageServiceSection', () => {
     const { container, fake, queryClient, getByRole, unmount } = await openSettings();
     await getByRole('button', { name: '添加出图服务' }).click();
     await getByRole('button', { name: '生成令牌' }).click();
-    await waitFor(() => inputByLabel(container, '令牌')?.value === FAKE_TOKEN);
+    await waitFor(() => inputByLabel(container, '新令牌')?.value === FAKE_TOKEN);
     await getByRole('textbox', { name: '服务名称' }).fill('新服务');
     await getByRole('textbox', { name: '服务地址' }).fill('http://127.0.0.1:9000');
     await getByRole('button', { name: '保存出图服务' }).click();
@@ -300,7 +300,7 @@ describe('ImageServiceSection', () => {
     expect(cacheContains(queryClient, FAKE_TOKEN)).toBe(false);
     await getByRole('button', { name: '添加出图服务' }).click();
     await waitFor(() => buttonIn(container, '保存出图服务') !== undefined);
-    expect(inputByLabel(container, '令牌')).toBeNull();
+    expect(inputByLabel(container, '新令牌')).toBeNull();
     expect(container.textContent).not.toContain(FAKE_TOKEN);
     await unmount();
   });
@@ -336,7 +336,7 @@ describe('ImageServiceSection', () => {
     );
     expect(generateButtons).toHaveLength(2);
     generateButtons[0]!.click();
-    await waitFor(() => inputByLabel(card, '令牌')?.value === FAKE_TOKEN);
+    await waitFor(() => inputByLabel(card, '新令牌')?.value === FAKE_TOKEN);
     buttonIn(card, '保存出图服务').click();
     await waitFor(() => fake.calls.some((call) => call.path === 'image.services.update'));
     const input = fake.calls.find((call) => call.path === 'image.services.update')!.input as {
@@ -362,7 +362,7 @@ describe('ImageServiceSection', () => {
     );
     expect(generateButtons).toHaveLength(1);
     generateButtons[0]!.click();
-    await waitFor(() => inputByLabel(card, '令牌')?.value === FAKE_TOKEN);
+    await waitFor(() => inputByLabel(card, '新令牌')?.value === FAKE_TOKEN);
     buttonIn(card, '保存出图服务').click();
     await waitFor(() => fake.calls.some((call) => call.path === 'image.services.update'));
     const input = fake.calls.find((call) => call.path === 'image.services.update')!.input as {

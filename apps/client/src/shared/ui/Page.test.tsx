@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { render } from 'vitest-browser-react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { initTestI18n } from '../test/i18n.ts';
 import { expectHeadingOutline } from '../test/heading-outline.ts';
-import { Page } from './Page.tsx';
+import { Page, resetLaunchPageForTests } from './Page.tsx';
 import { PageToolbar } from './PageToolbar.tsx';
 
 initTestI18n();
@@ -23,8 +23,25 @@ function PageHarness({ heading, subtitle }: { heading: 'toolbar' | 'content' | '
   );
 }
 
+async function showLaunchPage(): Promise<void> {
+  const launch = await render(<PageHarness heading='toolbar' />);
+  await launch.unmount();
+}
+
 describe('Page', () => {
-  it('挂载时设置文档标题并聚焦 h1', async () => {
+  beforeEach(() => {
+    resetLaunchPageForTests();
+  });
+
+  it('启动后的第一页只设文档标题，不把焦点移到 h1', async () => {
+    const { container } = await render(<PageHarness heading='toolbar' />);
+    expect(document.title).toBe('作品库 · Unwritten');
+    expect(document.activeElement).not.toBe(container.querySelector('h1'));
+    expect(container.querySelector('h1')?.matches(':focus-visible')).toBe(false);
+  });
+
+  it('切换到新页面时设置文档标题并聚焦 h1', async () => {
+    await showLaunchPage();
     const { container } = await render(<PageHarness heading='toolbar' />);
     const heading = container.querySelector('h1');
     expect(document.title).toBe('作品库 · Unwritten');
@@ -49,6 +66,7 @@ describe('Page', () => {
   });
 
   it('标题由页面自己渲染时不再生成页头，并聚焦子元素的 h1', async () => {
+    await showLaunchPage();
     const { container } = await render(<PageHarness heading='custom' subtitle='副标题' />);
     expect(container.querySelector('main > header')).toBeNull();
     expect(document.activeElement).toBe(container.querySelector('h1'));
