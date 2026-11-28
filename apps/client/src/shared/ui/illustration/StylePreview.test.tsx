@@ -37,6 +37,7 @@ function service(): ImageServiceView {
     capabilities: null,
     probe: null,
     lastSuccessAt: null,
+    capabilitiesAt: null,
     state: 'ready',
     action: null,
     wakeFailure: null,

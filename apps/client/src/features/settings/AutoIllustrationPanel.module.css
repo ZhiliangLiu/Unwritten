@@ -1,8 +1,6 @@
 .panel {
   display: grid;
-  gap: var(--uw-space-3);
-  padding-block-start: var(--uw-space-3);
-  border-block-start: var(--uw-border-width) solid var(--uw-color-border);
+  gap: var(--uw-space-1);
 }
 
 .checkbox {

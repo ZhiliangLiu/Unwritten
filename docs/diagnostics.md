@@ -55,6 +55,7 @@ RPC 的失败事件记录过程名、错误码和失败阶段。输入或输出�
 - `image.service.created`、`image.service.updated`、`image.service.removed`：服务配置增删改，附协议和是否有启动器。
 - `image.auto_illustration.set`：修改「游玩时生成插图」时，附是否开启。
 - `image.settings.invalid`：`app_settings.illustration` 解析失败时。
+- `image.capabilities.store_failed`：最近一次读到的服务能力写入或删除失败时，附操作（写入或删除）、服务 id 和错误类型。只影响设置页沿用的能力，探测结果和服务配置照常（[插图与出图服务 §2](./image.md#2-出图服务的配置)）。
 - `image.store.mismatch`：图片文件长度和记录不一致时，附记录字节数和实际字节数。
 - `image.store.failed`：写临时文件、改名或提交图片记录失败时，附失败阶段和系统错误码。
 - `image.gc.failed`：启动或删除作品后的清理失败时，附触发时机和错误码。

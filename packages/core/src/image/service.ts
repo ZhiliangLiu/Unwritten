@@ -11,15 +11,17 @@ import type {
   UpdateImageServiceInput,
 } from '@unwritten/contracts';
 import { appError } from '../errors.ts';
+import { diagnosticFault } from '../log/fault.ts';
 import type { CoreDeps, ImageService, LlmService } from '../services.ts';
 import { createProvidersStore, type ProvidersState } from '../providers/file.ts';
 import type { ProvidersFile } from '../providers/schema.ts';
 import { lastSuccessAt, pruneCalls, usageSummary as readUsageSummary } from './calls.ts';
 import { createCapabilityCache, type ProbeRecord } from './capability-cache.ts';
+import { createKnownCapabilitiesStore, type KnownCapabilities } from './known-capabilities.ts';
 import { applyUpdate, createEntry, serviceView, UNKNOWN_WAKE_VIEW, type ImageWakeView } from './config.ts';
 import { createImageEngine } from './engine.ts';
 import { ImageError } from './errors.ts';
-import { createProber, type Prober } from './probe.ts';
+import { createProber, type ProbeCache, type Prober } from './probe.ts';
 import { createImageQueue } from './queue.ts';
 import { createServiceTester } from './test-service.ts';
 import { createWaker } from './wake.ts';
@@ -62,7 +64,33 @@ export function createImageService(deps: CoreDeps & { llm: LlmService }, options
   const env = options?.env ?? process.env;
   const now = options?.now ?? Date.now;
   const store = deps.providers ?? createProvidersStore(join(deps.dataDir, 'providers.json'));
-  const cache = createCapabilityCache();
+  const memoryCache = createCapabilityCache();
+  const known = createKnownCapabilitiesStore(deps.db);
+  const storeKnown = (op: 'save' | 'remove', serviceId: string, write: () => void): void => {
+    try {
+      write();
+    } catch (error) {
+      deps.logger.record({
+        level: 'warn',
+        module: 'image',
+        event: 'image.capabilities.store_failed',
+        data: { op, serviceId, ...diagnosticFault(error) },
+      });
+    }
+  };
+  const cache: ProbeCache = {
+    get: (serviceId) => memoryCache.get(serviceId),
+    set(serviceId, record) {
+      memoryCache.set(serviceId, record);
+      const capabilities = record.capabilities;
+      if (capabilities === null) return;
+      storeKnown('save', serviceId, () => known.save(serviceId, { capabilities, at: record.at }));
+    },
+    delete(serviceId) {
+      memoryCache.delete(serviceId);
+      storeKnown('remove', serviceId, () => known.remove(serviceId));
+    },
+  };
   const queue = createImageQueue();
   const rawProber = createProber({
     cache,
@@ -171,7 +199,7 @@ export function createImageService(deps: CoreDeps & { llm: LlmService }, options
     const services = state.file.imageServices.map((entry) => {
       const probe = cache.get(entry.id);
       const wake = entry.launcher === undefined ? probeWakeView(probe) : waker.stateOf(entry.id);
-      return serviceView(entry, env, probe, wake, successes.get(entry.id) ?? null);
+      return serviceView(entry, env, probe, lastKnown(entry.id), wake, successes.get(entry.id) ?? null);
     });
     const selected = state.file.image.service;
     return {
@@ -185,6 +213,11 @@ export function createImageService(deps: CoreDeps & { llm: LlmService }, options
 
   const writeConfig = (file: ProvidersFile): ProvidersState => store.write(file);
 
+  function lastKnown(serviceId: string): KnownCapabilities | null {
+    const probe = cache.get(serviceId);
+    return probe?.capabilities ? { capabilities: probe.capabilities, at: probe.at } : known.get(serviceId);
+  }
+
   const capabilities = (serviceId: string): ImageCapabilities | null => {
     const state = store.load();
     if (state.status !== 'ok') return null;
@@ -194,6 +227,15 @@ export function createImageService(deps: CoreDeps & { llm: LlmService }, options
       return openAiCapabilities(resolveOpenAiOptions(entry.capabilities, entry.model ?? ''));
     }
     return cache.get(entry.id)?.capabilities ?? null;
+  };
+
+  const settingsCapabilities = (serviceId: string): ImageCapabilities | null => {
+    const state = store.load();
+    if (state.status !== 'ok') return null;
+    const entry = state.file.imageServices.find((candidate) => candidate.id === serviceId);
+    if (!entry) return null;
+    if (entry.protocol === 'openai-images') return capabilities(serviceId);
+    return lastKnown(serviceId)?.capabilities ?? null;
   };
 
   const selectedServiceId = (): string | null => {
@@ -207,7 +249,7 @@ export function createImageService(deps: CoreDeps & { llm: LlmService }, options
   const output = (): OutputOptionsView => {
     const settings = readIllustrationSettings(deps.db, deps.logger);
     const selected = selectedServiceId();
-    return outputOptions(settings, selected === null ? null : capabilities(selected));
+    return outputOptions(settings, selected === null ? null : settingsCapabilities(selected));
   };
 
   return {
@@ -228,6 +270,7 @@ export function createImageService(deps: CoreDeps & { llm: LlmService }, options
         }
         if (state.revision !== input.baseRevision) throw appError('config_conflict', 'providers.json changed');
         const file = structuredClone(state.file);
+        if (file.imageServices.length === 0) file.image.service = entry.id;
         file.imageServices.push(entry);
         const next = writeConfig(file);
         deps.logger.record({
@@ -310,7 +353,7 @@ export function createImageService(deps: CoreDeps & { llm: LlmService }, options
       const next = writeIllustrationSettings(deps.db, setOutputPreferences(settings, input));
       deps.bus.publish({ type: 'image.config_changed' });
       const selected = selectedServiceId();
-      return outputOptions(next, selected === null ? null : capabilities(selected));
+      return outputOptions(next, selected === null ? null : settingsCapabilities(selected));
     },
     getAutoIllustration() {
       const settings = readIllustrationSettings(deps.db, deps.logger);

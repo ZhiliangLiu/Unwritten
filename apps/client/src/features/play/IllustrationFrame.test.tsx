@@ -48,6 +48,7 @@ function service(state: ImageServiceState): ImageServiceView {
     capabilities: null,
     probe: null,
     lastSuccessAt: null,
+    capabilitiesAt: null,
     state,
     action: null,
     wakeFailure: null,

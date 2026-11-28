@@ -24,6 +24,7 @@ import {
   type Appearance,
   type IllustrationFormat,
   type IllustrationStyle,
+  type ImageCapabilities,
   type LlmHttpExchange,
   type LlmLogContent,
   type OutputPreferences,
@@ -481,3 +482,9 @@ export const imageCalls = sqliteTable(
   },
   (table) => [index('image_calls_created_idx').on(table.createdAt)],
 );
+
+export const imageServiceCapabilities = sqliteTable('image_service_capabilities', {
+  serviceId: text('service_id').primaryKey(),
+  capabilities: text('capabilities', { mode: 'json' }).$type<ImageCapabilities>().notNull(),
+  probedAt: integer('probed_at').notNull(),
+});

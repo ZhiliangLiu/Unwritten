@@ -87,6 +87,7 @@ export const ImageServiceViewSchema = z.object({
   launcher: z.object({ baseUrl: z.string(), key: KeyStatusSchema }).nullable(),
   idleMinutes: IdleMinutesSchema,
   capabilities: ImageCapabilitiesSchema.nullable(),
+  capabilitiesAt: TimestampSchema.nullable(),
   probe: z
     .object({
       at: TimestampSchema,

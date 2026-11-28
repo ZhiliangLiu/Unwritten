@@ -1,0 +1,91 @@
+@import url('../../theme/media.css');
+
+.form {
+  display: grid;
+  gap: var(--uw-space-4);
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--uw-space-3);
+}
+
+@media (--uw-compact) {
+  .fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.compatPanel {
+  justify-self: stretch;
+}
+
+.group {
+  display: grid;
+  gap: var(--uw-space-3);
+  padding-block-start: var(--uw-space-4);
+  border-block-start: var(--uw-border-width) solid var(--uw-color-border);
+}
+
+.groupHeading {
+  margin: 0;
+  font-family: var(--uw-typography-subtitle-font-family);
+  font-size: var(--uw-typography-subtitle-font-size);
+  font-weight: var(--uw-typography-subtitle-font-weight);
+  line-height: var(--uw-typography-subtitle-line-height);
+  letter-spacing: var(--uw-typography-subtitle-letter-spacing);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--uw-space-2);
+  min-block-size: var(--uw-size-target-min);
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  line-height: var(--uw-typography-body-line-height);
+  cursor: pointer;
+}
+
+.checkbox input {
+  inline-size: var(--uw-size-icon-sm);
+  block-size: var(--uw-size-icon-sm);
+  margin: 0;
+  accent-color: var(--uw-color-accent);
+}
+
+.hint {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  color: var(--uw-color-text-muted);
+}
+
+.warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--uw-space-2);
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  color: var(--uw-color-warning);
+}
+
+.warningIcon {
+  display: flex;
+  flex: none;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--uw-space-2);
+}

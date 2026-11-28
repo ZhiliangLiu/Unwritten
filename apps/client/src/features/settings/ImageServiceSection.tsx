@@ -2,8 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../../shared/api/context.tsx';
 import { queryKeys } from '../../shared/api/query.ts';
+import { Card } from '../../shared/ui/Card.tsx';
 import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
-import { RadioGroup } from '../../shared/ui/RadioGroup.tsx';
+import { Select } from '../../shared/ui/Select.tsx';
 import { Skeleton } from '../../shared/ui/Skeleton.tsx';
 import { AddImageServiceForm } from './AddImageServiceForm.tsx';
 import { AutoIllustrationPanel } from './AutoIllustrationPanel.tsx';
@@ -14,6 +15,8 @@ import { OutputDefaultsPanel } from './OutputDefaultsPanel.tsx';
 import { SETTINGS_SECTION_IDS } from './SettingsNav.tsx';
 import styles from './ImageServiceSection.module.css';
 
+const NO_SERVICE = '';
+
 export function ImageServiceSection() {
   const { t } = useTranslation();
   const api = useApi();
@@ -21,6 +24,7 @@ export function ImageServiceSection() {
   const config = useQuery({ queryKey: queryKeys.imageConfig, queryFn: () => api.image.services.list() });
   const writesDisabled =
     config.data?.status === 'invalid' || config.data?.status === 'too_new' || Boolean(config.data?.problem);
+  const selectedService = config.data?.services.find((service) => service.id === config.data?.selectedServiceId);
 
   const select = useMutation({
     mutationFn: (serviceId: string | null) =>
@@ -40,18 +44,28 @@ export function ImageServiceSection() {
           <AddImageServiceForm revision={config.data.revision} disabled={writesDisabled} />
         ) : (
           <>
-            <div inert={writesDisabled || undefined}>
-              <RadioGroup
+            <Card as='section'>
+              <h3 className={styles.cardHeading}>{t('settings:images.illustrationHeading')}</h3>
+              <Select
                 label={t('settings:images.selected')}
-                value={config.data.selectedServiceId ?? ''}
-                onValueChange={(value) => select.mutate(value === '' ? null : value)}
+                value={selectedService?.id ?? NO_SERVICE}
+                onValueChange={(value) => select.mutate(value === NO_SERVICE ? null : value)}
                 options={[
-                  { value: '', label: t('settings:images.disabled') },
+                  { value: NO_SERVICE, label: t('settings:images.disabled') },
                   ...config.data.services.map((service) => ({ value: service.id, label: service.name })),
                 ]}
+                disabled={writesDisabled || select.isPending}
               />
-            </div>
-            <div className={styles.list}>
+              <AutoIllustrationPanel disabled={writesDisabled} />
+              {selectedService ? (
+                <OutputDefaultsPanel
+                  disabled={writesDisabled}
+                  capabilitiesKnown={selectedService.capabilities !== null}
+                />
+              ) : null}
+            </Card>
+            <section className={styles.services}>
+              <h3 className={styles.subheading}>{t('settings:images.servicesHeading')}</h3>
               {config.data.services.map((service) => (
                 <ImageServiceCard
                   key={service.id}
@@ -61,10 +75,8 @@ export function ImageServiceSection() {
                   disabled={writesDisabled}
                 />
               ))}
-            </div>
+            </section>
             <AddImageServiceForm revision={config.data.revision} disabled={writesDisabled} />
-            <AutoIllustrationPanel disabled={writesDisabled} />
-            <OutputDefaultsPanel disabled={writesDisabled} />
             <ImageUsagePanel />
           </>
         )

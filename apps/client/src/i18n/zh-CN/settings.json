@@ -1,5 +1,7 @@
 {
-  "page": { "heading": "设置" },
+  "page": {
+    "heading": "设置"
+  },
   "debug": {
     "heading": "调试",
     "description": "查看每次模型调用的 prompt、回复和 HTTP 请求。记录只在本机保留 7 天。",
@@ -64,7 +66,9 @@
     },
     "samplingWarning": "开启思考后，部分服务会忽略或拒绝采样参数。请用测试连接确认。"
   },
-  "endpoints": { "heading": "端点" },
+  "endpoints": {
+    "heading": "端点"
+  },
   "endpoint": {
     "add": "添加端点",
     "edit": "修改名称和 key",
@@ -170,7 +174,9 @@
     "heading": "阅读",
     "description": "只影响正文，界面文字不变。切换主题时这些设置保持不变。"
   },
-  "models": { "heading": "模型" },
+  "models": {
+    "heading": "模型"
+  },
   "images": {
     "heading": "出图服务",
     "description": "连接一个出图服务，用来画故事插图和人物参考。",
@@ -192,11 +198,6 @@
     "copyToken": "复制令牌",
     "tokenOnce": "令牌只在这里显示一次。请复制到服务一侧。",
     "plainHttpWarning": "这个地址使用明文 HTTP。发送的密钥和图片可能被网络上的其他人看到。",
-    "references": "最多使用 {{count}} 张参考图",
-    "noReferences": "只靠形象文字保持人物一致。",
-    "separator": " · ",
-    "negativeSupported": "支持负面提示词",
-    "negativeUnsupported": "不支持负面提示词",
     "referenceLimit": "最多参考图",
     "sizeMode": "尺寸方式",
     "sizeModes": {
@@ -227,8 +228,6 @@
       "disableWatermark": "关闭服务水印",
       "disableWatermarkHelp": "勾选后要求服务不加水印。"
     },
-    "lastProbe": "最近探测于 {{time}}",
-    "lastSuccess": "最近一次出图于 {{time}}",
     "test": "测试连接",
     "testRunning": "正在测试连接",
     "testReady": "已连接，服务就绪。",
@@ -253,8 +252,7 @@
       "address": "启动器地址",
       "token": "启动器令牌",
       "idleMinutes": "连续空闲多少分钟后关闭",
-      "test": "测试启动器",
-      "notConfigured": "还没有配置启动器。"
+      "test": "测试启动器"
     },
     "launcherState": {
       "stopped": "已关闭",
@@ -264,7 +262,27 @@
       "stopping": "正在关闭",
       "failed": "启动失败"
     },
-    "privacy": "镜头模型会收到正文片段、人物形象和镜头约束。出图服务会收到提示词和选中的参考图，其中可能包含本机导入处理后的图片。"
+    "privacy": "镜头模型会收到正文片段、人物形象和镜头约束。出图服务会收到提示词和选中的参考图，其中可能包含本机导入处理后的图片。",
+    "illustrationHeading": "插图",
+    "servicesHeading": "服务",
+    "inUse": "用于出图",
+    "more": "出图服务「{{name}}」的更多操作",
+    "facts": {
+      "model": "模型",
+      "implementation": "实现",
+      "references": "参考图",
+      "referencesCount": "最多 {{count}} 张",
+      "referencesNone": "不用参考图，只靠形象文字保持人物一致",
+      "negativePrompt": "负面提示词",
+      "supported": "支持",
+      "unsupported": "不支持",
+      "lastProbe": "最近探测",
+      "lastSuccess": "最近出图",
+      "launcher": "按需启动",
+      "launcherIdle": "空闲 {{minutes}} 分钟后关闭",
+      "launcherNone": "未配置"
+    },
+    "capabilitiesFrom": "以上能力来自 {{time}}的探测。测试连接可以刷新。"
   },
   "auto": {
     "heading": "游玩时生成插图",
@@ -279,7 +297,8 @@
     "heading": "默认出图规格",
     "multipleSizes": "多个尺寸",
     "onlyTier": "当前只有这一档可用。",
-    "unavailable": "当前服务不支持已选规格，请重新选择。"
+    "unavailable": "当前服务不支持已选规格，请重新选择。",
+    "probeFirst": "测试连接后，这里会列出这个服务支持的比例和分辨率。"
   },
   "usage": {
     "heading": "出图用量",

@@ -1,14 +1,11 @@
 import type {
-  ImageCapabilities,
   ImageProtocol,
   ImageServiceView,
   KeyChange,
   KeyStatus,
   LauncherChange,
   LauncherState,
-  OpenAiOutputFormat,
-  OpenAiReferenceTransport,
-  OpenAiResponseFormat,
+  OpenAiImageCompat,
   OpenAiSizeMode,
   TestImageServiceResult,
 } from '@unwritten/contracts';
@@ -23,13 +20,15 @@ import { Badge } from '../../shared/ui/Badge.tsx';
 import { Button } from '../../shared/ui/Button.tsx';
 import { Card } from '../../shared/ui/Card.tsx';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog.tsx';
-import { Disclosure } from '../../shared/ui/Disclosure.tsx';
 import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
 import { NumberField } from '../../shared/ui/NumberField.tsx';
+import { OverflowMenu } from '../../shared/ui/OverflowMenu.tsx';
 import { Select } from '../../shared/ui/Select.tsx';
 import { TextField } from '../../shared/ui/TextField.tsx';
+import { OpenAiCompatFields } from './OpenAiCompatFields.tsx';
 import { prefillOpenAiOptions, OPENAI_REFERENCE_LIMIT } from './openai-prefill.ts';
 import { TokenReveal } from './TokenReveal.tsx';
+import formStyles from './ImageServiceForm.module.css';
 import styles from './ImageServiceCard.module.css';
 
 const PROTOCOL_LABEL_KEYS: Record<ImageProtocol, string> = {
@@ -51,22 +50,6 @@ const SIZE_MODE_LABEL_KEYS: Record<OpenAiSizeMode, string> = {
   custom: 'settings:images.sizeModes.custom',
 };
 
-const OUTPUT_FORMAT_LABEL_KEYS: Record<OpenAiOutputFormat, string> = {
-  webp: 'settings:images.compat.outputFormats.webp',
-  png: 'settings:images.compat.outputFormats.png',
-  jpeg: 'settings:images.compat.outputFormats.jpeg',
-};
-
-const RESPONSE_FORMAT_LABEL_KEYS: Record<OpenAiResponseFormat, string> = {
-  omit: 'settings:images.compat.responseFormats.omit',
-  b64_json: 'settings:images.compat.responseFormats.b64_json',
-};
-
-const REFERENCE_TRANSPORT_LABEL_KEYS: Record<OpenAiReferenceTransport, string> = {
-  edits: 'settings:images.compat.referenceTransports.edits',
-  inline: 'settings:images.compat.referenceTransports.inline',
-};
-
 const NOT_READY_REASON_KEYS: Record<string, string> = {
   starting: 'settings:images.notReady.starting',
   out_of_memory: 'settings:images.notReady.out_of_memory',
@@ -77,24 +60,19 @@ function notReadyReasonKey(reason: string | null): string {
   return (reason ? NOT_READY_REASON_KEYS[reason] : undefined) ?? 'settings:images.notReady.other';
 }
 
-function CapabilitySummary({ capabilities }: { capabilities: ImageCapabilities }) {
-  const { t } = useTranslation();
-  return (
-    <p className={styles.notice}>
-      {[
-        capabilities.maxReferences === 0
-          ? t('settings:images.noReferences')
-          : t('settings:images.references', { count: capabilities.maxReferences }),
-        capabilities.negativePrompt ? t('settings:images.negativeSupported') : t('settings:images.negativeUnsupported'),
-      ].join(t('settings:images.separator'))}
-    </p>
-  );
-}
-
 function keyBadge(key: KeyStatus): { tone: 'success' | 'warning' | 'neutral'; labelKey: string } {
   if (key.hasKey) return { tone: 'success', labelKey: 'settings:endpoint.keySet' };
   if (key.source === 'env') return { tone: 'warning', labelKey: 'settings:endpoint.keyEnvMissing' };
   return { tone: 'neutral', labelKey: 'settings:endpoint.keyMissing' };
+}
+
+function compatOf(service: ImageServiceView): OpenAiImageCompat {
+  return {
+    outputFormat: service.openai?.outputFormat ?? OPENAI_IMAGE_DEFAULTS.outputFormat,
+    responseFormat: service.openai?.responseFormat ?? OPENAI_IMAGE_DEFAULTS.responseFormat,
+    referenceTransport: service.openai?.referenceTransport ?? OPENAI_IMAGE_DEFAULTS.referenceTransport,
+    disableWatermark: service.openai?.disableWatermark ?? OPENAI_IMAGE_DEFAULTS.disableWatermark,
+  };
 }
 
 function TestServiceResult({ result }: { result: TestImageServiceResult }) {
@@ -102,33 +80,18 @@ function TestServiceResult({ result }: { result: TestImageServiceResult }) {
   if (!result.ok) return <ErrorNotice code={result.code ?? 'unknown'} />;
   const service = result.service;
   return (
-    <div className={styles.result}>
+    <p className={styles.result}>
       {result.generated ? (
         <Badge tone='success'>
           {t('settings:images.testImageDone', { width: result.generated.width, height: result.generated.height })}
         </Badge>
-      ) : service ? (
-        <Badge tone={service.ready ? 'success' : 'warning'}>
-          {service.ready ? t('settings:images.testReady') : t('settings:images.testNotReady')}
-        </Badge>
       ) : (
-        <Badge tone='success'>{t('settings:images.testReady')}</Badge>
+        <Badge tone={service && !service.ready ? 'warning' : 'success'}>
+          {service && !service.ready ? t('settings:images.testNotReady') : t('settings:images.testReady')}
+        </Badge>
       )}
-      {service && !service.ready ? <p>{t(notReadyReasonKey(service.notReadyReason))}</p> : null}
-      {service?.implementation ? (
-        <p className={styles.implementation}>
-          <bdi>
-            {service.implementation.name} {service.implementation.version}
-          </bdi>
-        </p>
-      ) : null}
-      {service?.model ? (
-        <p className={styles.implementation}>
-          <bdi>{service.model}</bdi>
-        </p>
-      ) : null}
-      {service?.capabilities ? <CapabilitySummary capabilities={service.capabilities} /> : null}
-    </div>
+      {service && !service.ready ? <span>{t(notReadyReasonKey(service.notReadyReason))}</span> : null}
+    </p>
   );
 }
 
@@ -138,17 +101,101 @@ function TestLauncherResult({ result }: { result: TestImageServiceResult }) {
   if (!result.launcher) return null;
   const launcher = result.launcher;
   return (
-    <div className={styles.result}>
-      <p className={styles.implementation}>
-        <bdi>
-          {launcher.implementation.name} {launcher.implementation.version}
-        </bdi>
-      </p>
-      <Badge tone={launcher.ready ? 'success' : 'warning'}>
-        {launcher.ready ? t('settings:images.testReady') : t('settings:images.testNotReady')}
-      </Badge>
-      <p>{t(LAUNCHER_STATE_LABEL_KEYS[launcher.state])}</p>
-    </div>
+    <p className={styles.result}>
+      <Badge tone={launcher.ready ? 'neutral' : 'warning'}>{t(LAUNCHER_STATE_LABEL_KEYS[launcher.state])}</Badge>
+      {launcher.ready ? null : <span>{t('settings:images.testNotReady')}</span>}
+      <bdi className={styles.mono}>
+        {launcher.implementation.name} {launcher.implementation.version}
+      </bdi>
+    </p>
+  );
+}
+
+function ServiceFacts({ service }: { service: ImageServiceView }) {
+  const { t } = useTranslation();
+  const model = service.model ?? service.probe?.model ?? null;
+  const implementation = service.probe?.implementation ?? null;
+  const capabilities = service.capabilities;
+  const launcherKey = service.launcher ? keyBadge(service.launcher.key) : null;
+  const capabilitiesFromEarlierProbe =
+    service.capabilitiesAt !== null && service.capabilitiesAt !== service.probe?.at ? service.capabilitiesAt : null;
+
+  return (
+    <>
+      <dl className={styles.facts}>
+        {model ? (
+          <div className={styles.fact}>
+            <dt>{t('settings:images.facts.model')}</dt>
+            <dd>
+              <bdi className={styles.mono}>{model}</bdi>
+            </dd>
+          </div>
+        ) : null}
+        {implementation ? (
+          <div className={styles.fact}>
+            <dt>{t('settings:images.facts.implementation')}</dt>
+            <dd>
+              <bdi className={styles.mono}>
+                {implementation.name} {implementation.version}
+              </bdi>
+            </dd>
+          </div>
+        ) : null}
+        {capabilities ? (
+          <>
+            <div className={styles.fact}>
+              <dt>{t('settings:images.facts.references')}</dt>
+              <dd>
+                {capabilities.maxReferences === 0
+                  ? t('settings:images.facts.referencesNone')
+                  : t('settings:images.facts.referencesCount', { count: capabilities.maxReferences })}
+              </dd>
+            </div>
+            <div className={styles.fact}>
+              <dt>{t('settings:images.facts.negativePrompt')}</dt>
+              <dd>
+                {capabilities.negativePrompt
+                  ? t('settings:images.facts.supported')
+                  : t('settings:images.facts.unsupported')}
+              </dd>
+            </div>
+          </>
+        ) : null}
+        {service.protocol === 'unwritten-image' ? (
+          <div className={styles.fact}>
+            <dt>{t('settings:images.facts.launcher')}</dt>
+            <dd>
+              {service.launcher && launcherKey ? (
+                <span className={styles.launcher}>
+                  <bdi className={styles.mono}>{service.launcher.baseUrl}</bdi>
+                  <Badge tone={launcherKey.tone}>{t(launcherKey.labelKey)}</Badge>
+                  <span>{t('settings:images.facts.launcherIdle', { minutes: service.idleMinutes })}</span>
+                </span>
+              ) : (
+                t('settings:images.facts.launcherNone')
+              )}
+            </dd>
+          </div>
+        ) : null}
+        {service.probe ? (
+          <div className={styles.fact}>
+            <dt>{t('settings:images.facts.lastProbe')}</dt>
+            <dd>{formatRelative(service.probe.at)}</dd>
+          </div>
+        ) : null}
+        {service.lastSuccessAt ? (
+          <div className={styles.fact}>
+            <dt>{t('settings:images.facts.lastSuccess')}</dt>
+            <dd>{formatRelative(service.lastSuccessAt)}</dd>
+          </div>
+        ) : null}
+      </dl>
+      {capabilitiesFromEarlierProbe !== null ? (
+        <p className={styles.note}>
+          {t('settings:images.capabilitiesFrom', { time: formatRelative(capabilitiesFromEarlierProbe) })}
+        </p>
+      ) : null}
+    </>
   );
 }
 
@@ -173,18 +220,7 @@ export function ImageServiceCard({
   const [editModel, setEditModel] = useState(service.model ?? '');
   const [editMaxReferences, setEditMaxReferences] = useState<number | null>(service.openai?.maxReferences ?? 0);
   const [editSizes, setEditSizes] = useState<OpenAiSizeMode>(service.openai?.sizes ?? 'fixed');
-  const [editOutputFormat, setEditOutputFormat] = useState<OpenAiOutputFormat>(
-    service.openai?.outputFormat ?? OPENAI_IMAGE_DEFAULTS.outputFormat,
-  );
-  const [editResponseFormat, setEditResponseFormat] = useState<OpenAiResponseFormat>(
-    service.openai?.responseFormat ?? OPENAI_IMAGE_DEFAULTS.responseFormat,
-  );
-  const [editReferenceTransport, setEditReferenceTransport] = useState<OpenAiReferenceTransport>(
-    service.openai?.referenceTransport ?? OPENAI_IMAGE_DEFAULTS.referenceTransport,
-  );
-  const [editDisableWatermark, setEditDisableWatermark] = useState<boolean>(
-    service.openai?.disableWatermark ?? OPENAI_IMAGE_DEFAULTS.disableWatermark,
-  );
+  const [editCompat, setEditCompat] = useState<OpenAiImageCompat>(() => compatOf(service));
   const [launcherEnabled, setLauncherEnabled] = useState(service.launcher !== null);
   const [launcherUrl, setLauncherUrl] = useState(service.launcher?.baseUrl ?? '');
   const [launcherToken, setLauncherToken] = useState('');
@@ -203,10 +239,7 @@ export function ImageServiceCard({
     setEditModel(service.model ?? '');
     setEditMaxReferences(service.openai?.maxReferences ?? 0);
     setEditSizes(service.openai?.sizes ?? 'fixed');
-    setEditOutputFormat(service.openai?.outputFormat ?? OPENAI_IMAGE_DEFAULTS.outputFormat);
-    setEditResponseFormat(service.openai?.responseFormat ?? OPENAI_IMAGE_DEFAULTS.responseFormat);
-    setEditReferenceTransport(service.openai?.referenceTransport ?? OPENAI_IMAGE_DEFAULTS.referenceTransport);
-    setEditDisableWatermark(service.openai?.disableWatermark ?? OPENAI_IMAGE_DEFAULTS.disableWatermark);
+    setEditCompat(compatOf(service));
     setLauncherEnabled(service.launcher !== null);
     setLauncherUrl(service.launcher?.baseUrl ?? '');
     setLauncherToken('');
@@ -254,14 +287,7 @@ export function ImageServiceCard({
         model: service.protocol === 'openai-images' ? editModel.trim() : null,
         openai:
           service.protocol === 'openai-images'
-            ? {
-                maxReferences: editMaxReferences ?? 0,
-                sizes: editSizes,
-                outputFormat: editOutputFormat,
-                responseFormat: editResponseFormat,
-                referenceTransport: editReferenceTransport,
-                disableWatermark: editDisableWatermark,
-              }
+            ? { maxReferences: editMaxReferences ?? 0, sizes: editSizes, ...editCompat }
             : null,
         launcher: launcherChange(),
         idleMinutes: idleMinutes ?? service.idleMinutes,
@@ -293,6 +319,8 @@ export function ImageServiceCard({
     onSuccess: (result) => {
       setTestResult(result);
       setActionError(null);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.imageConfig });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.imageOutput });
     },
     onError: (error) => {
       setTestResult(null);
@@ -313,14 +341,14 @@ export function ImageServiceCard({
   });
 
   const serviceKeyBadge = keyBadge(service.key);
-  const launcherKeyBadge = service.launcher ? keyBadge(service.launcher.key) : null;
 
   return (
     <Card as='section'>
       <div className={styles.header}>
         <div className={styles.titleArea}>
           <div className={styles.titleRow}>
-            <h3 className={styles.name}>{service.name}</h3>
+            <h4 className={styles.name}>{service.name}</h4>
+            {selected ? <Badge tone='neutral'>{t('settings:images.inUse')}</Badge> : null}
             {service.probe?.result === 'ready' ? (
               <Badge tone='success'>{t('play:serviceState.ready')}</Badge>
             ) : service.probe ? (
@@ -333,78 +361,19 @@ export function ImageServiceCard({
             <bdi className={styles.address}>{service.baseUrl}</bdi>
           </p>
         </div>
-      </div>
-      <div className={styles.facts}>
-        {service.model ? (
-          <p className={styles.meta}>
-            <span>{t('settings:images.model')}</span> <bdi>{service.model}</bdi>
-          </p>
-        ) : null}
-        {service.capabilities ? <CapabilitySummary capabilities={service.capabilities} /> : null}
-        {service.probe || service.lastSuccessAt ? (
-          <p className={styles.status}>
-            {service.probe?.implementation ? (
-              <bdi className={styles.implementation}>
-                {service.probe.implementation.name} {service.probe.implementation.version}
-              </bdi>
-            ) : null}
-            {service.probe?.model ? <bdi className={styles.implementation}>{service.probe.model}</bdi> : null}
-            {service.probe ? (
-              <span>{t('settings:images.lastProbe', { time: formatRelative(service.probe.at) })}</span>
-            ) : null}
-            {service.lastSuccessAt ? (
-              <span>{t('settings:images.lastSuccess', { time: formatRelative(service.lastSuccessAt) })}</span>
-            ) : null}
-          </p>
-        ) : null}
-        {service.protocol === 'unwritten-image' && !service.launcher ? (
-          <p className={styles.notice}>{t('settings:images.launcher.notConfigured')}</p>
-        ) : null}
-      </div>
-      {service.protocol === 'unwritten-image' && service.launcher ? (
-        <div className={styles.launcher}>
-          <h4 className={styles.subheading}>{t('settings:images.launcher.heading')}</h4>
-          <p className={styles.address}>{service.launcher.baseUrl}</p>
-          {launcherKeyBadge ? <Badge tone={launcherKeyBadge.tone}>{t(launcherKeyBadge.labelKey)}</Badge> : null}
-          <dl className={styles.details}>
-            <div>
-              <dt>{t('settings:images.launcher.idleMinutes')}</dt>
-              <dd>{service.idleMinutes}</dd>
-            </div>
-          </dl>
-          <div>
-            <Button
-              variant='secondary'
-              onClick={() => testLauncher.mutate()}
-              disabled={disabled}
-              busy={testLauncher.isPending}
-            >
-              {t('settings:images.launcher.test')}
-            </Button>
-          </div>
-          {launcherResult ? <TestLauncherResult result={launcherResult} /> : null}
+        <div className={styles.menu} inert={disabled || undefined}>
+          <OverflowMenu
+            label={t('settings:images.more', { name: service.name })}
+            items={[
+              { label: t('settings:images.edit'), onSelect: startEditing },
+              { label: t('settings:images.remove'), onSelect: () => setDeleting(true), tone: 'danger' },
+            ]}
+          />
         </div>
-      ) : null}
-      <div className={styles.actions}>
-        <Button variant='secondary' onClick={() => test.mutate(false)} disabled={disabled} busy={test.isPending}>
-          {test.isPending ? t('settings:images.testRunning') : t('settings:images.test')}
-        </Button>
-        {service.protocol === 'openai-images' ? (
-          <Button variant='secondary' onClick={() => setPaidConfirm(true)} disabled={disabled || test.isPending}>
-            {t('settings:images.testImage')}
-          </Button>
-        ) : null}
-        <Button variant='text' onClick={startEditing} disabled={disabled}>
-          {t('settings:images.edit')}
-        </Button>
-        <Button variant='text' onClick={() => setDeleting(true)} disabled={disabled}>
-          {t('settings:images.remove')}
-        </Button>
       </div>
-      {testResult ? <TestServiceResult result={testResult} /> : null}
       {editing ? (
-        <div className={styles.edit}>
-          <div className={styles.editFields}>
+        <div className={formStyles.form}>
+          <div className={formStyles.fields}>
             <TextField
               label={t('settings:images.name')}
               value={editName}
@@ -433,7 +402,9 @@ export function ImageServiceCard({
                   disabled={disabled}
                 />
                 {service.protocol === 'unwritten-image' ? (
-                  <TokenReveal value={editKeyValue} onValueChange={setEditKeyValue} disabled={disabled} />
+                  <div className={formStyles.wide}>
+                    <TokenReveal value={editKeyValue} onValueChange={setEditKeyValue} disabled={disabled} />
+                  </div>
                 ) : null}
               </>
             ) : null}
@@ -444,13 +415,10 @@ export function ImageServiceCard({
                   value={editModel}
                   onValueChange={(value) => {
                     setEditModel(value);
-                    const prefill = prefillOpenAiOptions(value);
-                    setEditMaxReferences(prefill.maxReferences);
-                    setEditSizes(prefill.sizes);
-                    setEditOutputFormat(prefill.outputFormat);
-                    setEditResponseFormat(prefill.responseFormat);
-                    setEditReferenceTransport(prefill.referenceTransport);
-                    setEditDisableWatermark(prefill.disableWatermark);
+                    const { maxReferences, sizes, ...compat } = prefillOpenAiOptions(value);
+                    setEditMaxReferences(maxReferences);
+                    setEditSizes(sizes);
+                    setEditCompat(compat);
                   }}
                   mono
                   disabled={disabled}
@@ -474,62 +442,14 @@ export function ImageServiceCard({
                   }))}
                   disabled={disabled}
                 />
+                <OpenAiCompatFields value={editCompat} onChange={setEditCompat} heading='h5' disabled={disabled} />
               </>
             ) : null}
           </div>
-          {service.protocol === 'openai-images' ? (
-            <Disclosure summary={t('settings:images.compat.heading')} heading='h4' className={styles.compat}>
-              <div className={styles.compatFields}>
-                <Select
-                  label={t('settings:images.compat.outputFormat')}
-                  value={editOutputFormat}
-                  onValueChange={(value) => setEditOutputFormat(value as OpenAiOutputFormat)}
-                  options={(Object.keys(OUTPUT_FORMAT_LABEL_KEYS) as OpenAiOutputFormat[]).map((value) => ({
-                    value,
-                    label: t(OUTPUT_FORMAT_LABEL_KEYS[value]),
-                  }))}
-                  description={t('settings:images.compat.outputFormatHelp')}
-                  disabled={disabled}
-                />
-                <Select
-                  label={t('settings:images.compat.responseFormat')}
-                  value={editResponseFormat}
-                  onValueChange={(value) => setEditResponseFormat(value as OpenAiResponseFormat)}
-                  options={(Object.keys(RESPONSE_FORMAT_LABEL_KEYS) as OpenAiResponseFormat[]).map((value) => ({
-                    value,
-                    label: t(RESPONSE_FORMAT_LABEL_KEYS[value]),
-                  }))}
-                  description={t('settings:images.compat.responseFormatHelp')}
-                  disabled={disabled}
-                />
-                <Select
-                  label={t('settings:images.compat.referenceTransport')}
-                  value={editReferenceTransport}
-                  onValueChange={(value) => setEditReferenceTransport(value as OpenAiReferenceTransport)}
-                  options={(Object.keys(REFERENCE_TRANSPORT_LABEL_KEYS) as OpenAiReferenceTransport[]).map((value) => ({
-                    value,
-                    label: t(REFERENCE_TRANSPORT_LABEL_KEYS[value]),
-                  }))}
-                  description={t('settings:images.compat.referenceTransportHelp')}
-                  disabled={disabled}
-                />
-              </div>
-              <label className={styles.checkbox}>
-                <input
-                  type='checkbox'
-                  checked={editDisableWatermark}
-                  onChange={(event) => setEditDisableWatermark(event.target.checked)}
-                  disabled={disabled}
-                />
-                <span>{t('settings:images.compat.disableWatermark')}</span>
-              </label>
-              <p className={styles.hint}>{t('settings:images.compat.disableWatermarkHelp')}</p>
-            </Disclosure>
-          ) : null}
           {service.protocol === 'unwritten-image' ? (
-            <div className={styles.launcher}>
-              <h4 className={styles.subheading}>{t('settings:images.launcher.heading')}</h4>
-              <label className={styles.checkbox}>
+            <div className={formStyles.group}>
+              <h5 className={formStyles.groupHeading}>{t('settings:images.launcher.heading')}</h5>
+              <label className={formStyles.checkbox}>
                 <input
                   type='checkbox'
                   checked={launcherEnabled}
@@ -539,17 +459,19 @@ export function ImageServiceCard({
                 <span>{t('settings:images.launcher.enabled')}</span>
               </label>
               {launcherEnabled ? (
-                <>
+                <div className={formStyles.fields}>
                   {service.launcher ? (
-                    <p className={styles.address}>{service.launcher.baseUrl}</p>
+                    <p className={`${styles.address} ${formStyles.wide}`}>{service.launcher.baseUrl}</p>
                   ) : (
-                    <TextField
-                      label={t('settings:images.launcher.address')}
-                      value={launcherUrl}
-                      onValueChange={setLauncherUrl}
-                      mono
-                      disabled={disabled}
-                    />
+                    <div className={formStyles.wide}>
+                      <TextField
+                        label={t('settings:images.launcher.address')}
+                        value={launcherUrl}
+                        onValueChange={setLauncherUrl}
+                        mono
+                        disabled={disabled}
+                      />
+                    </div>
                   )}
                   <TextField
                     label={t('settings:images.launcher.token')}
@@ -559,7 +481,6 @@ export function ImageServiceCard({
                     autoComplete='off'
                     disabled={disabled}
                   />
-                  <TokenReveal value={launcherToken} onValueChange={setLauncherToken} disabled={disabled} />
                   <NumberField
                     label={t('settings:images.launcher.idleMinutes')}
                     value={idleMinutes}
@@ -569,11 +490,14 @@ export function ImageServiceCard({
                     step={1}
                     disabled={disabled}
                   />
-                </>
+                  <div className={formStyles.wide}>
+                    <TokenReveal value={launcherToken} onValueChange={setLauncherToken} disabled={disabled} />
+                  </div>
+                </div>
               ) : null}
             </div>
           ) : null}
-          <div className={styles.actions}>
+          <div className={formStyles.actions}>
             <Button
               variant='secondary'
               onClick={() => void save()}
@@ -595,7 +519,33 @@ export function ImageServiceCard({
             </Button>
           </div>
         </div>
-      ) : null}
+      ) : (
+        <>
+          <ServiceFacts service={service} />
+          <div className={styles.actions}>
+            <Button variant='secondary' onClick={() => test.mutate(false)} disabled={disabled} busy={test.isPending}>
+              {test.isPending ? t('settings:images.testRunning') : t('settings:images.test')}
+            </Button>
+            {service.protocol === 'openai-images' ? (
+              <Button variant='secondary' onClick={() => setPaidConfirm(true)} disabled={disabled || test.isPending}>
+                {t('settings:images.testImage')}
+              </Button>
+            ) : null}
+            {service.protocol === 'unwritten-image' && service.launcher ? (
+              <Button
+                variant='secondary'
+                onClick={() => testLauncher.mutate()}
+                disabled={disabled}
+                busy={testLauncher.isPending}
+              >
+                {t('settings:images.launcher.test')}
+              </Button>
+            ) : null}
+          </div>
+          {testResult ? <TestServiceResult result={testResult} /> : null}
+          {launcherResult ? <TestLauncherResult result={launcherResult} /> : null}
+        </>
+      )}
       <ErrorNotice error={actionError ?? test.error ?? testLauncher.error} />
       <ConfirmDialog
         open={deleting}

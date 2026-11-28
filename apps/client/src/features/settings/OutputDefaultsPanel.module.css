@@ -1,17 +1,17 @@
 .panel {
   display: grid;
   gap: var(--uw-space-3);
-  padding-block-start: var(--uw-space-3);
+  padding-block-start: var(--uw-space-4);
   border-block-start: var(--uw-border-width) solid var(--uw-color-border);
 }
 
 .heading {
   margin: 0;
-  font-family: var(--uw-typography-section-title-font-family);
-  font-size: var(--uw-typography-section-title-font-size);
-  font-weight: var(--uw-typography-section-title-font-weight);
-  line-height: var(--uw-typography-section-title-line-height);
-  letter-spacing: var(--uw-typography-section-title-letter-spacing);
+  font-family: var(--uw-typography-subtitle-font-family);
+  font-size: var(--uw-typography-subtitle-font-size);
+  font-weight: var(--uw-typography-subtitle-font-weight);
+  line-height: var(--uw-typography-subtitle-line-height);
+  letter-spacing: var(--uw-typography-subtitle-letter-spacing);
 }
 
 .notice {

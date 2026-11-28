@@ -116,6 +116,7 @@ test('E01 纯文字、版本升级与确认开启', async ({ page }) => {
     expect(generatedToken.length).toBeGreaterThanOrEqual(43);
     await page.getByRole('button', { name: '保存出图服务' }).click();
     await expect(page.getByRole('heading', { name: '本地出图' })).toBeVisible();
+    await expect.poll(async () => (await app.api.image.services.list()).selectedServiceId).not.toBeNull();
 
     const upgraded = (await readProvidersFile(app.dataDir)) as { version: number };
     expect(upgraded.version).toBe(2);
@@ -127,8 +128,7 @@ test('E01 纯文字、版本升级与确认开启', async ({ page }) => {
     await page.getByRole('link', { name: '出图服务' }).click();
     await expect(page.getByText('已配置')).toBeVisible();
     await expect(page.getByRole('textbox', { name: '新令牌' })).toHaveCount(0);
-    await page.getByRole('radiogroup', { name: '用于出图' }).getByText('本地出图').click();
-    await expect.poll(async () => (await app.api.image.services.list()).selectedServiceId).not.toBeNull();
+    await expect(page.getByRole('combobox', { name: '用于出图' })).toHaveText('本地出图');
 
     await openLibrary(page, app.url);
     await startFromLibrary(page);

@@ -1,49 +1,27 @@
-import type {
-  ImageProtocol,
-  OpenAiOutputFormat,
-  OpenAiReferenceTransport,
-  OpenAiResponseFormat,
-  OpenAiSizeMode,
-} from '@unwritten/contracts';
+import type { ImageProtocol, OpenAiImageCompat, OpenAiSizeMode } from '@unwritten/contracts';
 import { IDLE_MINUTES_MAX, IDLE_MINUTES_MIN, IMAGE_IDLE_MINUTES, OPENAI_IMAGE_DEFAULTS } from '@unwritten/contracts';
 import { useQueryClient } from '@tanstack/react-query';
-import { TriangleAlert } from 'lucide-react';
+import { Plus, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApi } from '../../shared/api/context.tsx';
 import { queryKeys } from '../../shared/api/query.ts';
 import { Button } from '../../shared/ui/Button.tsx';
 import { Card } from '../../shared/ui/Card.tsx';
-import { Disclosure } from '../../shared/ui/Disclosure.tsx';
 import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
 import { Icon } from '../../shared/ui/Icon.tsx';
 import { NumberField } from '../../shared/ui/NumberField.tsx';
 import { RadioGroup } from '../../shared/ui/RadioGroup.tsx';
 import { Select } from '../../shared/ui/Select.tsx';
 import { TextField } from '../../shared/ui/TextField.tsx';
+import { OpenAiCompatFields } from './OpenAiCompatFields.tsx';
 import { prefillOpenAiOptions, OPENAI_REFERENCE_LIMIT } from './openai-prefill.ts';
 import { TokenReveal } from './TokenReveal.tsx';
-import styles from './AddImageServiceForm.module.css';
+import styles from './ImageServiceForm.module.css';
 
 const SIZE_MODE_LABEL_KEYS: Record<OpenAiSizeMode, string> = {
   fixed: 'settings:images.sizeModes.fixed',
   custom: 'settings:images.sizeModes.custom',
-};
-
-const OUTPUT_FORMAT_LABEL_KEYS: Record<OpenAiOutputFormat, string> = {
-  webp: 'settings:images.compat.outputFormats.webp',
-  png: 'settings:images.compat.outputFormats.png',
-  jpeg: 'settings:images.compat.outputFormats.jpeg',
-};
-
-const RESPONSE_FORMAT_LABEL_KEYS: Record<OpenAiResponseFormat, string> = {
-  omit: 'settings:images.compat.responseFormats.omit',
-  b64_json: 'settings:images.compat.responseFormats.b64_json',
-};
-
-const REFERENCE_TRANSPORT_LABEL_KEYS: Record<OpenAiReferenceTransport, string> = {
-  edits: 'settings:images.compat.referenceTransports.edits',
-  inline: 'settings:images.compat.referenceTransports.inline',
 };
 
 function isPlainHttpToRemoteHost(baseUrl: string, apiKey: string): boolean {
@@ -76,12 +54,7 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
   const [model, setModel] = useState('');
   const [maxReferences, setMaxReferences] = useState<number | null>(0);
   const [sizes, setSizes] = useState<OpenAiSizeMode>('fixed');
-  const [outputFormat, setOutputFormat] = useState<OpenAiOutputFormat>(OPENAI_IMAGE_DEFAULTS.outputFormat);
-  const [responseFormat, setResponseFormat] = useState<OpenAiResponseFormat>(OPENAI_IMAGE_DEFAULTS.responseFormat);
-  const [referenceTransport, setReferenceTransport] = useState<OpenAiReferenceTransport>(
-    OPENAI_IMAGE_DEFAULTS.referenceTransport,
-  );
-  const [disableWatermark, setDisableWatermark] = useState<boolean>(OPENAI_IMAGE_DEFAULTS.disableWatermark);
+  const [compat, setCompat] = useState<OpenAiImageCompat>(OPENAI_IMAGE_DEFAULTS);
   const [launcherEnabled, setLauncherEnabled] = useState(false);
   const [launcherUrl, setLauncherUrl] = useState('');
   const [launcherApiKey, setLauncherApiKey] = useState('');
@@ -97,10 +70,7 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
     setModel('');
     setMaxReferences(0);
     setSizes('fixed');
-    setOutputFormat(OPENAI_IMAGE_DEFAULTS.outputFormat);
-    setResponseFormat(OPENAI_IMAGE_DEFAULTS.responseFormat);
-    setReferenceTransport(OPENAI_IMAGE_DEFAULTS.referenceTransport);
-    setDisableWatermark(OPENAI_IMAGE_DEFAULTS.disableWatermark);
+    setCompat(OPENAI_IMAGE_DEFAULTS);
     setLauncherEnabled(false);
     setLauncherUrl('');
     setLauncherApiKey('');
@@ -115,13 +85,10 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
 
   function changeModel(value: string) {
     setModel(value);
-    const prefill = prefillOpenAiOptions(value);
-    setMaxReferences(prefill.maxReferences);
-    setSizes(prefill.sizes);
-    setOutputFormat(prefill.outputFormat);
-    setResponseFormat(prefill.responseFormat);
-    setReferenceTransport(prefill.referenceTransport);
-    setDisableWatermark(prefill.disableWatermark);
+    const { maxReferences: prefillReferences, sizes: prefillSizes, ...prefillCompat } = prefillOpenAiOptions(value);
+    setMaxReferences(prefillReferences);
+    setSizes(prefillSizes);
+    setCompat(prefillCompat);
   }
 
   async function submit() {
@@ -136,17 +103,7 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
         baseUrl: baseUrl.trim(),
         apiKey: apiKey.trim() || null,
         model: protocol === 'openai-images' ? model.trim() : null,
-        openai:
-          protocol === 'openai-images'
-            ? {
-                maxReferences: maxReferences ?? 0,
-                sizes,
-                outputFormat,
-                responseFormat,
-                referenceTransport,
-                disableWatermark,
-              }
-            : null,
+        openai: protocol === 'openai-images' ? { maxReferences: maxReferences ?? 0, sizes, ...compat } : null,
         launcher:
           protocol === 'unwritten-image' && launcherEnabled
             ? { baseUrl: launcherUrl.trim(), apiKey: launcherApiKey.trim() || null }
@@ -164,18 +121,17 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
 
   if (!open) {
     return (
-      <div>
-        <Button
-          variant='secondary'
-          onClick={() => {
-            setRequestId(crypto.randomUUID());
-            setOpen(true);
-          }}
-          disabled={disabled}
-        >
-          {t('settings:images.add')}
-        </Button>
-      </div>
+      <Button
+        variant='secondary'
+        icon={Plus}
+        onClick={() => {
+          setRequestId(crypto.randomUUID());
+          setOpen(true);
+        }}
+        disabled={disabled}
+      >
+        {t('settings:images.add')}
+      </Button>
     );
   }
 
@@ -188,7 +144,7 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
           void submit();
         }}
       >
-        <h3 className={styles.heading}>{t('settings:images.add')}</h3>
+        <h3 className={styles.groupHeading}>{t('settings:images.add')}</h3>
         <RadioGroup
           label={t('settings:images.protocolLabel')}
           value={protocol}
@@ -202,35 +158,24 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
           ]}
           appearance='segmented'
         />
-        <TextField label={t('settings:images.name')} value={name} onValueChange={setName} disabled={disabled} />
-        <TextField
-          label={t('settings:images.address')}
-          value={baseUrl}
-          onValueChange={setBaseUrl}
-          mono
-          disabled={disabled}
-        />
-        <TextField
-          label={protocol === 'unwritten-image' ? t('settings:images.token') : t('settings:images.apiKey')}
-          value={apiKey}
-          onValueChange={setApiKey}
-          type='password'
-          autoComplete='off'
-          disabled={disabled}
-        />
-        {protocol === 'unwritten-image' ? (
-          <TokenReveal value={apiKey} onValueChange={setApiKey} disabled={disabled} />
-        ) : null}
-        {isPlainHttpToRemoteHost(baseUrl, apiKey) ? (
-          <p className={styles.warning}>
-            <span className={styles.warningIcon}>
-              <Icon icon={TriangleAlert} size='sm' />
-            </span>
-            {t('settings:images.plainHttpWarning')}
-          </p>
-        ) : null}
-        {protocol === 'openai-images' ? (
-          <>
+        <div className={styles.fields}>
+          <TextField label={t('settings:images.name')} value={name} onValueChange={setName} disabled={disabled} />
+          <TextField
+            label={t('settings:images.address')}
+            value={baseUrl}
+            onValueChange={setBaseUrl}
+            mono
+            disabled={disabled}
+          />
+          <TextField
+            label={protocol === 'unwritten-image' ? t('settings:images.token') : t('settings:images.apiKey')}
+            value={apiKey}
+            onValueChange={setApiKey}
+            type='password'
+            autoComplete='off'
+            disabled={disabled}
+          />
+          {protocol === 'openai-images' ? (
             <TextField
               label={t('settings:images.model')}
               value={model}
@@ -238,7 +183,22 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
               mono
               disabled={disabled}
             />
-            <div className={styles.grid}>
+          ) : null}
+          {protocol === 'unwritten-image' ? (
+            <div className={styles.wide}>
+              <TokenReveal value={apiKey} onValueChange={setApiKey} disabled={disabled} />
+            </div>
+          ) : null}
+          {isPlainHttpToRemoteHost(baseUrl, apiKey) ? (
+            <p className={`${styles.warning} ${styles.wide}`}>
+              <span className={styles.warningIcon}>
+                <Icon icon={TriangleAlert} size='sm' />
+              </span>
+              {t('settings:images.plainHttpWarning')}
+            </p>
+          ) : null}
+          {protocol === 'openai-images' ? (
+            <>
               <NumberField
                 label={t('settings:images.referenceLimit')}
                 value={maxReferences}
@@ -258,58 +218,12 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
                 }))}
                 disabled={disabled}
               />
-            </div>
-            <Disclosure summary={t('settings:images.compat.heading')} heading='h4' className={styles.compat}>
-              <div className={styles.grid}>
-                <Select
-                  label={t('settings:images.compat.outputFormat')}
-                  value={outputFormat}
-                  onValueChange={(value) => setOutputFormat(value as OpenAiOutputFormat)}
-                  options={(Object.keys(OUTPUT_FORMAT_LABEL_KEYS) as OpenAiOutputFormat[]).map((value) => ({
-                    value,
-                    label: t(OUTPUT_FORMAT_LABEL_KEYS[value]),
-                  }))}
-                  description={t('settings:images.compat.outputFormatHelp')}
-                  disabled={disabled}
-                />
-                <Select
-                  label={t('settings:images.compat.responseFormat')}
-                  value={responseFormat}
-                  onValueChange={(value) => setResponseFormat(value as OpenAiResponseFormat)}
-                  options={(Object.keys(RESPONSE_FORMAT_LABEL_KEYS) as OpenAiResponseFormat[]).map((value) => ({
-                    value,
-                    label: t(RESPONSE_FORMAT_LABEL_KEYS[value]),
-                  }))}
-                  description={t('settings:images.compat.responseFormatHelp')}
-                  disabled={disabled}
-                />
-                <Select
-                  label={t('settings:images.compat.referenceTransport')}
-                  value={referenceTransport}
-                  onValueChange={(value) => setReferenceTransport(value as OpenAiReferenceTransport)}
-                  options={(Object.keys(REFERENCE_TRANSPORT_LABEL_KEYS) as OpenAiReferenceTransport[]).map((value) => ({
-                    value,
-                    label: t(REFERENCE_TRANSPORT_LABEL_KEYS[value]),
-                  }))}
-                  description={t('settings:images.compat.referenceTransportHelp')}
-                  disabled={disabled}
-                />
-              </div>
-              <label className={styles.checkbox}>
-                <input
-                  type='checkbox'
-                  checked={disableWatermark}
-                  onChange={(event) => setDisableWatermark(event.target.checked)}
-                  disabled={disabled}
-                />
-                <span>{t('settings:images.compat.disableWatermark')}</span>
-              </label>
-              <p className={styles.hint}>{t('settings:images.compat.disableWatermarkHelp')}</p>
-            </Disclosure>
-          </>
-        ) : null}
+              <OpenAiCompatFields value={compat} onChange={setCompat} heading='h4' disabled={disabled} />
+            </>
+          ) : null}
+        </div>
         {protocol === 'unwritten-image' ? (
-          <div className={styles.launcher}>
+          <div className={styles.group}>
             <label className={styles.checkbox}>
               <input
                 type='checkbox'
@@ -320,14 +234,16 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
               <span>{t('settings:images.launcher.enabled')}</span>
             </label>
             {launcherEnabled ? (
-              <>
-                <TextField
-                  label={t('settings:images.launcher.address')}
-                  value={launcherUrl}
-                  onValueChange={setLauncherUrl}
-                  mono
-                  disabled={disabled}
-                />
+              <div className={styles.fields}>
+                <div className={styles.wide}>
+                  <TextField
+                    label={t('settings:images.launcher.address')}
+                    value={launcherUrl}
+                    onValueChange={setLauncherUrl}
+                    mono
+                    disabled={disabled}
+                  />
+                </div>
                 <TextField
                   label={t('settings:images.launcher.token')}
                   value={launcherApiKey}
@@ -336,7 +252,6 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
                   autoComplete='off'
                   disabled={disabled}
                 />
-                <TokenReveal value={launcherApiKey} onValueChange={setLauncherApiKey} disabled={disabled} />
                 <NumberField
                   label={t('settings:images.launcher.idleMinutes')}
                   value={idleMinutes}
@@ -346,7 +261,10 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
                   step={1}
                   disabled={disabled}
                 />
-              </>
+                <div className={styles.wide}>
+                  <TokenReveal value={launcherApiKey} onValueChange={setLauncherApiKey} disabled={disabled} />
+                </div>
+              </div>
             ) : null}
           </div>
         ) : null}

@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { sql } from 'drizzle-orm';
 import { describe, expect, it, vi } from 'vitest';
 import { OPENAI_IMAGE_DEFAULTS } from '@unwritten/contracts';
 import type { CreateImageServiceInput, UpdateImageServiceInput } from '@unwritten/contracts';
@@ -7,6 +8,7 @@ import { createEventBus } from '../events/bus.ts';
 import type { Logger } from '../log/logger.ts';
 import { createProvidersStore } from '../providers/file.ts';
 import { openDatabase } from '../store/db.ts';
+import { startFakeImageServer } from '../test-support/fake-image-server.ts';
 import { createScriptedLlm } from '../test-support/scripted-llm.ts';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
 import { createImageService } from './service.ts';
@@ -50,7 +52,20 @@ function setup(options?: { env?: NodeJS.ProcessEnv; preload?: boolean }) {
     },
     runtime,
   );
-  return { temp, opened, bus, events, logger, store, llm, service, file: join(temp.dir, 'providers.json') };
+  const restart = () =>
+    createImageService(
+      {
+        dataDir: temp.dir,
+        db: opened.db,
+        bus,
+        logger,
+        shutdown: new AbortController().signal,
+        providers: createProvidersStore(join(temp.dir, 'providers.json')),
+        llm,
+      },
+      runtime,
+    );
+  return { temp, opened, bus, events, logger, store, llm, service, restart, file: join(temp.dir, 'providers.json') };
 }
 
 function createInput(overrides: Partial<CreateImageServiceInput> = {}): CreateImageServiceInput {
@@ -131,6 +146,100 @@ describe('createImageService', () => {
     } finally {
       opened.close();
       temp.cleanup();
+    }
+  });
+
+  it('添加第一个服务时设为用于出图，已有服务时不改选择', async () => {
+    const { temp, opened, service } = setup();
+    try {
+      const first = await service.createService(createInput());
+      expect(first.config.selectedServiceId).toBe(first.serviceId);
+      const cleared = await service.select({ baseRevision: first.config.revision, serviceId: null });
+      const second = await service.createService(
+        createInput({ requestId: secondRequestId, name: '第二个', baseRevision: cleared.revision }),
+      );
+      expect(second.config.selectedServiceId).toBeNull();
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('默认规格沿用最近一次读到的能力：重启和探测失败后仍可选，删除服务后清除', async () => {
+    const image = await startFakeImageServer();
+    const { temp, opened, service, restart } = setup();
+    try {
+      const created = await service.createService(
+        createInput({ baseUrl: image.url, apiKey: image.token, name: '本机出图' }),
+      );
+      expect(service.getOutputOptions().aspects).toEqual([]);
+      expect((await service.testService({ serviceId: created.serviceId, target: 'service', paid: false })).ok).toBe(
+        true,
+      );
+      const probedAspects = service.getOutputOptions().aspects;
+      expect(probedAspects.length).toBeGreaterThan(0);
+
+      const restarted = restart();
+      expect(restarted.getOutputOptions().aspects).toEqual(probedAspects);
+      const listed = restarted.listServices().services[0];
+      expect(listed?.probe).toBeNull();
+      expect(listed?.capabilities?.aspects).toEqual(probedAspects);
+      expect(listed?.capabilitiesAt).toEqual(expect.any(Number));
+
+      image.respondNext(401, { error: { code: 'unauthorized' } });
+      expect((await restarted.testService({ serviceId: created.serviceId, target: 'service', paid: false })).ok).toBe(
+        false,
+      );
+      expect(restarted.getOutputOptions().aspects).toEqual(probedAspects);
+
+      await restarted.removeService({
+        baseRevision: restarted.listServices().revision,
+        serviceId: created.serviceId,
+      });
+      const recreated = await restart().createService(
+        createInput({
+          requestId: secondRequestId,
+          baseRevision: restart().listServices().revision,
+          baseUrl: image.url,
+          apiKey: image.token,
+        }),
+      );
+      expect(restart().getOutputOptions().aspects).toEqual([]);
+      expect(recreated.config.services[0]?.capabilities).toBeNull();
+    } finally {
+      opened.close();
+      temp.cleanup();
+      await image.close();
+    }
+  });
+
+  it('能力存不进作品库时，探测结果和删除照常，只记诊断事件', async () => {
+    const image = await startFakeImageServer();
+    const { temp, opened, service, events } = setup();
+    try {
+      const created = await service.createService(
+        createInput({ baseUrl: image.url, apiKey: image.token, name: '本机出图' }),
+      );
+      opened.db.run(sql`DROP TABLE image_service_capabilities`);
+
+      const result = await service.testService({ serviceId: created.serviceId, target: 'service', paid: false });
+      expect(result.ok).toBe(true);
+      expect(result.service?.ready).toBe(true);
+      expect(service.listServices().services[0]?.probe?.result).toBe('ready');
+      expect(service.getOutputOptions().aspects.length).toBeGreaterThan(0);
+
+      const removed = await service.removeService({
+        baseRevision: service.listServices().revision,
+        serviceId: created.serviceId,
+      });
+      expect(removed.services).toEqual([]);
+      const failures = events.filter((entry) => entry.event === 'image.capabilities.store_failed');
+      expect(failures.map((entry) => entry.data?.op)).toEqual(['save', 'remove']);
+      expect(failures.every((entry) => entry.level === 'warn' && entry.data?.errorType === 'sqlite')).toBe(true);
+    } finally {
+      opened.close();
+      temp.cleanup();
+      await image.close();
     }
   });
 
@@ -287,7 +396,7 @@ describe('createImageService', () => {
       const created = await service.createService(createInput());
       expect(imageEvents()).toBe(1);
 
-      await service.select({ baseRevision: created.config.revision, serviceId: created.serviceId });
+      await service.select({ baseRevision: created.config.revision, serviceId: null });
       expect(imageEvents()).toBe(2);
     } finally {
       opened.close();
