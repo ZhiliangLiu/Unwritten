@@ -155,7 +155,7 @@ describe('buildNarratorContext', () => {
     const opened = openDatabase(join(temp.dir, 'library.db'));
     try {
       const seeded = seedNorthCape(opened.db);
-      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1926, {
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 2130, {
         anchors: {
           narrationDirective: '长'.repeat(1500),
           contentPolicy: '',
@@ -190,7 +190,7 @@ describe('buildNarratorContext', () => {
           { entity: 'c', name: '丙', holder: 'lin', originTurn: 0, para: 1 },
         ],
       });
-      const { result } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 1386);
+      const { result } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 1590);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.indexEntities).toBe(4);
@@ -221,7 +221,7 @@ describe('buildNarratorContext', () => {
         ],
         entities: [{ key: 'lin', kind: 'character', name: '主角', protagonist: true }],
       });
-      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1766);
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1970);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.prompt).toContain('【更早的回合】');
@@ -248,7 +248,7 @@ describe('buildNarratorContext', () => {
         ],
         entities: [{ key: 'lin', kind: 'character', name: '主角', protagonist: true }],
       });
-      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1766);
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1970);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.summaryLines).toBe(0);
@@ -275,7 +275,7 @@ describe('buildNarratorContext', () => {
         ],
         names: [{ entity: 'included', name: '被列出的人', holder: 'lin', originTurn: 0, para: 1 }],
       });
-      const { result, codebook } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 1326);
+      const { result, codebook } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 1530);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(codebook.resolveEntity('被列出的人').ok).toBe(true);
