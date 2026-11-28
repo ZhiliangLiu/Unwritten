@@ -17,6 +17,7 @@ function summary(overrides: Partial<WorkSummary>): WorkSummary {
     status: 'draft',
     hasProgress: false,
     hasMultiplePlaythroughs: false,
+    hasUnpublishedChanges: false,
     routeId: null,
     updatedAt: Date.now(),
     ...overrides,
@@ -29,6 +30,8 @@ function detail(): WorkDetail {
     title: null,
     blurb: null,
     status: 'draft',
+    hasUnpublishedChanges: false,
+    routeCount: 0,
     draft: {
       contentRev: 1,
       background: '一段背景',
@@ -141,6 +144,29 @@ describe('LibraryPage', () => {
     const link = screen.getByRole('link', { name: '开始故事' });
     await expect.element(link).toBeVisible();
     await expect.element(link).toHaveAttribute('href', `/works/${work.id}/start`);
+    await screen.unmount();
+  });
+
+  it('可玩作品卡同时提供编辑作品入口', async () => {
+    const work = summary({ title: '灯塔夜班', status: 'playable', routeId: crypto.randomUUID() });
+    const { screen } = await renderLibrary([work]);
+    const link = screen.getByRole('link', { name: '编辑作品' });
+    await expect.element(link).toBeVisible();
+    await expect.element(link).toHaveAttribute('href', `/works/${work.id}/edit`);
+    await screen.unmount();
+  });
+
+  it('草稿有未应用的修改时入口改为继续编辑', async () => {
+    const work = summary({
+      title: '灯塔夜班',
+      status: 'playable',
+      hasUnpublishedChanges: true,
+      routeId: crypto.randomUUID(),
+    });
+    const { screen } = await renderLibrary([work]);
+    const link = screen.getByRole('link', { name: '继续编辑' });
+    await expect.element(link).toBeVisible();
+    await expect.element(link).toHaveAttribute('href', `/works/${work.id}/edit`);
     await screen.unmount();
   });
 

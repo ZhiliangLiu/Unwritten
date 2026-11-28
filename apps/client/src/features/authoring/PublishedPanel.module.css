@@ -35,3 +35,35 @@
   align-items: center;
   gap: var(--uw-space-4);
 }
+
+.apply {
+  display: grid;
+  gap: var(--uw-space-2);
+  padding-block-start: var(--uw-space-3);
+  border-block-start: var(--uw-border-width) solid var(--uw-color-border);
+}
+
+.applyText {
+  margin: 0;
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  line-height: var(--uw-typography-body-line-height);
+  letter-spacing: var(--uw-typography-body-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.applyActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--uw-space-3);
+}
+
+.applyStatus {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}

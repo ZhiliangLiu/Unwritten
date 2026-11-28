@@ -89,6 +89,8 @@ function workDetail(
     title: null,
     blurb: null,
     status: 'draft',
+    hasUnpublishedChanges: false,
+    routeCount: 0,
     draft: {
       contentRev: 4,
       background: '海边小镇的灯塔。',

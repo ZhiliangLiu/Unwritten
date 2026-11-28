@@ -49,6 +49,7 @@ export function createRouter(services: Services) {
       adoptPreview: base.works.adoptPreview.handler(({ input, context }) =>
         context.services.authoring.adoptPreview(input),
       ),
+      applyDraft: base.works.applyDraft.handler(({ input, context }) => context.services.authoring.applyDraft(input)),
       generatePlan: base.works.generatePlan.handler(({ input, context }) =>
         context.services.authoring.generatePlan(input),
       ),

@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type {
   ConfirmPlanInput,
   PlanItem,
@@ -25,7 +25,6 @@ function invalidInput(message: string): never {
 function loadEditableDraft(tx: EditTx, workId: string, baseContentRev: number) {
   const work = tx.select().from(works).where(eq(works.id, workId)).get();
   if (!work) throw appError('not_found', 'work not found');
-  if (work.publishedId) throw appError('already_published', 'work is already published');
   const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
   if (!draft) throw appError('not_found', 'draft not found');
   if (draft.contentRev !== baseContentRev) throw appError('stale_revision', 'draft revision is stale');
@@ -170,6 +169,14 @@ export function confirmPlan(deps: CoreDeps, input: ConfirmPlanInput): SaveDraftO
       const endingItem = plan.items.find((item): item is PlanItem & { kind: 'ending' } => item.kind === 'ending');
 
       const nextRev = draft.contentRev + 1;
+      const openingEntityIds = [...new Set(Object.values(meta.opening?.createdIds ?? {}))];
+      const openingEntities = openingEntityIds.length
+        ? tx
+            .select()
+            .from(entities)
+            .where(and(eq(entities.versionId, draft.id), inArray(entities.id, openingEntityIds)))
+            .all()
+        : [];
       clearAuthorSetting(tx, draft.id);
 
       tx.insert(entities)
@@ -188,6 +195,8 @@ export function confirmPlan(deps: CoreDeps, input: ConfirmPlanInput): SaveDraftO
           })),
         )
         .run();
+      const preservedEntities = openingEntities.filter((entity) => !writtenIds.has(entity.id));
+      if (preservedEntities.length) tx.insert(entities).values(preservedEntities).run();
 
       const nameRows = new Map<string, typeof entityNames.$inferInsert>();
       const addName = (entityId: string, name: string, holderId: string) => {

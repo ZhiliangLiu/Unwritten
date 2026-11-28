@@ -216,7 +216,7 @@ export function createPlanJobs(deps: CoreDeps & { llm: LlmService }): PlanJobs {
           }
           const work = tx.select().from(works).where(eq(works.id, job.workId)).get();
           const draft = work ? tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get() : null;
-          if (!work || work.publishedId || !draft) {
+          if (!work || !draft) {
             const marked = tx
               .update(jobs)
               .set({ status: 'failed', error: 'interrupted', updatedAt: now })
@@ -372,7 +372,6 @@ export function createPlanJobs(deps: CoreDeps & { llm: LlmService }): PlanJobs {
           }
           const work = tx.select().from(works).where(eq(works.id, input.workId)).get();
           if (!work) throw appError('not_found', 'work not found');
-          if (work.publishedId) throw appError('already_published', 'work is already published');
           const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
           if (!draft) throw appError('not_found', 'draft not found');
           if (draft.contentRev !== input.contentRev) throw appError('stale_revision', 'draft revision is stale');
@@ -436,7 +435,6 @@ export function createPlanJobs(deps: CoreDeps & { llm: LlmService }): PlanJobs {
           }
           const work = tx.select().from(works).where(eq(works.id, input.workId)).get();
           if (!work) throw appError('not_found', 'work not found');
-          if (work.publishedId) throw appError('already_published', 'work is already published');
           const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
           if (!draft) throw appError('not_found', 'draft not found');
           const meta = draft.meta as VersionMeta;

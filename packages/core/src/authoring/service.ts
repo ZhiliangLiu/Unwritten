@@ -1,7 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
 import PQueue from 'p-queue';
-import type { PlanJobView, Preview, PreviewJobView, PreviewJobView as PreviewJobViewType } from '@unwritten/contracts';
+import type {
+  ApplyDraftInput,
+  PlanJobView,
+  Preview,
+  PreviewJobView,
+  PreviewJobView as PreviewJobViewType,
+  SaveDraftOutput,
+} from '@unwritten/contracts';
 import { appError } from '../errors.ts';
 import { diagnosticFault, storageError } from '../log/fault.ts';
 import type { AuthoringService, CoreDeps, LlmService } from '../services.ts';
@@ -11,7 +18,7 @@ import { confirmPlan, removePlanItem, updatePlanItem } from './plan-edit.ts';
 import { PREVIEW_TOOL_NAME, parsePreviewArgs, previewToolParameters } from './preview-tool.ts';
 import type { PreviewField } from './preview-tool.ts';
 import { PREVIEW_SYSTEM_PROMPT, buildPreviewPrompt } from './preview-prompt.ts';
-import { entities, jobs, workVersions, works } from '../store/schema.ts';
+import { entities, facts, jobs, stateDefs, workVersions, works } from '../store/schema.ts';
 import type { PreviewJobResult, VersionMeta } from '../store/meta.ts';
 import { PUBLIC_SETTING_PLAN_ITEM_ID, previewJobParts, readAnchors } from '../store/meta.ts';
 import { isPlanConfirmed, readPlan, readSettings } from '../store/plan.ts';
@@ -20,7 +27,7 @@ import { copyAuthorSetting } from '../story/copy.ts';
 import type { OpeningProposal, OpeningProposalContext } from '../story/opening-proposal.ts';
 import { loadProjection } from '../story/projection.ts';
 import { EntityProfileSchema, ValidatedChangesSchema } from '../story/types.ts';
-import type { ValidatedChanges } from '../story/types.ts';
+import type { EntityRef, FactRef, StateDefRef, ValidatedChanges } from '../story/types.ts';
 import type { LlmTool } from '../llm/types.ts';
 import { LlmRunError } from '../llm/types.ts';
 
@@ -29,6 +36,48 @@ const MAX_CORRECTIONS = 2;
 
 function viewOf(row: typeof jobs.$inferSelect): PreviewJobViewType {
   return previewJobView(row);
+}
+
+function openingReferences(changes: ValidatedChanges | undefined): {
+  entityIds: Set<string>;
+  factIds: Set<string>;
+  stateIds: Set<string>;
+} {
+  const entityIds = new Set<string>();
+  const factIds = new Set<string>();
+  const stateIds = new Set<string>();
+  if (!changes) return { entityIds, factIds, stateIds };
+  const addEntity = (ref: EntityRef | null) => {
+    if (ref && 'existing' in ref) entityIds.add(ref.existing);
+  };
+  const addFact = (ref: FactRef) => {
+    if ('existing' in ref) factIds.add(ref.existing);
+  };
+  const addState = (ref: StateDefRef) => {
+    if ('existing' in ref) stateIds.add(ref.existing);
+  };
+  for (const name of changes.names ?? []) {
+    addEntity(name.entity);
+    addEntity(name.holder);
+  }
+  for (const fact of changes.facts ?? []) {
+    addEntity(fact.subject);
+    addEntity(fact.object);
+    for (const witness of fact.witnesses) addEntity(witness);
+  }
+  for (const knowledge of changes.knowledge ?? []) {
+    addFact(knowledge.fact);
+    addEntity(knowledge.holder);
+    addEntity(knowledge.via);
+  }
+  if (changes.scene) for (const ref of changes.scene.present) addEntity(ref);
+  for (const state of changes.states ?? []) addState(state.stateDef);
+  for (const item of changes.stateItems ?? []) addState(item.stateDef);
+  for (const secret of changes.secrets ?? []) {
+    addEntity(secret.subject);
+    for (const knower of secret.knowers) addEntity(knower);
+  }
+  return { entityIds, factIds, stateIds };
 }
 
 export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): AuthoringService {
@@ -304,7 +353,6 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
           }
           const work = tx.select().from(works).where(eq(works.id, input.workId)).get();
           if (!work) throw appError('not_found', 'work not found');
-          if (work.publishedId) throw appError('already_published', 'work is already published');
           const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
           if (!draft) throw appError('not_found', 'draft not found');
           if (draft.contentRev !== input.contentRev) throw appError('stale_revision', 'draft revision is stale');
@@ -365,7 +413,6 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
           if (parts.result?.adoption) return null;
           const work = tx.select().from(works).where(eq(works.id, input.workId)).get();
           if (!work) throw appError('not_found', 'work not found');
-          if (work.publishedId) throw appError('already_published', 'work is already published');
           if (job.status !== 'done' || !parts.result) throw appError('preview_not_ready', 'preview is not ready');
           const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
           if (!draft) throw appError('not_found', 'draft not found');
@@ -497,6 +544,104 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
         data: { versionId: adopted.versionId },
       });
       return { routeId: null };
+    },
+    applyDraft(input: ApplyDraftInput): SaveDraftOutput {
+      const applied = deps.db.transaction(
+        (tx) => {
+          const work = tx.select().from(works).where(eq(works.id, input.workId)).get();
+          if (!work) throw appError('not_found', 'work not found');
+          if (!work.publishedId) throw appError('not_published', 'work is not published');
+          const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
+          if (!draft) throw appError('not_found', 'draft not found');
+          if (draft.contentRev !== input.baseContentRev) throw appError('stale_revision', 'draft revision is stale');
+          const runningPlan = tx
+            .select()
+            .from(jobs)
+            .where(and(eq(jobs.workId, input.workId), eq(jobs.kind, 'plan'), eq(jobs.status, 'running')))
+            .get();
+          if (runningPlan) throw appError('job_running', 'a plan job is running');
+          const meta = draft.meta as VersionMeta;
+          const published = tx.select().from(workVersions).where(eq(workVersions.id, work.publishedId)).get();
+          if (published?.sourceRev === draft.contentRev) {
+            return { versionId: null, contentRev: draft.contentRev };
+          }
+          if (!isPlanConfirmed(meta, draft.contentRev)) {
+            throw appError('plan_not_confirmed', 'plan is not confirmed');
+          }
+          if (!meta.opening) throw appError('opening_outdated', 'opening is missing');
+          const references = openingReferences(meta.opening.changes);
+          const openingEntityIds = new Set([
+            ...Object.values(meta.opening?.createdIds ?? {}),
+            ...(meta.opening?.scene.presentIds ?? []),
+            ...references.entityIds,
+          ]);
+          for (const entityId of openingEntityIds) {
+            const entity = tx
+              .select()
+              .from(entities)
+              .where(and(eq(entities.versionId, draft.id), eq(entities.id, entityId)))
+              .get();
+            if (!entity) throw appError('opening_outdated', 'opening references a missing entity');
+          }
+          for (const factId of references.factIds) {
+            const fact = tx
+              .select()
+              .from(facts)
+              .where(and(eq(facts.versionId, draft.id), eq(facts.id, factId)))
+              .get();
+            if (!fact) throw appError('opening_outdated', 'opening references a missing fact');
+          }
+          const openingStateIds = new Set([
+            ...references.stateIds,
+            ...(meta.opening?.initialState ?? []).map((state) => state.stateDefId),
+          ]);
+          for (const stateDefId of openingStateIds) {
+            const stateDef = tx
+              .select()
+              .from(stateDefs)
+              .where(and(eq(stateDefs.versionId, draft.id), eq(stateDefs.id, stateDefId)))
+              .get();
+            if (!stateDef) throw appError('opening_outdated', 'opening references a missing state');
+          }
+          const keySceneIds = new Set((meta.keyScenes ?? []).map((scene) => scene.id));
+          for (const hit of meta.opening?.changes?.sceneHits ?? []) {
+            if (!keySceneIds.has(hit.sceneId)) {
+              throw appError('opening_outdated', 'opening references a missing key scene');
+            }
+          }
+          const { wizardStep: _wizardStep, ...nextMeta } = meta;
+          const versionId = randomUUID();
+          const now = Date.now();
+          tx.insert(workVersions)
+            .values({
+              id: versionId,
+              workId: work.id,
+              kind: 'published',
+              copiedFrom: draft.id,
+              contentRev: draft.contentRev,
+              sourceRev: draft.contentRev,
+              meta: nextMeta,
+              createdAt: now,
+              updatedAt: now,
+            })
+            .run();
+          copyAuthorSetting(tx, { fromVersionId: draft.id, toVersionId: versionId });
+          tx.update(works).set({ publishedId: versionId, updatedAt: now }).where(eq(works.id, work.id)).run();
+          return { versionId, contentRev: draft.contentRev };
+        },
+        { behavior: 'immediate' },
+      );
+      if (applied.versionId) {
+        deps.bus.publish({ type: 'works.changed', workId: input.workId });
+        deps.logger.record({
+          level: 'info',
+          module: 'authoring',
+          event: 'work.draft.applied',
+          workId: input.workId,
+          data: { versionId: applied.versionId },
+        });
+      }
+      return { contentRev: applied.contentRev };
     },
     generatePlan(input): PlanJobView {
       return planJobs.generatePlan(input);

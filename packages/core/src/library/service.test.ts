@@ -286,6 +286,8 @@ describe('createLibraryService', () => {
       );
       expect(summaries.find((summary) => summary.id === workId)?.hasMultiplePlaythroughs).toBe(true);
       expect(summaries.find((summary) => summary.id === otherWorkId)?.hasMultiplePlaythroughs).toBe(false);
+      expect(service.get({ workId }).routeCount).toBe(2);
+      expect(service.get({ workId: otherWorkId }).routeCount).toBe(1);
     } finally {
       opened.close();
       temp.cleanup();

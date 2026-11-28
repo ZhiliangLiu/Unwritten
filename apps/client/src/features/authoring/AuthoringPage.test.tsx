@@ -75,6 +75,8 @@ function workDetail(overrides: Partial<WorkDetail> = {}): WorkDetail {
     title: null,
     blurb: null,
     status: 'draft',
+    hasUnpublishedChanges: false,
+    routeCount: 0,
     draft: {
       contentRev: 3,
       background: '原来的背景。',
@@ -160,6 +162,11 @@ function makeApi(initial: WorkDetail, handlers: Record<string, (input: unknown) 
     'works.adoptPreview': () => {
       state.detail = { ...state.detail, status: 'playable', title: '灯塔镇' };
       return { routeId: crypto.randomUUID() };
+    },
+    'works.applyDraft': (input) => {
+      const { baseContentRev } = input as { baseContentRev: number };
+      state.detail = { ...state.detail, hasUnpublishedChanges: false };
+      return { contentRev: baseContentRev };
     },
     'works.adoptStalePlan': () => ({ contentRev: state.detail.draft.contentRev + 1 }),
     'works.updatePlanItem': () => ({ contentRev: state.detail.draft.contentRev + 1 }),
@@ -333,6 +340,75 @@ describe('AuthoringPage', () => {
       workId: detail.id,
       jobId: detail.latestPreviewJob?.id,
     });
+    await screen.unmount();
+  });
+
+  it('已发布作品仍可修改草稿并应用到新开局', async () => {
+    const detail = workDetail({
+      status: 'playable',
+      title: '灯塔镇',
+      hasUnpublishedChanges: true,
+      routeCount: 2,
+      draft: { ...workDetail().draft, wizardStep: 'background', plan: plan({ confirmed: true }) },
+    });
+    const { screen, calls, state } = await renderAuthoring(detail);
+    await expect.element(screen.getByRole('textbox', { name: '故事背景' })).toBeVisible();
+    await expectNoAxeViolations(document.body);
+    await expect.element(screen.getByText(/现有的 2 条路线/)).toBeVisible();
+    await screen.getByRole('button', { name: '应用到新开局' }).click();
+    await vi.waitFor(() => {
+      expect(callsTo(calls, 'works.applyDraft')[0]?.input).toMatchObject({
+        workId: detail.id,
+        baseContentRev: 3,
+      });
+    });
+    await vi.waitFor(() => {
+      expect(state.detail.hasUnpublishedChanges).toBe(false);
+      expect(screen.getByRole('button', { name: '应用到新开局' }).query()).toBeNull();
+    });
+    await expect.element(screen.getByText('已应用到新开局')).toBeVisible();
+    await screen.unmount();
+  });
+
+  it('方案改动未确认时不能应用草稿', async () => {
+    const detail = workDetail({
+      status: 'playable',
+      hasUnpublishedChanges: true,
+      routeCount: 0,
+      draft: { ...workDetail().draft, plan: plan({ confirmed: false }) },
+    });
+    const { screen } = await renderAuthoring(detail);
+    const apply = screen.getByRole('button', { name: '应用到新开局' });
+    await expect.element(apply).toBeDisabled();
+    await expect.element(screen.getByText('先确认故事方案，才能应用。')).toBeVisible();
+    await screen.unmount();
+  });
+
+  it('方案正在生成时不能应用草稿', async () => {
+    const detail = workDetail({
+      status: 'playable',
+      hasUnpublishedChanges: true,
+      routeCount: 0,
+      draft: { ...workDetail().draft, plan: plan({ confirmed: true }) },
+      latestPlanJob: planJob({ status: 'running' }),
+    });
+    const { screen } = await renderAuthoring(detail);
+    const apply = screen.getByRole('button', { name: '应用到新开局' });
+    await expect.element(apply).toBeDisabled();
+    await expect.element(screen.getByText('方案正在生成，完成后再应用。')).toBeVisible();
+    await screen.unmount();
+  });
+
+  it('已发布作品采用新开场时按钮说明会应用到新开局', async () => {
+    const detail = workDetail({
+      status: 'playable',
+      hasUnpublishedChanges: true,
+      routeCount: 1,
+      draft: { ...workDetail().draft, wizardStep: 'opening', plan: plan({ confirmed: true }) },
+      latestPreviewJob: job(),
+    });
+    const { screen } = await renderAuthoring(detail);
+    await expect.element(screen.getByRole('button', { name: '采用开场并应用到新开局' })).toBeVisible();
     await screen.unmount();
   });
 

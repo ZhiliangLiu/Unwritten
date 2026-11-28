@@ -206,6 +206,7 @@
     "setting": "公开设定",
     "options": "推荐行动",
     "adopt": "采用开场并存入作品库",
+    "adoptPublished": "采用开场并应用到新开局",
     "stale": "已过期",
     "staleHelp": "背景改过了，这份预览基于旧的背景。请重新生成后再采用。",
     "regenerate": "重新生成开场",
@@ -271,5 +272,16 @@
     "headingOpening": "开场里新出现的",
     "knownAs": "主角称作：{{name}}"
   },
-  "published": { "heading": "已存入作品库", "play": "开始故事", "back": "返回作品库" }
+  "published": {
+    "heading": "已存入作品库",
+    "play": "开始故事",
+    "back": "返回作品库",
+    "apply": "应用到新开局",
+    "applyHelp": "草稿有未应用的修改。应用后，现有的 {{count}} 条路线继续使用原来的版本，从旧存档另开也沿用旧版本；只有新开局使用新版本。",
+    "applyHelpNoRoutes": "草稿有未应用的修改。应用后，新开局使用新版本。",
+    "saving": "草稿保存完才能应用。",
+    "planRunning": "方案正在生成，完成后再应用。",
+    "confirmFirst": "先确认故事方案，才能应用。",
+    "applied": "已应用到新开局"
+  }
 }

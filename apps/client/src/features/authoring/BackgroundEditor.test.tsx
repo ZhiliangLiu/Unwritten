@@ -22,6 +22,8 @@ function workDetail(overrides: Partial<WorkDetail> = {}): WorkDetail {
     title: null,
     blurb: null,
     status: 'draft',
+    hasUnpublishedChanges: false,
+    routeCount: 0,
     draft: {
       contentRev: 3,
       background: '最后一班渡轮停开了。',

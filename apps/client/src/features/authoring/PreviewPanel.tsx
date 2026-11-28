@@ -19,6 +19,7 @@ const REVIEW_REASON_KEYS: Record<NeedsReview['reason'], string> = {
 export function PreviewPanel({
   preview,
   stale,
+  published,
   status,
   regenerating,
   adopting,
@@ -27,6 +28,7 @@ export function PreviewPanel({
 }: {
   preview: Preview | null;
   stale: boolean;
+  published: boolean;
   status: ReactNode;
   regenerating: boolean;
   adopting: boolean;
@@ -152,7 +154,7 @@ export function PreviewPanel({
           aria-describedby={blocked ? reviewId : undefined}
           onClick={onAdopt}
         >
-          {t('authoring:preview.adopt')}
+          {published ? t('authoring:preview.adoptPublished') : t('authoring:preview.adopt')}
         </Button>
       </div>
     </article>

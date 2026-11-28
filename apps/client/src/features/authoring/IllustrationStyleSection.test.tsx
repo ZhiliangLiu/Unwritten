@@ -17,6 +17,8 @@ const work: WorkDetail = {
   title: null,
   blurb: null,
   status: 'draft',
+  hasUnpublishedChanges: false,
+  routeCount: 0,
   draft: {
     contentRev: 1,
     background: '海边小镇的灯塔。',

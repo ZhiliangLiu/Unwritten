@@ -30,9 +30,20 @@ export function workLabel(title: string | null, background: string): string {
   return Array.from(firstLine).slice(0, 40).join('');
 }
 
+function draftHasUnpublishedChanges(
+  draft: typeof workVersions.$inferSelect | undefined,
+  published: typeof workVersions.$inferSelect | undefined,
+): boolean {
+  return Boolean(published && draft && draft.contentRev > (published.sourceRev ?? 0));
+}
+
 function summarize(db: Database, row: typeof works.$inferSelect): WorkSummary {
   const draft = db.select().from(workVersions).where(eq(workVersions.id, row.draftId)).get();
   const background = (draft?.meta as VersionMeta | undefined)?.background ?? '';
+  const published = row.publishedId
+    ? db.select().from(workVersions).where(eq(workVersions.id, row.publishedId)).get()
+    : undefined;
+  const hasUnpublishedChanges = draftHasUnpublishedChanges(draft, published);
   let routeId: string | null = null;
   let hasProgress = false;
   let hasMultiplePlaythroughs = false;
@@ -70,6 +81,7 @@ function summarize(db: Database, row: typeof works.$inferSelect): WorkSummary {
     status: row.publishedId ? 'playable' : 'draft',
     hasProgress,
     hasMultiplePlaythroughs,
+    hasUnpublishedChanges,
     routeId,
     updatedAt: row.updatedAt,
   };
@@ -106,6 +118,16 @@ export function createLibraryService(deps: CoreDeps & { onWorkDeleted?: () => vo
     const draft = deps.db.select().from(workVersions).where(eq(workVersions.id, row.draftId)).get();
     if (!draft) throw appError('not_found', 'draft not found');
     const summary = summarize(deps.db, row);
+    const published = row.publishedId
+      ? deps.db.select().from(workVersions).where(eq(workVersions.id, row.publishedId)).get()
+      : undefined;
+    const routeCount = deps.db
+      .select({ id: routes.id })
+      .from(routes)
+      .innerJoin(playthroughs, eq(routes.playthroughId, playthroughs.id))
+      .innerJoin(workVersions, eq(playthroughs.versionId, workVersions.id))
+      .where(and(eq(workVersions.workId, row.id), eq(playthroughs.kind, 'play')))
+      .all().length;
     const previewJob = deps.db
       .select()
       .from(jobs)
@@ -124,6 +146,8 @@ export function createLibraryService(deps: CoreDeps & { onWorkDeleted?: () => vo
       title: row.title,
       blurb: row.blurb,
       status: summary.status,
+      hasUnpublishedChanges: draftHasUnpublishedChanges(draft, published),
+      routeCount,
       draft: {
         contentRev: draft.contentRev,
         background: meta.background,
@@ -182,7 +206,6 @@ export function createLibraryService(deps: CoreDeps & { onWorkDeleted?: () => vo
         (tx) => {
           const work = tx.select().from(works).where(eq(works.id, input.workId)).get();
           if (!work) throw appError('not_found', 'work not found');
-          if (work.publishedId) throw appError('already_published', 'work is already published');
           const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
           if (!draft) throw appError('not_found', 'draft not found');
           const meta = draft.meta as VersionMeta;
@@ -267,7 +290,6 @@ export function createLibraryService(deps: CoreDeps & { onWorkDeleted?: () => vo
         (tx) => {
           const work = tx.select().from(works).where(eq(works.id, input.workId)).get();
           if (!work) throw appError('not_found', 'work not found');
-          if (work.publishedId) return null;
           const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
           if (!draft) throw appError('not_found', 'draft not found');
           const meta = draft.meta as VersionMeta;

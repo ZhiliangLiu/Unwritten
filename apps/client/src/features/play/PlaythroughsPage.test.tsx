@@ -14,6 +14,8 @@ function detail(): WorkDetail {
     title: '灯塔夜班',
     blurb: null,
     status: 'playable',
+    hasUnpublishedChanges: false,
+    routeCount: 0,
     draft: {
       contentRev: 1,
       background: '一段背景',
