@@ -111,8 +111,8 @@ test('E01 纯文字、版本升级与确认开启', async ({ page }) => {
     await page.getByRole('textbox', { name: '服务名称' }).fill('本地出图');
     await page.getByRole('textbox', { name: '服务地址' }).fill(app.services.proxyUrl ?? '');
     await page.getByRole('button', { name: '生成令牌' }).click();
-    await expect(page.getByRole('textbox', { name: '令牌' })).toBeVisible();
-    const generatedToken = await page.getByRole('textbox', { name: '令牌' }).inputValue();
+    await expect(page.getByRole('textbox', { name: '新令牌' })).toBeVisible();
+    const generatedToken = await page.getByRole('textbox', { name: '新令牌' }).inputValue();
     expect(generatedToken.length).toBeGreaterThanOrEqual(43);
     await page.getByRole('button', { name: '保存出图服务' }).click();
     await expect(page.getByRole('heading', { name: '本地出图' })).toBeVisible();
@@ -126,7 +126,7 @@ test('E01 纯文字、版本升级与确认开启', async ({ page }) => {
     await page.getByRole('link', { name: '设置' }).click();
     await page.getByRole('link', { name: '出图服务' }).click();
     await expect(page.getByText('已配置')).toBeVisible();
-    await expect(page.getByRole('textbox', { name: '令牌' })).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: '新令牌' })).toHaveCount(0);
     await page.getByRole('radiogroup', { name: '用于出图' }).getByText('本地出图').click();
     await expect.poll(async () => (await app.api.image.services.list()).selectedServiceId).not.toBeNull();
 

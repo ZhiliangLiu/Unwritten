@@ -164,7 +164,7 @@ export function AddImageServiceForm({ revision, disabled }: { revision: string; 
           disabled={disabled}
         />
         <TextField
-          label={t('settings:images.apiKey')}
+          label={protocol === 'unwritten-image' ? t('settings:images.token') : t('settings:images.apiKey')}
           value={apiKey}
           onValueChange={setApiKey}
           type='password'

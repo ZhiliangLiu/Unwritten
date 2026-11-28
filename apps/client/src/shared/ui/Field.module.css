@@ -15,6 +15,7 @@
 }
 
 .control {
+  box-sizing: border-box;
   inline-size: 100%;
   padding-inline: var(--uw-space-3);
   font-family: var(--uw-typography-body-font-family);
@@ -30,7 +31,6 @@
 }
 
 .singleLine {
-  box-sizing: border-box;
   block-size: var(--uw-size-control-md);
   padding-block: 0;
 }

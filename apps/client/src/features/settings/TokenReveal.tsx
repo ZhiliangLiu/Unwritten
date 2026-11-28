@@ -44,7 +44,7 @@ export function TokenReveal({
       {value ? (
         <div className={styles.reveal}>
           <label className={fieldStyles.label} htmlFor={tokenId}>
-            {t('settings:images.token')}
+            {t('settings:images.newToken')}
           </label>
           <div className={styles.row}>
             <input
