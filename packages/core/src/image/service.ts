@@ -23,7 +23,7 @@ import { createProber, type Prober } from './probe.ts';
 import { createImageQueue } from './queue.ts';
 import { createServiceTester } from './test-service.ts';
 import { createWaker } from './wake.ts';
-import { openAiCapabilities, prefillOpenAiOptions } from './openai-capabilities.ts';
+import { openAiCapabilities, resolveOpenAiOptions } from './openai-capabilities.ts';
 import {
   autoView,
   currentTarget,
@@ -191,7 +191,7 @@ export function createImageService(deps: CoreDeps & { llm: LlmService }, options
     const entry = state.file.imageServices.find((candidate) => candidate.id === serviceId);
     if (!entry) return null;
     if (entry.protocol === 'openai-images') {
-      return openAiCapabilities(entry.capabilities ?? prefillOpenAiOptions(entry.model ?? ''));
+      return openAiCapabilities(resolveOpenAiOptions(entry.capabilities, entry.model ?? ''));
     }
     return cache.get(entry.id)?.capabilities ?? null;
   };

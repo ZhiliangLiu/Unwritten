@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { describe, expect, it } from 'vitest';
-import type { CreateImageServiceInput } from '@unwritten/contracts';
+import type { CreateImageServiceInput, OpenAiImageOptions } from '@unwritten/contracts';
 import { createEventBus } from '../events/bus.ts';
 import type { Logger } from '../log/logger.ts';
 import { createNetFetch } from '../net/fetch.ts';
@@ -43,7 +43,7 @@ interface HarnessOptions {
   apiKey?: string | null;
   protocol?: 'unwritten-image' | 'openai-images';
   model?: string | null;
-  openai?: { maxReferences: number; sizes: 'fixed' | 'custom' } | null;
+  openai?: OpenAiImageOptions | null;
   launcherUrl?: string;
   launcherToken?: string | null;
   fetch?: typeof fetch;
@@ -668,6 +668,44 @@ describe('image engine', () => {
       );
       expect(result).toMatchObject({ width: 1536, height: 1024 });
       expect(fake.requests.filter((request) => request.path.endsWith('/images/generations'))).toHaveLength(2);
+    } finally {
+      harness.close();
+      await fake.close();
+    }
+  });
+
+  it('OpenAI 兼容设置进入请求体', async () => {
+    const fake = await startFakeOpenAiImages();
+    const harness = await createHarness({
+      baseUrl: fake.baseUrl,
+      protocol: 'openai-images',
+      model: 'test-image',
+      openai: {
+        maxReferences: 2,
+        sizes: 'fixed',
+        outputFormat: 'jpeg',
+        responseFormat: 'b64_json',
+        referenceTransport: 'inline',
+        disableWatermark: true,
+      },
+    });
+    try {
+      fake.enqueue({ kind: 'image', width: 1024, height: 1024 });
+      const result = await harness.service.generate(
+        generateInput(harness.serviceId, {
+          aspect: '1:1',
+          size: { width: 1024, height: 1024 },
+          references: [{ mime: 'image/png', bytes: pngBytes(2, 2) }],
+        }),
+      );
+      expect(result).toMatchObject({ width: 1024, height: 1024 });
+      expect(fake.requests[0]?.path).toBe('/v1/images/generations');
+      expect(fake.requests[0]?.json).toMatchObject({
+        output_format: 'jpeg',
+        response_format: 'b64_json',
+        watermark: false,
+        image: [expect.stringMatching(/^data:image\/png;base64,/u)],
+      });
     } finally {
       harness.close();
       await fake.close();

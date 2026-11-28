@@ -1,6 +1,12 @@
-import type { ImageCapabilities, ImageSize, ImageTierPreference } from '@unwritten/contracts';
-
-export type OpenAiSizeMode = 'fixed' | 'custom';
+import { OPENAI_IMAGE_DEFAULTS } from '@unwritten/contracts';
+import type {
+  ImageCapabilities,
+  ImageSize,
+  ImageTierPreference,
+  OpenAiImageCompat,
+  OpenAiImageOptions,
+  OpenAiSizeMode,
+} from '@unwritten/contracts';
 
 const FIXED_SIZES: Record<string, Record<string, ImageSize>> = {
   '1:1': { '1k': { width: 1024, height: 1024 } },
@@ -53,10 +59,30 @@ const OPENAI_SIZES: Record<OpenAiSizeMode, Record<string, Record<string, ImageSi
 const GPT_IMAGE_2_PREFIX = 'gpt-image-2';
 const FIXED_REFERENCE_MODELS = new Set(['gpt-image-1.5', 'gpt-image-1-mini', 'chatgpt-image-latest']);
 
-export function prefillOpenAiOptions(modelId: string): { maxReferences: number; sizes: OpenAiSizeMode } {
-  if (modelId.startsWith(GPT_IMAGE_2_PREFIX)) return { maxReferences: 16, sizes: 'custom' };
-  if (FIXED_REFERENCE_MODELS.has(modelId)) return { maxReferences: 16, sizes: 'fixed' };
-  return { maxReferences: 0, sizes: 'fixed' };
+export type ResolvedOpenAiImageOptions = OpenAiImageOptions & OpenAiImageCompat;
+
+export function prefillOpenAiOptions(modelId: string): ResolvedOpenAiImageOptions {
+  if (modelId.startsWith(GPT_IMAGE_2_PREFIX)) {
+    return { ...OPENAI_IMAGE_DEFAULTS, maxReferences: 16, sizes: 'custom' };
+  }
+  if (FIXED_REFERENCE_MODELS.has(modelId)) {
+    return { ...OPENAI_IMAGE_DEFAULTS, maxReferences: 16, sizes: 'fixed' };
+  }
+  return { ...OPENAI_IMAGE_DEFAULTS, maxReferences: 0, sizes: 'fixed' };
+}
+
+export function resolveOpenAiOptions(
+  options: OpenAiImageOptions | undefined,
+  model: string,
+): ResolvedOpenAiImageOptions {
+  const base = options ?? prefillOpenAiOptions(model);
+  return {
+    ...base,
+    outputFormat: base.outputFormat ?? OPENAI_IMAGE_DEFAULTS.outputFormat,
+    responseFormat: base.responseFormat ?? OPENAI_IMAGE_DEFAULTS.responseFormat,
+    referenceTransport: base.referenceTransport ?? OPENAI_IMAGE_DEFAULTS.referenceTransport,
+    disableWatermark: base.disableWatermark ?? OPENAI_IMAGE_DEFAULTS.disableWatermark,
+  };
 }
 
 export function openAiCapabilities(options: { maxReferences: number; sizes: OpenAiSizeMode }): ImageCapabilities {

@@ -1,3 +1,5 @@
+import { OPENAI_IMAGE_DEFAULTS } from '@unwritten/contracts';
+import type { OpenAiImageCompat } from '@unwritten/contracts';
 import { ImageError } from './errors.ts';
 import { IMAGE_EXTENSION, IMAGE_MAX_BYTES, type ImageMime } from './limits.ts';
 import { createNetFetch, RedirectBlockedError } from '../net/fetch.ts';
@@ -92,6 +94,7 @@ export function createOpenAiImageClient(options: {
   baseUrl: string;
   apiKey: string | undefined;
   model: string;
+  compat?: Partial<OpenAiImageCompat>;
   fetch?: typeof fetch;
   timeoutMs?: number;
 }): OpenAiImageClient {
@@ -99,6 +102,12 @@ export function createOpenAiImageClient(options: {
   const fetchImpl = options.fetch ?? createNetFetch();
   const timeoutMs = options.timeoutMs ?? OPENAI_IMAGE_TIMEOUT_MS;
   const headers: Record<string, string> = options.apiKey ? { authorization: `Bearer ${options.apiKey}` } : {};
+  const compat: OpenAiImageCompat = {
+    outputFormat: options.compat?.outputFormat ?? OPENAI_IMAGE_DEFAULTS.outputFormat,
+    responseFormat: options.compat?.responseFormat ?? OPENAI_IMAGE_DEFAULTS.responseFormat,
+    referenceTransport: options.compat?.referenceTransport ?? OPENAI_IMAGE_DEFAULTS.referenceTransport,
+    disableWatermark: options.compat?.disableWatermark ?? OPENAI_IMAGE_DEFAULTS.disableWatermark,
+  };
 
   async function send(url: string, init: RequestInit, callerSignal: AbortSignal): Promise<Response> {
     const timeout = AbortSignal.timeout(timeoutMs);
@@ -186,9 +195,17 @@ export function createOpenAiImageClient(options: {
     const prompt = rewriteReferences(request.prompt);
     const quality = request.quality === 'fast' ? 'low' : 'high';
     const size = `${request.size.width}x${request.size.height}`;
+    const inlineReferences =
+      request.references.length > 0 && compat.referenceTransport === 'inline'
+        ? request.references.map(
+            (reference) => `data:${reference.mime};base64,${Buffer.from(reference.bytes).toString('base64')}`,
+          )
+        : null;
+    const responseFormat = compat.responseFormat === 'b64_json' ? { response_format: 'b64_json' } : {};
+    const watermark = compat.disableWatermark ? { watermark: false } : {};
 
     let response: Response;
-    if (request.references.length === 0) {
+    if (request.references.length === 0 || inlineReferences !== null) {
       response = await send(
         `${baseUrl}/images/generations`,
         {
@@ -200,8 +217,11 @@ export function createOpenAiImageClient(options: {
             n: 1,
             size,
             quality,
-            output_format: 'webp',
+            output_format: compat.outputFormat,
             moderation: 'auto',
+            ...responseFormat,
+            ...watermark,
+            ...(inlineReferences === null ? {} : { image: inlineReferences }),
           }),
         },
         callerSignal,
@@ -213,7 +233,7 @@ export function createOpenAiImageClient(options: {
       form.append('n', '1');
       form.append('size', size);
       form.append('quality', quality);
-      form.append('output_format', 'webp');
+      form.append('output_format', compat.outputFormat);
       for (const [index, reference] of request.references.entries()) {
         const extension = IMAGE_EXTENSION[reference.mime as ImageMime];
         form.append('image[]', new Blob([reference.bytes], { type: reference.mime }), `ref-${index + 1}.${extension}`);

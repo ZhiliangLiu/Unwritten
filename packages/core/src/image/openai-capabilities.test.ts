@@ -1,22 +1,74 @@
 import { describe, expect, it } from 'vitest';
-import { openAiCapabilities, openAiSizeFor, prefillOpenAiOptions } from './openai-capabilities.ts';
+import {
+  openAiCapabilities,
+  openAiSizeFor,
+  prefillOpenAiOptions,
+  resolveOpenAiOptions,
+} from './openai-capabilities.ts';
+
+const OPENAI_DEFAULTS = {
+  outputFormat: 'webp',
+  responseFormat: 'omit',
+  referenceTransport: 'edits',
+  disableWatermark: false,
+} as const;
 
 describe('prefillOpenAiOptions', () => {
   it('gpt-image-2 开头用 16 张参考图和自定义尺寸', () => {
-    expect(prefillOpenAiOptions('gpt-image-2')).toEqual({ maxReferences: 16, sizes: 'custom' });
-    expect(prefillOpenAiOptions('gpt-image-2-2026-preview')).toEqual({ maxReferences: 16, sizes: 'custom' });
+    expect(prefillOpenAiOptions('gpt-image-2')).toEqual({ maxReferences: 16, sizes: 'custom', ...OPENAI_DEFAULTS });
+    expect(prefillOpenAiOptions('gpt-image-2-2026-preview')).toEqual({
+      maxReferences: 16,
+      sizes: 'custom',
+      ...OPENAI_DEFAULTS,
+    });
   });
 
   it('固定尺寸模型用 16 张参考图和固定尺寸', () => {
     for (const model of ['gpt-image-1.5', 'gpt-image-1-mini', 'chatgpt-image-latest']) {
-      expect(prefillOpenAiOptions(model)).toEqual({ maxReferences: 16, sizes: 'fixed' });
+      expect(prefillOpenAiOptions(model)).toEqual({ maxReferences: 16, sizes: 'fixed', ...OPENAI_DEFAULTS });
     }
   });
 
   it('其他模型不调编辑接口', () => {
     for (const model of ['gpt-image-1', 'dall-e-3', '']) {
-      expect(prefillOpenAiOptions(model)).toEqual({ maxReferences: 0, sizes: 'fixed' });
+      expect(prefillOpenAiOptions(model)).toEqual({ maxReferences: 0, sizes: 'fixed', ...OPENAI_DEFAULTS });
     }
+  });
+});
+
+describe('resolveOpenAiOptions', () => {
+  it('没有兼容设置时补上 OpenAI 默认值', () => {
+    expect(resolveOpenAiOptions({ maxReferences: 2, sizes: 'fixed' }, 'gpt-image-2')).toEqual({
+      maxReferences: 2,
+      sizes: 'fixed',
+      outputFormat: 'webp',
+      responseFormat: 'omit',
+      referenceTransport: 'edits',
+      disableWatermark: false,
+    });
+  });
+
+  it('保留显式设置的兼容值', () => {
+    expect(
+      resolveOpenAiOptions(
+        {
+          maxReferences: 10,
+          sizes: 'fixed',
+          outputFormat: 'jpeg',
+          responseFormat: 'b64_json',
+          referenceTransport: 'inline',
+          disableWatermark: true,
+        },
+        'ignored',
+      ),
+    ).toMatchObject({
+      maxReferences: 10,
+      sizes: 'fixed',
+      outputFormat: 'jpeg',
+      responseFormat: 'b64_json',
+      referenceTransport: 'inline',
+      disableWatermark: true,
+    });
   });
 });
 

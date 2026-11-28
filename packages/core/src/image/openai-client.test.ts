@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { OpenAiImageCompat } from '@unwritten/contracts';
 import { ImageError } from './errors.ts';
 import { createOpenAiImageClient, type OpenAiImageClient, type OpenAiImageRequest } from './openai-client.ts';
 import { startFakeOpenAiImages, type FakeOpenAiImages } from '../test-support/fake-openai-images.ts';
@@ -19,12 +20,15 @@ afterEach(async () => {
   await server.close();
 });
 
-function client(options: { timeoutMs?: number; baseUrl?: string } = {}): OpenAiImageClient {
+function client(
+  options: { timeoutMs?: number; baseUrl?: string; compat?: Partial<OpenAiImageCompat> } = {},
+): OpenAiImageClient {
   return createOpenAiImageClient({
     baseUrl: options.baseUrl ?? server.baseUrl,
     apiKey: API_KEY,
     model: MODEL,
     ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+    ...(options.compat === undefined ? {} : { compat: options.compat }),
   });
 }
 
@@ -83,6 +87,58 @@ describe('createOpenAiImageClient.generate', () => {
     server.enqueue({ kind: 'image', width: 1, height: 1 });
     await client().generate(request({ quality: 'fast' }), idleSignal());
     expect(server.requests[0]?.json).toMatchObject({ quality: 'low' });
+  });
+
+  it('兼容设置覆盖输出格式、响应格式和水印', async () => {
+    server.enqueue({ kind: 'image', width: 4, height: 3 });
+    await client({
+      compat: { outputFormat: 'jpeg', responseFormat: 'b64_json', disableWatermark: true },
+    }).generate(request(), idleSignal());
+
+    expect(server.requests[0]?.json).toEqual({
+      model: MODEL,
+      prompt: 'a quiet pier at dusk',
+      n: 1,
+      size: '1536x1024',
+      quality: 'high',
+      output_format: 'jpeg',
+      moderation: 'auto',
+      response_format: 'b64_json',
+      watermark: false,
+    });
+  });
+
+  it('参考图内联时走 generations，JSON 里带 data URL', async () => {
+    server.enqueue({ kind: 'image', width: 2, height: 2 });
+    const references = [{ mime: 'image/png', bytes: pngBytes(2, 2) }];
+    await client({
+      compat: { outputFormat: 'jpeg', responseFormat: 'b64_json', referenceTransport: 'inline' },
+    }).generate(request({ prompt: '{{ref:1}} holds an umbrella', references }), idleSignal());
+
+    expect(server.requests).toHaveLength(1);
+    const [recorded] = server.requests;
+    expect(recorded?.path).toBe('/v1/images/generations');
+    expect(recorded?.contentType).toContain('application/json');
+    expect(recorded?.fields).toEqual({});
+    expect(recorded?.json).toMatchObject({
+      prompt: 'input image 1 holds an umbrella',
+      output_format: 'jpeg',
+      response_format: 'b64_json',
+      image: [`data:image/png;base64,${Buffer.from(references[0]!.bytes).toString('base64')}`],
+    });
+  });
+
+  it('编辑接口只使用输出格式，不发送 response_format 和 watermark', async () => {
+    server.enqueue({ kind: 'image', width: 2, height: 2 });
+    const references = [{ mime: 'image/png', bytes: pngBytes(2, 2) }];
+    await client({
+      compat: { outputFormat: 'jpeg', responseFormat: 'b64_json', disableWatermark: true },
+    }).generate(request({ references }), idleSignal());
+
+    expect(server.requests[0]?.path).toBe('/v1/images/edits');
+    expect(server.requests[0]?.fields).toMatchObject({ output_format: 'jpeg' });
+    expect(server.requests[0]?.fields).not.toHaveProperty('response_format');
+    expect(server.requests[0]?.fields).not.toHaveProperty('watermark');
   });
 
   it('带参考图时走 edits，multipart 的顺序和类型与输入一致', async () => {

@@ -203,6 +203,30 @@
       "fixed": "固定尺寸",
       "custom": "自定义尺寸"
     },
+    "compat": {
+      "heading": "兼容设置",
+      "outputFormat": "图片格式",
+      "outputFormats": {
+        "webp": "WebP",
+        "png": "PNG",
+        "jpeg": "JPEG"
+      },
+      "outputFormatHelp": "服务不接受 WebP 时选 PNG 或 JPEG。",
+      "responseFormat": "响应格式",
+      "responseFormats": {
+        "omit": "不发送（服务默认）",
+        "b64_json": "Base64（b64_json）"
+      },
+      "responseFormatHelp": "服务默认返回图片链接时，要求它以 Base64 返回。",
+      "referenceTransport": "参考图传输",
+      "referenceTransports": {
+        "edits": "编辑接口",
+        "inline": "生成接口内联"
+      },
+      "referenceTransportHelp": "服务没有 /images/edits 时选内联，参考图随生成请求一起发送。",
+      "disableWatermark": "关闭服务水印",
+      "disableWatermarkHelp": "勾选后要求服务不加水印。"
+    },
     "lastProbe": "最近探测于 {{time}}",
     "lastSuccess": "最近一次出图于 {{time}}",
     "test": "测试连接",

@@ -9,7 +9,7 @@ import type { Database } from '../store/db.ts';
 import { recordCall } from './calls.ts';
 import type { ImageDispatchGuard, ImageGenerateInput, ImageGenerateResult } from './engine-types.ts';
 import { ImageError } from './errors.ts';
-import { openAiCapabilities, openAiSizeFor, prefillOpenAiOptions } from './openai-capabilities.ts';
+import { openAiCapabilities, openAiSizeFor, resolveOpenAiOptions } from './openai-capabilities.ts';
 import { createOpenAiImageClient } from './openai-client.ts';
 import type { ProbeCache, Prober } from './probe.ts';
 import { FAST_IMAGE_PRIORITY, NORMAL_IMAGE_PRIORITY, type ImageQueue } from './queue.ts';
@@ -80,7 +80,7 @@ function isAbortError(error: unknown): boolean {
 }
 
 function configuredCapabilities(entry: ImageServiceEntry): ImageCapabilities {
-  return openAiCapabilities(entry.capabilities ?? prefillOpenAiOptions(entry.model ?? ''));
+  return openAiCapabilities(resolveOpenAiOptions(entry.capabilities, entry.model ?? ''));
 }
 
 export function createImageEngine(deps: ImageEngineDeps): ImageEngine {
@@ -278,7 +278,7 @@ export function createImageEngine(deps: ImageEngineDeps): ImageEngine {
     input: ImageGenerateInput,
     attempt: Attempt,
   ): Promise<{ bytes: Uint8Array; inputTokens: number | null; outputTokens: number | null }> => {
-    const options = entry.capabilities ?? prefillOpenAiOptions(entry.model ?? '');
+    const options = resolveOpenAiOptions(entry.capabilities, entry.model ?? '');
     const size = attempt.size ?? openAiSizeFor(options.sizes, attempt.aspect, 'default');
     if (size === null) throw new ImageError('image_output_format_unavailable', 'format');
     checkGuard(entry, input.guard);
@@ -286,6 +286,7 @@ export function createImageEngine(deps: ImageEngineDeps): ImageEngine {
       baseUrl: entry.baseUrl,
       apiKey: resolveApiKey(entry.apiKey, deps.env),
       model: entry.model ?? '',
+      compat: options,
       fetch: deps.fetch,
     });
     const result = await client.generate(

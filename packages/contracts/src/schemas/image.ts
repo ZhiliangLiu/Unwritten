@@ -40,9 +40,22 @@ export const ImageCapabilitiesSchema = z.object({
 });
 
 export const OPENAI_SIZE_MODES = ['fixed', 'custom'] as const;
+export const OPENAI_OUTPUT_FORMATS = ['webp', 'png', 'jpeg'] as const;
+export const OPENAI_RESPONSE_FORMATS = ['omit', 'b64_json'] as const;
+export const OPENAI_REFERENCE_TRANSPORTS = ['edits', 'inline'] as const;
+export const OPENAI_IMAGE_DEFAULTS = {
+  outputFormat: 'webp',
+  responseFormat: 'omit',
+  referenceTransport: 'edits',
+  disableWatermark: false,
+} as const;
 export const OpenAiImageOptionsSchema = z.object({
   maxReferences: z.number().int().min(0).max(16),
   sizes: z.enum(OPENAI_SIZE_MODES),
+  outputFormat: z.enum(OPENAI_OUTPUT_FORMATS).optional(),
+  responseFormat: z.enum(OPENAI_RESPONSE_FORMATS).optional(),
+  referenceTransport: z.enum(OPENAI_REFERENCE_TRANSPORTS).optional(),
+  disableWatermark: z.boolean().optional(),
 });
 
 export const IMAGE_SERVICE_STATES = ['ready', 'offline', 'waking', 'needs_action', 'wake_failed', 'unknown'] as const;
@@ -227,6 +240,15 @@ export type AspectPreference = z.infer<typeof AspectPreferenceSchema>;
 export type ImageSize = z.infer<typeof ImageSizeSchema>;
 export type ImageCapabilities = z.infer<typeof ImageCapabilitiesSchema>;
 export type OpenAiSizeMode = (typeof OPENAI_SIZE_MODES)[number];
+export type OpenAiOutputFormat = (typeof OPENAI_OUTPUT_FORMATS)[number];
+export type OpenAiResponseFormat = (typeof OPENAI_RESPONSE_FORMATS)[number];
+export type OpenAiReferenceTransport = (typeof OPENAI_REFERENCE_TRANSPORTS)[number];
+export type OpenAiImageCompat = {
+  outputFormat: OpenAiOutputFormat;
+  responseFormat: OpenAiResponseFormat;
+  referenceTransport: OpenAiReferenceTransport;
+  disableWatermark: boolean;
+};
 export type OpenAiImageOptions = z.infer<typeof OpenAiImageOptionsSchema>;
 export type ImageServiceState = (typeof IMAGE_SERVICE_STATES)[number];
 export type LauncherState = (typeof LAUNCHER_STATES)[number];
