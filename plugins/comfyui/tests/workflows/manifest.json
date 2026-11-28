@@ -1,0 +1,82 @@
+{
+  "templates": {
+    "t2i-best": {
+      "file": "t2i-best.json",
+      "prompt": ["4", "text"],
+      "seed": ["2", "seed"],
+      "width": ["1", "width"],
+      "height": ["1", "height"],
+      "references": [],
+      "negativePromptEffective": false
+    },
+    "t2i-fast": {
+      "file": "t2i-fast.json",
+      "prompt": ["4", "text"],
+      "seed": ["2", "seed"],
+      "width": ["1", "width"],
+      "height": ["1", "height"],
+      "references": [],
+      "negativePromptEffective": false
+    },
+    "edit-best": {
+      "file": "edit-best.json",
+      "prompt": ["4", "text"],
+      "seed": ["2", "seed"],
+      "width": ["1", "width"],
+      "height": ["1", "height"],
+      "references": [
+        { "loadImage": "10", "encoderInput": ["4", "image_1"] },
+        { "loadImage": "11", "encoderInput": ["4", "image_2"] },
+        { "loadImage": "12", "encoderInput": ["4", "image_3"] },
+        { "loadImage": "13", "encoderInput": ["4", "image_4"] },
+        { "loadImage": "14", "encoderInput": ["4", "image_5"] },
+        { "loadImage": "15", "encoderInput": ["4", "image_6"] },
+        { "loadImage": "16", "encoderInput": ["4", "image_7"] },
+        { "loadImage": "17", "encoderInput": ["4", "image_8"] },
+        { "loadImage": "18", "encoderInput": ["4", "image_9"] },
+        { "loadImage": "19", "encoderInput": ["4", "image_10"] }
+      ],
+      "negativePromptEffective": false
+    },
+    "edit-fast": {
+      "file": "edit-fast.json",
+      "prompt": ["4", "text"],
+      "seed": ["2", "seed"],
+      "width": ["1", "width"],
+      "height": ["1", "height"],
+      "references": [
+        { "loadImage": "10", "encoderInput": ["4", "image_1"] },
+        { "loadImage": "11", "encoderInput": ["4", "image_2"] },
+        { "loadImage": "12", "encoderInput": ["4", "image_3"] },
+        { "loadImage": "13", "encoderInput": ["4", "image_4"] },
+        { "loadImage": "14", "encoderInput": ["4", "image_5"] },
+        { "loadImage": "15", "encoderInput": ["4", "image_6"] },
+        { "loadImage": "16", "encoderInput": ["4", "image_7"] },
+        { "loadImage": "17", "encoderInput": ["4", "image_8"] },
+        { "loadImage": "18", "encoderInput": ["4", "image_9"] },
+        { "loadImage": "19", "encoderInput": ["4", "image_10"] }
+      ],
+      "negativePromptEffective": false
+    }
+  },
+  "defaultSizes": {
+    "best": {
+      "3:2": [64, 48],
+      "3:4": [48, 64]
+    },
+    "fast": {
+      "3:2": [32, 24],
+      "3:4": [24, 32]
+    }
+  },
+  "resolutions": {
+    "Fake GPU 24GB": {
+      "3:2": { "720": { "width": 1088, "height": 720 } },
+      "3:4": { "720": { "width": 720, "height": 960 } }
+    }
+  },
+  "maxReferences": 10,
+  "maxReferenceBytes": 8388608,
+  "maxPromptLength": 4000,
+  "queueMax": 8
+}

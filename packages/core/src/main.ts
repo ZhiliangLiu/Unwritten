@@ -1,4 +1,4 @@
-import './llm/fetch-guard-install.ts';
+import './net/install.ts';
 import type { ParentPortLike } from './desktop/channel.ts';
 import { attachDesktopChannel, desktopParentPort, waitForStart } from './desktop/channel.ts';
 import { parseCliArgs } from './cli.ts';
@@ -11,11 +11,15 @@ import { createSettingsService } from './settings/service.ts';
 import { createSummaryService } from './summary/queue.ts';
 import { createAuthoringService } from './authoring/service.ts';
 import { createPlayService } from './play/service.ts';
+import { createImageService } from './image/service.ts';
+import { createIllustrationService } from './illustration/service.ts';
 
 const START_FAILED_EXIT_DELAY_MS = 2_000;
 
 const factories: ServiceFactories = {
   llm: (deps) => createLlmService(deps),
+  image: (deps) => createImageService(deps),
+  illustration: (deps) => createIllustrationService(deps),
   library: (deps) => createLibraryService(deps),
   settings: (deps) => createSettingsService(deps),
   summary: (deps) => createSummaryService(deps),

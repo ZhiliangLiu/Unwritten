@@ -35,6 +35,12 @@
   gap: var(--uw-space-1);
 }
 
+.portrait {
+  display: grid;
+  justify-items: start;
+  gap: var(--uw-space-2);
+}
+
 .text {
   margin: 0;
   font-family: var(--uw-typography-body-font-family);

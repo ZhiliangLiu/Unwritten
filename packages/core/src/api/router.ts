@@ -67,6 +67,9 @@ export function createRouter(services: Services) {
       setWizardStep: base.works.setWizardStep.handler(({ input, context }) =>
         context.services.library.setWizardStep(input),
       ),
+      setIllustrationStyle: base.works.setIllustrationStyle.handler(({ input, context }) =>
+        context.services.illustration.setWorkStyle(input),
+      ),
       delete: base.works.delete.handler(({ input, context }) => context.services.library.delete(input)),
     },
     play: {
@@ -81,10 +84,65 @@ export function createRouter(services: Services) {
       ),
       retryOpening: base.play.retryOpening.handler(({ input, context }) => context.services.play.retryOpening(input)),
       getStatus: base.play.getStatus.handler(({ input, context }) => context.services.play.getStatus(input)),
+      suggestAppearance: base.play.suggestAppearance.handler(({ input, context }) =>
+        context.services.illustration.suggestAppearance(input),
+      ),
     },
     settings: {
       get: base.settings.get.handler(({ context }) => context.services.settings.get()),
       update: base.settings.update.handler(({ input, context }) => context.services.settings.update(input)),
+    },
+    image: {
+      services: {
+        list: base.image.services.list.handler(({ context }) => context.services.image.listServices()),
+        create: base.image.services.create.handler(({ input, context }) => context.services.image.createService(input)),
+        update: base.image.services.update.handler(({ input, context }) => context.services.image.updateService(input)),
+        remove: base.image.services.remove.handler(({ input, context }) => context.services.image.removeService(input)),
+        generateToken: base.image.services.generateToken.handler(({ context }) =>
+          context.services.image.generateToken(),
+        ),
+        test: base.image.services.test.handler(({ input, context }) => context.services.image.testService(input)),
+      },
+      select: base.image.select.handler(({ input, context }) => context.services.image.select(input)),
+      outputPreferences: {
+        get: base.image.outputPreferences.get.handler(({ context }) => context.services.image.getOutputOptions()),
+        set: base.image.outputPreferences.set.handler(({ input, context }) =>
+          context.services.image.setOutputPreferences(input),
+        ),
+      },
+      autoIllustration: {
+        get: base.image.autoIllustration.get.handler(({ context }) => context.services.image.getAutoIllustration()),
+        set: base.image.autoIllustration.set.handler(({ input, context }) =>
+          context.services.image.setAutoIllustration(input),
+        ),
+      },
+      usage: { summary: base.image.usage.summary.handler(({ context }) => context.services.image.usageSummary()) },
+      storage: {
+        summary: base.image.storage.summary.handler(({ context }) => context.services.illustration.storageSummary()),
+      },
+      file: base.image.file.handler(({ input, context }) => context.services.illustration.file(input)),
+      prewarm: base.image.prewarm.handler(({ input, context }) => context.services.illustration.prewarm(input)),
+      wake: {
+        continue: base.image.wake.continue.handler(({ input, context }) => context.services.image.continueWake(input)),
+      },
+    },
+    illustration: {
+      retry: base.illustration.retry.handler(({ input, context }) => context.services.illustration.retry(input)),
+      reroll: base.illustration.reroll.handler(({ input, context }) => context.services.illustration.reroll(input)),
+      dismiss: base.illustration.dismiss.handler(({ input, context }) => context.services.illustration.dismiss(input)),
+    },
+    portrait: {
+      draft: base.portrait.draft.handler(({ input, context }) => context.services.illustration.portraitDraft(input)),
+      get: base.portrait.get.handler(({ input, context }) => context.services.illustration.portraitGet(input)),
+      upload: base.portrait.upload.handler(({ input, context }) => context.services.illustration.portraitUpload(input)),
+      generate: base.portrait.generate.handler(({ input, context }) =>
+        context.services.illustration.portraitGenerate(input),
+      ),
+      update: base.portrait.update.handler(({ input, context }) => context.services.illustration.portraitUpdate(input)),
+      adopt: base.portrait.adopt.handler(({ input, context }) => context.services.illustration.portraitAdopt(input)),
+      preview: base.portrait.preview.handler(({ input, context }) =>
+        context.services.illustration.portraitPreview(input),
+      ),
     },
     events: {
       subscribe: base.events.subscribe.handler(async function* ({ context, signal }) {

@@ -1,3 +1,4 @@
+import { AppearanceTextSchema } from '@unwritten/contracts';
 import type { ParseResult } from '../text/turn-text.ts';
 import { parseJsonLines } from '../text/turn-text.ts';
 import { STORY_LIMITS } from '../story/types.ts';
@@ -10,7 +11,7 @@ export const PROPOSE_CAST_PARAMETERS = {
     cast: {
       type: 'string',
       description:
-        '每行一个 JSON，每个人物位置一行：{"slot":"位置编号","name":"真名","known_as":"主角此刻的称呼，不知道时留空","profile":"一句话档案"}',
+        '每行一个 JSON，每个人物位置一行：{"slot":"位置编号","name":"真名","known_as":"主角此刻的称呼，不知道时留空","profile":"一句话档案","appearance":"短卷发，左眉有一道浅缺口，穿深色短外套"}。人物行可以带 appearance。用一行写此刻能看到的长相、身形、衣着或显眼特征，最多 300 字。看不清时省略。形象里不写真名、身份、来历和秘密。',
     },
   },
   required: ['cast'],
@@ -22,6 +23,7 @@ export interface CastMember {
   name: string;
   knownAs: string | null;
   profile: string;
+  appearance: string | null;
 }
 
 export interface CastContext {
@@ -95,8 +97,13 @@ export function parseCastArgs(args: Record<string, unknown>, ctx: CastContext): 
       errors.push(`第 ${line} 行 cast.profile：不能超过 ${STORY_LIMITS.profileMax} 个字符`);
       continue;
     }
+    let appearance: string | null = null;
+    if (row.appearance !== undefined && row.appearance !== null) {
+      const parsedAppearance = AppearanceTextSchema.safeParse(row.appearance);
+      if (parsedAppearance.success) appearance = parsedAppearance.data;
+    }
     nameLines.set(name, line);
-    members.set(slot, { slotId: slotDef.slotId, name, knownAs: knownAs || null, profile });
+    members.set(slot, { slotId: slotDef.slotId, name, knownAs: knownAs || null, profile, appearance });
   }
   for (const slot of ctx.slots) {
     if (!members.has(slot.index)) errors.push(`cast：人物位置 ${slot.index} 没有对应的人物。`);

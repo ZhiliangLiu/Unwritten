@@ -63,6 +63,8 @@ export function PlanPanel({
     <PlanItemCard
       key={item.id}
       item={item}
+      workId={work.id}
+      castMode={work.draft.settings.cast.mode}
       knowerNames={item.kind === 'secret' ? item.knowerIds.flatMap((id) => nameById.get(id) ?? []) : []}
       editing={editingId === item.id}
       onEdit={() => setEditingId(item.id)}

@@ -200,8 +200,8 @@ Drive 的卸载、令牌在笔记本里的处理、节点名的公开范围，�
   - 显存不足的错误映射；
   - 按 GPU 型号选取分辨率清单；
   - 状态文件的变化。
-- **一致性测试。** CI 用伪 ComfyUI 启动包装，再对着它运行 core 的协议一致性测试（[插图与出图服务 §3.7](./image.md#37-一致性测试)）。
-- **提交前检查。** lefthook 对暂存的 `.py` 文件跑 `ruff check --fix` 和 `ruff format`；CI 另跑插件的 pytest。
+- **一致性测试。** `pnpm test:python` 用伪 ComfyUI 启动包装，再对着它运行 core 的协议一致性测试（[插图与出图服务 §3.7](./image.md#37-一致性测试)）。
+- **提交前检查。** lefthook 对暂存的 `.py` 文件跑 `ruff check --fix` 和 `ruff format`；`pnpm test:python` 跑插件的 pytest 和一致性测试。这条命令不进 `pnpm test`，因为它要求本机装有 uv。
 
 ## 11. 已知限制
 

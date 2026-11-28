@@ -1,6 +1,6 @@
 import type { GenerationParams, ThinkingFormat, ErrorCode } from '@unwritten/contracts';
 import { EMPTY_GENERATION_PARAMS } from '@unwritten/contracts';
-import type { ProvidersFile } from './providers-schema.ts';
+import type { ProvidersFile } from '../providers/schema.ts';
 
 export type FileParams = NonNullable<NonNullable<ProvidersFile['purposes']['default']>['params']>;
 

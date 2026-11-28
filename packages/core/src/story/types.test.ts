@@ -12,6 +12,7 @@ describe('ValidatedChanges', () => {
           name: '守夜人',
           knownAs: null,
           profile: '渡口的守夜人',
+          appearance: null,
           para: 1,
           protagonist: false,
           slot: null,

@@ -1,10 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import type { RefObject } from 'react';
 import { CAST_MODES, HINT_MODES, OPENING_MODES, SETTING_SECTION_IDS } from '@unwritten/contracts';
-import type { SettingSectionId, WorkSettings } from '@unwritten/contracts';
+import type { SettingSectionId, WorkDetail, WorkSettings } from '@unwritten/contracts';
 import { OverflowMenu } from '../../shared/ui/OverflowMenu.tsx';
 import { RadioGroup } from '../../shared/ui/RadioGroup.tsx';
 import { TextArea } from '../../shared/ui/TextArea.tsx';
+import { IllustrationStyleSection } from './IllustrationStyleSection.tsx';
 import { ProtagonistFieldsEditor } from './ProtagonistFieldsEditor.tsx';
 import {
   CAST_MODE_LABEL_KEYS,
@@ -43,10 +44,12 @@ export function SettingsSections({
   settings,
   onChange,
   openingTextRef,
+  work,
 }: {
   settings: WorkSettings;
   onChange: (settings: WorkSettings) => void;
   openingTextRef?: RefObject<HTMLTextAreaElement | null>;
+  work?: WorkDetail;
 }) {
   const { t } = useTranslation();
 
@@ -146,6 +149,7 @@ export function SettingsSections({
           ) : null}
         </section>
       ))}
+      {work ? <IllustrationStyleSection key={work.id} work={work} /> : null}
     </div>
   );
 }

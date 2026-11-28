@@ -1,0 +1,87 @@
+.panel {
+  display: grid;
+  gap: var(--uw-space-2);
+}
+
+.heading {
+  margin: 0;
+}
+
+.trigger {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--uw-space-2);
+  inline-size: 100%;
+  min-block-size: var(--uw-size-target-min);
+  padding: 0;
+  background: none;
+  border: var(--uw-border-width) solid transparent;
+  color: var(--uw-color-text);
+  font-family: var(--uw-typography-section-title-font-family);
+  font-size: var(--uw-typography-section-title-font-size);
+  font-weight: var(--uw-typography-section-title-font-weight);
+  line-height: var(--uw-typography-section-title-line-height);
+  letter-spacing: var(--uw-typography-section-title-letter-spacing);
+  text-align: start;
+  cursor: pointer;
+}
+
+.summary {
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.body {
+  display: grid;
+  gap: var(--uw-space-4);
+  padding-block-start: var(--uw-space-3);
+}
+
+.group {
+  display: grid;
+  gap: var(--uw-space-3);
+}
+
+.note {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--uw-space-3);
+}
+
+.sizes {
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+}
+
+.sizes summary {
+  min-block-size: var(--uw-size-target-min);
+  cursor: pointer;
+}
+
+.sizes ul {
+  display: grid;
+  gap: var(--uw-space-1);
+  margin: 0;
+  padding-inline-start: var(--uw-space-5);
+}
+
+.tierName {
+  margin: 0;
+}

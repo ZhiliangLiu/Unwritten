@@ -32,6 +32,7 @@ export function proposeTurnStep(input: {
   scene?: { place: string; time: string; present: string[] };
   changes?: string;
   ending?: boolean;
+  illustrate?: string;
 }): FakeStep {
   return rawToolStep('propose_turn', {
     prose: input.prose,
@@ -47,6 +48,7 @@ export function proposeTurnStep(input: {
           })
         : ''),
     ending: input.ending ? 'true' : 'false',
+    ...(input.illustrate === undefined ? {} : { illustrate: input.illustrate }),
   });
 }
 

@@ -24,6 +24,13 @@ export type ClientSample =
       workId?: string;
       requestId: string;
       attempt?: number;
+    }
+  | {
+      metric: 'client.illustration_visible';
+      durationMs: number;
+      outcome: 'ok' | 'error' | 'interrupted';
+      workId?: string;
+      requestId: string;
     };
 
 export function reportSample(api: ApiClient, sample: ClientSample): void {

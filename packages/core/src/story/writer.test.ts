@@ -52,6 +52,7 @@ describe('writeChanges', () => {
             name: '老周',
             knownAs: '老周',
             profile: '看守',
+            appearance: null,
             para: 1,
             protagonist: false,
             slot: null,
@@ -231,6 +232,7 @@ describe('writeChanges', () => {
             name: '林远',
             knownAs: null,
             profile: '邮差',
+            appearance: null,
             para: 1,
             protagonist: true,
             slot: null,
@@ -241,6 +243,7 @@ describe('writeChanges', () => {
             name: '沈岚',
             knownAs: '撑伞的女人',
             profile: '带着黑伞',
+            appearance: null,
             para: 1,
             protagonist: false,
             slot: null,
@@ -291,6 +294,7 @@ describe('writeChanges', () => {
             name: '老周',
             knownAs: null,
             profile: '',
+            appearance: null,
             para: 1,
             protagonist: false,
             slot: null,
@@ -518,6 +522,115 @@ describe('writeChanges 状态栏与秘密', () => {
       const def = stateDefByKey(projection, '天气');
       expect(def?.label).toBe('天气');
       expect(stateAt(projection, def?.id ?? '', 3)?.value).toBe('雨停了');
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+});
+
+describe('writeChanges 实体形象与出处', () => {
+  it('写入后档案里有形象，没有形象时档案里没有这个键', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedStory(opened.db, {
+        turns: [{ prose: '开场' }],
+        entities: [{ key: 'lin', kind: 'character', name: '林远', protagonist: true }],
+      });
+      const changes: ValidatedChanges = {
+        ...EMPTY_CHANGES,
+        entities: [
+          {
+            line: 1,
+            kind: 'character',
+            name: '沈岚',
+            knownAs: null,
+            profile: '带着黑伞',
+            appearance: '短卷发，深灰色旧风衣',
+            para: 1,
+            protagonist: false,
+            slot: null,
+          },
+          {
+            line: 2,
+            kind: 'character',
+            name: '老周',
+            knownAs: null,
+            profile: '看守',
+            appearance: null,
+            para: 1,
+            protagonist: false,
+            slot: null,
+          },
+        ],
+      };
+      const createdIds = allocateEntityIds(changes);
+      write(opened.db, {
+        changes,
+        createdIds,
+        turnId: seeded.headTurnId,
+        versionId: seeded.versionId,
+        entityVersionIds: [seeded.versionId],
+        entityOrigin: 'turn',
+        protagonistId: seeded.ids.lin ?? null,
+        parentPresentIds: [],
+      });
+      const rows = opened.db.all<{ id: string; profile: string; source_para: number | null }>(
+        sql`select id, profile, source_para from entities where version_id = ${seeded.versionId}`,
+      );
+      const shen = rows.find((row) => row.id === createdIds.get(1));
+      const zhou = rows.find((row) => row.id === createdIds.get(2));
+      expect(JSON.parse(shen?.profile ?? '{}')).toEqual({ text: '带着黑伞', appearance: '短卷发，深灰色旧风衣' });
+      expect(Object.keys(JSON.parse(zhou?.profile ?? '{}'))).toEqual(['text']);
+      expect(shen?.source_para).toBe(1);
+      expect(zhou?.source_para).toBe(1);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('续写的新实体记下出处段号，作者设定没有出处', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedStory(opened.db, {
+        turns: [{ prose: '开场' }],
+        entities: [{ key: 'lin', kind: 'character', name: '林远', protagonist: true }],
+      });
+      const changes: ValidatedChanges = {
+        ...EMPTY_CHANGES,
+        entities: [
+          {
+            line: 1,
+            kind: 'character',
+            name: '沈岚',
+            knownAs: null,
+            profile: '带着黑伞',
+            appearance: null,
+            para: 3,
+            protagonist: false,
+            slot: null,
+          },
+        ],
+      };
+      const createdIds = allocateEntityIds(changes);
+      write(opened.db, {
+        changes,
+        createdIds,
+        turnId: seeded.headTurnId,
+        versionId: seeded.versionId,
+        entityVersionIds: [seeded.versionId],
+        entityOrigin: 'turn',
+        protagonistId: seeded.ids.lin ?? null,
+        parentPresentIds: [],
+      });
+      const row = opened.db.get<{ source_para: number | null }>(
+        sql`select source_para from entities where version_id = ${seeded.versionId} and id = ${createdIds.get(1)}`,
+      );
+      expect(row?.source_para).toBe(3);
+      const projection = projectionAt(opened.db, seeded.versionId, seeded.headTurnId);
+      expect(projection.entities.get(createdIds.get(1) ?? '')?.sourcePara).toBe(3);
+      expect(projection.entities.get(seeded.ids.lin ?? '')?.sourcePara).toBeNull();
     } finally {
       opened.close();
       temp.cleanup();

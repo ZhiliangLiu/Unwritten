@@ -211,7 +211,7 @@ export const LlmLogSummarySchema = z.object({
   workId: UuidSchema.nullable(),
   provider: z.string(),
   model: z.string(),
-  refKind: z.enum(['turn_request', 'job', 'turn']).nullable(),
+  refKind: z.enum(['turn_request', 'job', 'turn', 'illustration', 'portrait']).nullable(),
   refId: z.string().nullable(),
   status: z.enum(['ok', 'error', 'aborted']),
   error: z.string().nullable(),

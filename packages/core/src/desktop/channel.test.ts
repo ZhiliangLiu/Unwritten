@@ -13,6 +13,8 @@ import { createSettingsService } from '../settings/service.ts';
 import { createSummaryService } from '../summary/queue.ts';
 import { createAuthoringService } from '../authoring/service.ts';
 import { createPlayService } from '../play/service.ts';
+import { createImageService } from '../image/service.ts';
+import { createIllustrationService } from '../illustration/service.ts';
 import type { ParentPortLike } from './channel.ts';
 import { attachDesktopChannel, waitForStart } from './channel.ts';
 
@@ -79,6 +81,8 @@ async function bootCore(): Promise<{
   llm.pruneCalls = () => 0;
   const factories: ServiceFactories = {
     llm: () => llm,
+    image: createImageService,
+    illustration: createIllustrationService,
     library: createLibraryService,
     settings: createSettingsService,
     summary: createSummaryService,

@@ -30,7 +30,7 @@ export function renderIndexHtml(assets: ClientAssets, nonce: string, appearance:
 }
 
 export function contentSecurityPolicy(nonce: string): string {
-  return `default-src 'self'; script-src 'self' 'nonce-${nonce}'; style-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`;
+  return `default-src 'self'; script-src 'self' 'nonce-${nonce}'; style-src 'self'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'`;
 }
 
 export function newNonce(): string {

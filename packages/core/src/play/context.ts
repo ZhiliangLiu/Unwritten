@@ -4,8 +4,15 @@ import { readPublicSetting } from '../store/plan.ts';
 import type { ResolvedModel } from '../llm/types.ts';
 import { NARRATOR_SYSTEM_PROMPT } from './narrator-prompt.ts';
 import type { CodeBook } from '../story/codebook.ts';
-import { appearedEntityIds, openPromises, presentIdsAtHead, sceneHitIds } from '../story/projection.ts';
 import {
+  appearedEntityIds,
+  currentAppearance,
+  openPromises,
+  presentIdsAtHead,
+  sceneHitIds,
+} from '../story/projection.ts';
+import {
+  renderAppearanceBlock,
   renderEntityLine,
   renderEntityLineWithCode,
   renderPromiseLine,
@@ -23,6 +30,7 @@ export interface NarratorContextInput {
   codebook: CodeBook;
   action: StoredAction;
   model: ResolvedModel;
+  protagonistAppearance: string | null;
   estimateTokens(text: string): number;
   toolSchemaText: string;
 }
@@ -39,6 +47,7 @@ export type NarratorContext =
       secretLines: number;
       stateLines: number;
       sceneLines: number;
+      appearanceLines: number;
       sceneCodes: Array<{ code: string; id: string; once: boolean }>;
       contextTokens: number;
       anchorTokens: number;
@@ -116,6 +125,14 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
   const sceneBlock = sceneText ? `【未触发的关键场面】\n${sceneText}` : '';
   const sceneCodes = scenes.map((scene, index) => ({ code: `S${index + 1}`, id: scene.id, once: scene.once }));
   const scene = renderSceneBlock(input.projection, input.codebook);
+  const appearanceText = renderAppearanceBlock({
+    protagonistAppearance: input.protagonistAppearance,
+    present: presentIdsAtHead(input.projection).flatMap((id) => {
+      const entity = input.projection.entities.get(id);
+      if (!entity || entity.kind !== 'character' || id === input.projection.protagonistId) return [];
+      return [{ code: input.codebook.entityCode(id), appearance: currentAppearance(input.projection, id) }];
+    }),
+  });
   const headBlock = turnBlock(head, true);
   const action = actionBlock(input.action);
   const required = [
@@ -130,6 +147,7 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
     secretBlock,
     sceneBlock,
     scene,
+    appearanceText,
     headBlock,
     action,
   ].filter(Boolean);
@@ -234,6 +252,7 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
     secretBlock,
     sceneBlock,
     scene,
+    appearanceText,
   ].filter(Boolean);
   if (indexLines.length) parts.push(`【人物与事物索引】\n${indexLines.join('\n')}`);
   if (promiseLines.length) parts.push(`【未了结的约定】\n${promiseLines.join('\n')}`);
@@ -257,6 +276,7 @@ export function buildNarratorContext(input: NarratorContextInput): NarratorConte
     secretLines: lineCount(secretText),
     stateLines: lineCount(stateText),
     sceneLines: lineCount(sceneText),
+    appearanceLines: lineCount(appearanceText),
     sceneCodes,
     contextTokens: input.estimateTokens(prompt),
     anchorTokens,

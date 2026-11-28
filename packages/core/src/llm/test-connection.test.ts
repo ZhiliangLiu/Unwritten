@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { EMPTY_GENERATION_PARAMS } from '@unwritten/contracts';
-import { emptyProvidersFile } from './providers-schema.ts';
-import { createProvidersStore } from './providers-file.ts';
+import { emptyProvidersFile } from '../providers/schema.ts';
+import { createProvidersStore } from '../providers/file.ts';
 import { createConnectionTester } from './test-connection.ts';
 import { pingStep } from '../test-support/llm-steps.ts';
 import { startFakeOpenAiServer } from '../test-support/fake-openai-server.ts';
@@ -21,7 +21,7 @@ const logger: Logger = {
 function setup(targetFor: () => RuntimeTarget | null = () => null) {
   const temp = makeTempDataDir();
   const file = join(temp.dir, 'providers.json');
-  const store = createProvidersStore(file, () => {});
+  const store = createProvidersStore(file);
   const events: LogEvent[] = [];
   const tester = createConnectionTester({
     store,

@@ -1,5 +1,6 @@
 import { ORPCError } from '@orpc/client';
 import type { PlaythroughView, StartInfo, StartPlaythroughInput } from '@unwritten/contracts';
+import { DEFAULT_START_ILLUSTRATION_INFO } from '@unwritten/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeApi } from '../../shared/test/fake-api.ts';
 import type { FakeApiCall } from '../../shared/test/fake-api.ts';
@@ -10,7 +11,7 @@ const workId = '6a5b4c3d-2e1f-4a9b-8c7d-6e5f4a3b2c1d';
 const routeId = '2f1d5c4a-8b7e-4a3f-9c2d-1e0f9a8b7c6d';
 
 function startInfo(fields: StartInfo['fields']): StartInfo {
-  return { workId, title: '灯塔镇', fields, castMode: 'fixed' };
+  return { workId, title: '灯塔镇', fields, castMode: 'fixed', illustration: DEFAULT_START_ILLUSTRATION_INFO };
 }
 
 function playthrough(id: string, route: string | null): PlaythroughView {

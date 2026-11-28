@@ -1,4 +1,4 @@
-import type { JournalLine, JournalSubject, JournalView } from '@unwritten/contracts';
+import type { JournalLine, JournalPortrait, JournalSubject, JournalView } from '@unwritten/contracts';
 import { maskUnknownNames, protagonistKnowledge, protagonistNameOf } from './projection.ts';
 import type { ProjFact, StoryProjection } from './types.ts';
 
@@ -33,7 +33,11 @@ function sortLines(lines: JournalLine[]): JournalLine[] {
   return lines.sort((left, right) => sourceDepth(left) - sourceDepth(right) || sourcePara(left) - sourcePara(right));
 }
 
-export function buildJournal(p: StoryProjection, routeId: string): JournalView {
+export function buildJournal(
+  p: StoryProjection,
+  routeId: string,
+  portraits?: Map<string, JournalPortrait>,
+): JournalView {
   const subjects: JournalSubject[] = [];
   for (const entity of p.entities.values()) {
     if (entity.id === p.protagonistId) continue;
@@ -47,7 +51,13 @@ export function buildJournal(p: StoryProjection, routeId: string): JournalView {
       if (line) lines.push(line);
     }
     sortLines(lines);
-    subjects.push({ entityId: entity.id, kind: entity.kind, name, lines });
+    subjects.push({
+      entityId: entity.id,
+      kind: entity.kind,
+      name,
+      portrait: portraits?.get(entity.id) ?? null,
+      lines,
+    });
   }
   subjects.sort((left, right) => {
     const kindDiff = (KIND_ORDER[left.kind] ?? 0) - (KIND_ORDER[right.kind] ?? 0);

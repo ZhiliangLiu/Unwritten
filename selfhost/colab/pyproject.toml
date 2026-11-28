@@ -1,0 +1,29 @@
+[project]
+name = "unwritten-colab-host"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest==9.2.0", "ruff==0.17.5"]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+"tests/test_run.py" = ["S105", "S106"]
+"unwritten_colab/resources.py" = ["S603"]
+"unwritten_colab/paths.py" = ["S108"]
+"unwritten_colab/tailscale.py" = ["S108", "S602", "S603", "S605", "S607"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

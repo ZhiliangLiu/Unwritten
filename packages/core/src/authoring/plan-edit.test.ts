@@ -47,6 +47,7 @@ const protagonist: PlanItem = {
   name: '新来的邮差',
   knownAs: null,
   profile: '二十多岁，记性好',
+  appearance: null,
   slot: null,
 };
 const keeper: PlanItem = {
@@ -58,6 +59,7 @@ const keeper: PlanItem = {
   name: '林潮',
   knownAs: '守灯人',
   profile: '守灯人，话少',
+  appearance: null,
   slot: null,
 };
 const tower: PlanItem = {
@@ -69,6 +71,7 @@ const tower: PlanItem = {
   name: '灯塔',
   knownAs: null,
   profile: '镇子北面的灯塔',
+  appearance: null,
   slot: null,
 };
 const secret: PlanItem = {
@@ -366,6 +369,74 @@ describe('plan editing', () => {
         expect.unreachable();
       } catch (error) {
         expect(error).toMatchObject({ code: 'stale_revision' });
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+});
+
+describe('plan appearance', () => {
+  function prepare() {
+    const { temp, opened, library, authoring } = setup();
+    library.create({ workId });
+    library.saveDraft({
+      workId,
+      baseContentRev: 0,
+      background: '灯塔镇只在夜里通电。',
+      settings: DEFAULT_WORK_SETTINGS,
+    });
+    return { temp, opened, library, authoring };
+  }
+
+  it('确认方案时把人物形象写进档案', () => {
+    const { temp, opened, library, authoring } = prepare();
+    try {
+      const withAppearance = fullPlan.map((item) =>
+        item.id === keeper.id ? { ...keeper, appearance: '浅色雨衣的兜帽遮住脸，窄肩' } : item,
+      );
+      writePlan(opened.db, withAppearance);
+      authoring.confirmPlan({ workId, baseContentRev: 1 });
+      const versionId = draftId(opened.db);
+      const row = opened.db.get<{ profile: string }>(
+        sql`select profile from entities where version_id = ${versionId} and id = ${keeper.id}`,
+      );
+      expect(JSON.parse(row?.profile ?? '{}')).toEqual({
+        text: keeper.profile,
+        appearance: '浅色雨衣的兜帽遮住脸，窄肩',
+      });
+      expect(library.get({ workId }).draft.plan?.items.find((item) => item.id === keeper.id)).toMatchObject({
+        appearance: '浅色雨衣的兜帽遮住脸，窄肩',
+      });
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('只有人物能带形象', () => {
+    const { temp, opened, library, authoring } = prepare();
+    try {
+      writePlan(opened.db, fullPlan);
+      authoring.updatePlanItem({
+        workId,
+        baseContentRev: 1,
+        item: { ...keeper, appearance: '浅灰围巾' },
+      });
+      expect(library.get({ workId }).draft.plan?.items.find((item) => item.id === keeper.id)).toMatchObject({
+        appearance: '浅灰围巾',
+      });
+
+      try {
+        authoring.updatePlanItem({
+          workId,
+          baseContentRev: 2,
+          item: { ...tower, appearance: '白色塔身' },
+        });
+        expect.unreachable();
+      } catch (error) {
+        expect(error).toMatchObject({ code: 'invalid_input' });
       }
     } finally {
       opened.close();

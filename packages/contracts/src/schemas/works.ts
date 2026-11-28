@@ -9,6 +9,7 @@ import {
   WizardStepSchema,
 } from './authoring.ts';
 import { ContentRevSchema, LanguageTagSchema, TimestampSchema, UuidSchema } from './common.ts';
+import { IllustrationStyleSchema } from './illustration.ts';
 import { EntityKindSchema } from './story.ts';
 
 export const BACKGROUND_MAX_LENGTH = 20_000;
@@ -94,6 +95,7 @@ export const WorkDetailSchema = z.object({
   }),
   latestPreviewJob: PreviewJobViewSchema.nullable(),
   latestPlanJob: PlanJobViewSchema.nullable(),
+  illustrationStyle: IllustrationStyleSchema.nullable().default(null),
 });
 
 export const WorkIdInputSchema = z.object({ workId: UuidSchema });

@@ -18,6 +18,15 @@
   letter-spacing: var(--uw-typography-subtitle-letter-spacing);
 }
 
+.portrait {
+  flex: none;
+  inline-size: var(--uw-size-control-md);
+  block-size: var(--uw-size-control-md);
+  object-fit: cover;
+  object-position: center top;
+  border-radius: var(--uw-radius-sm);
+}
+
 .lines {
   display: grid;
   gap: var(--uw-space-3);

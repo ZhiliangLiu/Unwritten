@@ -2,6 +2,7 @@ import { DEFAULT_WORK_SETTINGS, EMPTY_WORK_ANCHORS, PlanItemSchema } from '@unwr
 import type { PlanConflict, PlanItem, WorkDetail } from '@unwritten/contracts';
 import { render } from 'vitest-browser-react';
 import { describe, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { expectNoAxeViolations } from '../../shared/test/axe.ts';
 import { initTestI18n } from '../../shared/test/i18n.ts';
 import { PlanPanel } from './PlanPanel.tsx';
@@ -25,6 +26,7 @@ const protagonist: PlanItem = {
   name: '阿远',
   knownAs: null,
   profile: '二十出头，记性好。',
+  appearance: null,
   slot: null,
 };
 
@@ -37,6 +39,7 @@ const castItem: PlanItem = {
   name: '林潮',
   knownAs: '守灯人',
   profile: '五十岁上下，话少。',
+  appearance: null,
   slot: { role: '守灯人', encounter: '主角在灯塔门口遇见他。' },
 };
 
@@ -79,7 +82,7 @@ const conflict: PlanConflict = {
 
 function workDetail(
   items: PlanItem[],
-  options: { confirmed?: boolean; conflicts?: PlanConflict[]; stale?: boolean } = {},
+  options: { confirmed?: boolean; conflicts?: PlanConflict[]; stale?: boolean; castMode?: 'fixed' | 'per_run' } = {},
 ): WorkDetail {
   return {
     id: crypto.randomUUID(),
@@ -90,7 +93,9 @@ function workDetail(
       contentRev: 4,
       background: '海边小镇的灯塔。',
       anchors: EMPTY_WORK_ANCHORS,
-      settings: DEFAULT_WORK_SETTINGS,
+      settings: options.castMode
+        ? { ...DEFAULT_WORK_SETTINGS, cast: { ...DEFAULT_WORK_SETTINGS.cast, mode: options.castMode } }
+        : DEFAULT_WORK_SETTINGS,
       wizardStep: 'plan',
       plan: { items, conflicts: options.conflicts ?? [], confirmed: options.confirmed ?? false },
     },
@@ -105,6 +110,7 @@ function workDetail(
           updatedAt: Date.now(),
         }
       : null,
+    illustrationStyle: null,
   };
 }
 
@@ -181,6 +187,32 @@ describe('PlanPanel', () => {
     await expect.element(screen.getByText('第一条')).toBeVisible();
     await expect.element(screen.getByText('第二条')).toBeVisible();
     await expect.element(screen.getByText(`影响：${conflict.impact}`)).toBeVisible();
+    await screen.unmount();
+  });
+
+  it('每局生成的主要人物不显示人物参考入口', async () => {
+    const fixed = await render(<PlanPanel work={workDetail([castItem])} {...noopProps()} />);
+    await expect.element(fixed.getByRole('button', { name: '人物参考' })).toBeVisible();
+    await fixed.unmount();
+
+    const perRun = await render(<PlanPanel work={workDetail([castItem], { castMode: 'per_run' })} {...noopProps()} />);
+    expect(perRun.getByRole('button', { name: '人物参考' }).query()).toBeNull();
+    await perRun.unmount();
+  });
+
+  it('人物表单能写形象，回车不换行', async () => {
+    const onUpdateItem = vi.fn();
+    const screen = await render(
+      <PlanPanel work={workDetail([castItem])} {...noopProps()} onUpdateItem={onUpdateItem} />,
+    );
+    await screen.getByRole('button', { name: '修改「林潮 · 主要人物」' }).click();
+    const field = screen.getByRole('textbox', { name: '形象' });
+    await field.fill('短卷发，左眉有一道浅缺口');
+    await userEvent.keyboard('{Enter}');
+    expect((field.element() as HTMLTextAreaElement).value).toBe('短卷发，左眉有一道浅缺口');
+    await screen.getByRole('button', { name: '保存' }).click();
+    const saved = onUpdateItem.mock.calls[0]?.[0] as PlanItem;
+    expect(saved.kind === 'entity' ? saved.appearance : null).toBe('短卷发，左眉有一道浅缺口');
     await screen.unmount();
   });
 

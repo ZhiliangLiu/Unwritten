@@ -58,4 +58,21 @@ describe('parseCastArgs', () => {
     expect(parsed.ok).toBe(false);
     if (!parsed.ok) expect(parsed.errors.join('\n')).toContain('林潮');
   });
+
+  it('人物行可以带形象，不合格时丢弃且不报错', () => {
+    const parsed = parseCastArgs(
+      {
+        cast: changeLines(
+          { slot: '1', name: '陶枝', known_as: '', profile: '', appearance: ' 短卷发，深色短外套 ' },
+          { slot: '2', name: '祁望', known_as: '', profile: '', appearance: '浅色\n雨衣' },
+        ),
+      },
+      { slots, takenNames: [] },
+    );
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value[0]?.appearance).toBe('短卷发，深色短外套');
+      expect(parsed.value[1]?.appearance).toBeNull();
+    }
+  });
 });

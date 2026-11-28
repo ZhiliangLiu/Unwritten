@@ -1,0 +1,106 @@
+.failed {
+  display: grid;
+  gap: var(--uw-space-2);
+  justify-items: center;
+  text-align: center;
+}
+
+.reason {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--uw-space-1);
+  margin: 0;
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  line-height: var(--uw-typography-body-line-height);
+  letter-spacing: var(--uw-typography-body-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.stage {
+  color: var(--uw-color-text-subtle);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--uw-space-2);
+}
+
+.actionError {
+  margin: 0;
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  line-height: var(--uw-typography-body-line-height);
+  letter-spacing: var(--uw-typography-body-letter-spacing);
+  color: var(--uw-color-danger);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--uw-z-overlay);
+  background-color: var(--uw-color-scrim);
+  transition: var(--uw-transition-dialog);
+}
+
+.backdrop[data-starting-style],
+.backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+.backdrop[data-ending-style] {
+  transition: var(--uw-transition-dialog-exit);
+}
+
+.viewport {
+  position: fixed;
+  inset: 0;
+  z-index: var(--uw-z-overlay);
+  display: grid;
+  place-items: center;
+  padding: var(--uw-space-6);
+}
+
+.dialog {
+  display: grid;
+  gap: var(--uw-space-4);
+  inline-size: 100%;
+  max-inline-size: var(--uw-size-card-min);
+  padding: var(--uw-space-6);
+  color: var(--uw-color-text);
+  background-color: var(--uw-material-overlay-bg);
+  backdrop-filter: var(--uw-material-overlay-backdrop);
+  border: var(--uw-border-width) solid var(--uw-material-overlay-border);
+  border-radius: var(--uw-radius-lg);
+  box-shadow: var(--uw-material-overlay-elevation);
+  transform-origin: center;
+  transition: var(--uw-transition-dialog);
+}
+
+.dialog[data-starting-style],
+.dialog[data-ending-style] {
+  opacity: 0;
+  transform: scale(var(--uw-motion-scale-enter));
+}
+
+.dialog[data-ending-style] {
+  transition: var(--uw-transition-dialog-exit);
+}
+
+.dialogTitle {
+  margin: 0;
+  font-family: var(--uw-typography-section-title-font-family);
+  font-size: var(--uw-typography-section-title-font-size);
+  font-weight: var(--uw-typography-section-title-font-weight);
+  line-height: var(--uw-typography-section-title-line-height);
+  letter-spacing: var(--uw-typography-section-title-letter-spacing);
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--uw-space-2);
+}

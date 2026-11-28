@@ -96,7 +96,7 @@ export function planJobView(row: typeof jobs.$inferSelect): PlanJobView {
   };
 }
 
-export function createLibraryService(deps: CoreDeps): LibraryService {
+export function createLibraryService(deps: CoreDeps & { onWorkDeleted?: () => void }): LibraryService {
   const getWork = (input: WorkIdInput): WorkDetail => {
     const row = deps.db.select().from(works).where(eq(works.id, input.workId)).get();
     if (!row) throw appError('not_found', 'work not found');
@@ -131,6 +131,7 @@ export function createLibraryService(deps: CoreDeps): LibraryService {
       },
       latestPreviewJob: previewJob ? previewJobView(previewJob) : null,
       latestPlanJob: planJob ? planJobView(planJob) : null,
+      illustrationStyle: row.illustrationStyle ?? null,
     };
   };
 
@@ -255,6 +256,7 @@ export function createLibraryService(deps: CoreDeps): LibraryService {
       if (changes === 0) return {};
       deps.bus.publish({ type: 'works.changed', workId: input.workId });
       deps.logger.record({ level: 'info', module: 'library', event: 'work.deleted', workId: input.workId });
+      deps.onWorkDeleted?.();
       return {};
     },
     setWizardStep(input: SetWizardStepInput): Record<string, never> {

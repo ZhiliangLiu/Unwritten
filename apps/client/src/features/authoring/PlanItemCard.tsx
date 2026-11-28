@@ -1,8 +1,11 @@
 import { Pencil } from 'lucide-react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { PlanItem } from '@unwritten/contracts';
 import { Badge } from '../../shared/ui/Badge.tsx';
+import { Button } from '../../shared/ui/Button.tsx';
 import { IconButton } from '../../shared/ui/IconButton.tsx';
+import { PortraitSetEditor } from '../../shared/ui/illustration/PortraitSetEditor.tsx';
 import { PlanItemEditor } from './PlanItemEditor.tsx';
 import {
   PLAN_ENTITY_KIND_LABEL_KEYS,
@@ -22,6 +25,8 @@ export function PlanItemCard({
   onCancel,
   onSave,
   onRemove,
+  workId,
+  castMode,
 }: {
   item: PlanItem;
   knowerNames: string[];
@@ -30,8 +35,14 @@ export function PlanItemCard({
   onCancel: () => void;
   onSave: (item: PlanItem) => void;
   onRemove: () => void;
+  workId?: string;
+  castMode?: 'fixed' | 'per_run';
 }) {
   const { t } = useTranslation();
+  const [portraitsOpen, setPortraitsOpen] = useState(false);
+  const portraitRegionId = useId();
+  const portraitsAvailable =
+    item.kind === 'entity' && item.entityKind === 'character' && (item.role !== 'cast' || castMode !== 'per_run');
 
   const title =
     item.kind === 'summary'
@@ -70,6 +81,9 @@ export function PlanItemCard({
           <p className={styles.text}>
             <PlaceholderText text={item.profile} />
           </p>
+        ) : null}
+        {item.entityKind === 'character' ? (
+          <p className={styles.text}>{item.appearance ?? t('authoring:plan.noAppearance')}</p>
         ) : null}
       </>
     ) : item.kind === 'secret' ? (
@@ -129,6 +143,29 @@ export function PlanItemCard({
             <IconButton label={t('authoring:plan.item.editLabel', { title })} icon={Pencil} onClick={onEdit} />
           </div>
           <div className={styles.body}>{body}</div>
+          {item.kind === 'entity' && portraitsAvailable && workId ? (
+            <div className={styles.portrait}>
+              <Button
+                variant='text'
+                aria-expanded={portraitsOpen}
+                aria-controls={portraitRegionId}
+                onClick={() => setPortraitsOpen((open) => !open)}
+              >
+                {t('authoring:portrait.heading')}
+              </Button>
+              <div id={portraitRegionId}>
+                {portraitsOpen ? (
+                  <PortraitSetEditor
+                    workId={workId}
+                    scope='work'
+                    target={{ kind: 'entity', entityId: item.id }}
+                    appearance={item.appearance}
+                    mode='author'
+                  />
+                ) : null}
+              </div>
+            </div>
+          ) : null}
         </>
       )}
     </li>

@@ -3,9 +3,11 @@ import { and, eq, isNull } from 'drizzle-orm';
 import PQueue from 'p-queue';
 import type { PlaythroughView, RetryOpeningInput } from '@unwritten/contracts';
 import { appError } from '../errors.ts';
+import { illustrationEnabled } from '../services.ts';
 import { diagnosticFault, storageError } from '../log/fault.ts';
-import type { CoreDeps, LlmService } from '../services.ts';
+import type { CoreDeps, IllustrationService, ImageService, LlmService } from '../services.ts';
 import { playthroughs, routes, turnRequests, turns, workVersions } from '../store/schema.ts';
+import { PlaythroughIllustrationSchema } from '../store/illustration-types.ts';
 import type { StoredScene, TurnRequestLog, VersionMeta } from '../store/meta.ts';
 import { readSettings } from '../store/plan.ts';
 import type { LlmTool } from '../llm/types.ts';
@@ -48,7 +50,14 @@ function proposalScene(
   };
 }
 
-export function createOpeningJobs(deps: CoreDeps & { llm: LlmService }): OpeningJobs {
+export function createOpeningJobs(
+  deps: CoreDeps & {
+    llm: LlmService;
+    image: ImageService;
+    illustration: IllustrationService;
+    onIllustrationQueued: () => void;
+  },
+): OpeningJobs {
   const queue = new PQueue({ concurrency: 1 });
 
   const publishFinished = (playthroughId: string, requestId: string, status: 'failed' | 'done' | 'superseded') => {
@@ -233,6 +242,7 @@ export function createOpeningJobs(deps: CoreDeps & { llm: LlmService }): Opening
       });
     }
     const castMembers = cast ?? [];
+    const castAppearances = new Map(castMembers.map((member) => [member.slotId, member.appearance]));
 
     const stateDefaults = new Map(
       (opening.initialState ?? []).map((entry) => [
@@ -333,7 +343,16 @@ export function createOpeningJobs(deps: CoreDeps & { llm: LlmService }): Opening
 
     const commitStartedAt = performance.now();
     const now = Date.now();
-    let committed: { superseded: boolean; routeId: string | null; turnId: string | null };
+    const illustrationParsed = PlaythroughIllustrationSchema.safeParse(playthrough.illustration);
+    const illustrationTarget = deps.image.activeTarget();
+    const queuedIllustration =
+      illustrationParsed.success && illustrationEnabled(illustrationParsed.data, illustrationTarget);
+    let committed: {
+      superseded: boolean;
+      routeId: string | null;
+      turnId: string | null;
+      illustrationId: string | null;
+    };
     try {
       committed = deps.db.transaction(
         (tx) => {
@@ -343,7 +362,7 @@ export function createOpeningJobs(deps: CoreDeps & { llm: LlmService }): Opening
               .set({ status: 'superseded', log, updatedAt: now })
               .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
               .run();
-            return { superseded: true, routeId: null, turnId: null };
+            return { superseded: true, routeId: null, turnId: null, illustrationId: null };
           }
           const committedProposal = proposal;
           const createdIds = allocateEntityIds(committedProposal.changes);
@@ -360,10 +379,21 @@ export function createOpeningJobs(deps: CoreDeps & { llm: LlmService }): Opening
                 new Map([...projection.entities.values()].map((entity) => [entity.id, { name: entity.name }])),
                 createdIds,
               ),
+              illustratePara: queuedIllustration ? 0 : null,
               status: 'committed',
               createdAt: now,
             })
             .run();
+          const illustrationId =
+            queuedIllustration && illustrationParsed.success
+              ? deps.illustration.enqueue(tx, {
+                  turnId,
+                  playthroughId,
+                  para: 0,
+                  settings: illustrationParsed.data,
+                  now,
+                })
+              : null;
           writeChanges(tx, {
             changes: committedProposal.changes,
             createdIds,
@@ -374,6 +404,7 @@ export function createOpeningJobs(deps: CoreDeps & { llm: LlmService }): Opening
             protagonistId: projection.protagonistId,
             parentPresentIds: [],
             castSlots: committedProposal.slotOf,
+            castAppearances,
           });
           if (nameField) {
             writeProtagonistName(tx, {
@@ -403,7 +434,7 @@ export function createOpeningJobs(deps: CoreDeps & { llm: LlmService }): Opening
             .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
             .run();
           if (updated.changes !== 1) throw new Error('request is no longer running');
-          return { superseded: false, routeId, turnId };
+          return { superseded: false, routeId, turnId, illustrationId };
         },
         { behavior: 'immediate' },
       );
@@ -466,6 +497,15 @@ export function createOpeningJobs(deps: CoreDeps & { llm: LlmService }): Opening
     });
     publishFinished(playthroughId, requestId, 'done');
     deps.bus.publish({ type: 'turn.committed', routeId: committed.routeId!, turnId: committed.turnId! });
+    if (committed.illustrationId !== null) {
+      deps.bus.publish({
+        type: 'illustration.updated',
+        routeId: committed.routeId!,
+        turnId: committed.turnId!,
+        illustrationId: committed.illustrationId,
+      });
+      deps.onIllustrationQueued();
+    }
     deps.logger.record({
       level: 'info',
       module: 'play',

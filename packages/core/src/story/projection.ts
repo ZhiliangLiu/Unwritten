@@ -5,6 +5,7 @@ import { entities, entityNames, facts, knowledge, stateDefs, stateValues, turnSu
 import type { StoredAction, StoredScene } from '../store/meta.ts';
 import { splitParagraphs } from '../text/turn-text.ts';
 import {
+  APPEARANCE_TRAIT_KEY,
   STORY_LIMITS,
   type ChainTurn,
   type FactData,
@@ -68,6 +69,8 @@ export function loadProjection(db: Database, input: ProjectionInput): StoryProje
       kind: row.kind,
       name: row.name,
       profile: row.profile.text,
+      appearance: row.profile.appearance ?? null,
+      sourcePara: row.sourcePara,
       isProtagonist: row.isProtagonist === 1,
       originTurnId: row.originTurnId,
       originDepth: depth(row.originTurnId),
@@ -252,6 +255,17 @@ export function protagonistKnowledge(p: StoryProjection, factId: string): ProjKn
 export function presentIdsAtHead(p: StoryProjection): string[] {
   const present = p.chain.at(-1)?.scene.presentIds ?? [];
   return present.filter((id) => p.entities.has(id));
+}
+
+export function appearanceFacts(p: StoryProjection, entityId: string): ProjFact[] {
+  return p.facts
+    .filter((fact) => fact.subjectId === entityId && fact.kind === 'trait' && fact.key === APPEARANCE_TRAIT_KEY)
+    .sort((left, right) => left.depth - right.depth || (left.para ?? 0) - (right.para ?? 0));
+}
+
+export function currentAppearance(p: StoryProjection, entityId: string): string | null {
+  const facts = appearanceFacts(p, entityId);
+  return facts.at(-1)?.statement ?? p.entities.get(entityId)?.appearance ?? null;
 }
 
 export function appearedEntityIds(p: StoryProjection): Set<string> {

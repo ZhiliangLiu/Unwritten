@@ -4,6 +4,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { PROTAGONIST_VALUE_MAX_LENGTH } from '@unwritten/contracts';
+import type { StartIllustrationInput } from '@unwritten/contracts';
 import { useApi } from '../../shared/api/context.tsx';
 import { errorCode } from '../../shared/api/errors.ts';
 import { queryKeys } from '../../shared/api/query.ts';
@@ -13,6 +14,9 @@ import { GeneratingMarker } from '../../shared/ui/GeneratingMarker.tsx';
 import { Page } from '../../shared/ui/Page.tsx';
 import { Skeleton } from '../../shared/ui/Skeleton.tsx';
 import { TextField } from '../../shared/ui/TextField.tsx';
+import { WakePrompt } from '../../shared/ui/WakePrompt.tsx';
+import { StartIllustrationPanel } from './StartIllustrationPanel.tsx';
+import { initialChoice, toStartInput } from './start-illustration.ts';
 import styles from './StartPage.module.css';
 
 export function StartPage({ workId }: { workId: string }) {
@@ -21,12 +25,17 @@ export function StartPage({ workId }: { workId: string }) {
   const navigate = useNavigate();
   const [playthroughId] = useState(() => crypto.randomUUID());
   const [values, setValues] = useState<Record<string, string>>({});
+  const [illustrationChoice, setIllustrationChoice] = useState<StartIllustrationInput | null>(null);
 
   const info = useQuery({
     queryKey: queryKeys.startInfo(workId),
     queryFn: () => api.play.getStartInfo({ workId }),
   });
+  const imageConfig = useQuery({ queryKey: queryKeys.imageConfig, queryFn: () => api.image.services.list() });
   const fields = info.data?.fields ?? [];
+  const illustrationInfo = info.data?.illustration ?? null;
+  const illustration = illustrationInfo ? (illustrationChoice ?? initialChoice(illustrationInfo)) : null;
+  const showsIllustration = illustrationInfo?.available === true;
 
   const start = useMutation({
     mutationFn: () =>
@@ -34,6 +43,8 @@ export function StartPage({ workId }: { workId: string }) {
         workId,
         playthroughId,
         protagonist: Object.fromEntries(fields.map((field) => [field.name, values[field.name] ?? ''])),
+        illustration:
+          illustration && illustrationInfo ? toStartInput(illustration, illustrationInfo.authorStyle) : undefined,
       }),
     onSuccess: (playthrough) => {
       if (playthrough.routeId) {
@@ -50,7 +61,7 @@ export function StartPage({ workId }: { workId: string }) {
 
   const { isIdle, mutate } = start;
   useEffect(() => {
-    if (!info.data || fields.length > 0 || !isIdle) return;
+    if (!info.data || info.data.illustration.available || fields.length > 0 || !isIdle) return;
     mutate();
   }, [fields.length, info.data, isIdle, mutate]);
 
@@ -63,6 +74,7 @@ export function StartPage({ workId }: { workId: string }) {
       toolbar={{ start: { kind: 'back', to: '/', label: t('common:nav.library') } }}
       width='prose'
     >
+      <WakePrompt serviceId={imageConfig.data?.selectedServiceId ?? null} />
       <section className={styles.section}>
         <h2 className={styles.heading}>{t('play:start.heading')}</h2>
         <p className={styles.intro}>{t('play:start.intro')}</p>
@@ -78,7 +90,7 @@ export function StartPage({ workId }: { workId: string }) {
         />
         {!info.data && !info.error ? <Skeleton variant='prose' count={2} /> : null}
         {start.isPending ? <GeneratingMarker label={t('play:start.opening')} /> : null}
-        {fields.length > 0 ? (
+        {fields.length > 0 || showsIllustration ? (
           <form
             className={styles.form}
             onSubmit={(event) => {
@@ -101,6 +113,14 @@ export function StartPage({ workId }: { workId: string }) {
                 description={t('play:start.fieldHelp', { value: field.defaultValue })}
               />
             ))}
+            {illustrationInfo && illustration ? (
+              <StartIllustrationPanel
+                workId={workId}
+                info={illustrationInfo}
+                choice={illustration}
+                onChange={setIllustrationChoice}
+              />
+            ) : null}
             <div className={styles.actions}>
               <Button type='submit' variant='primary' icon={Play} busy={start.isPending}>
                 {t('play:start.submit')}

@@ -8,6 +8,7 @@ import type { CliOptions } from './cli.ts';
 import { createEventBus } from './events/bus.ts';
 import { createLogger } from './log/logger.ts';
 import { diagnosticFault } from './log/fault.ts';
+import { createProvidersStore } from './providers/file.ts';
 import { DataDirLockedError, openDatabase } from './store/db.ts';
 import type { ServiceFactories, Services } from './services.ts';
 import { createHttpApp } from './api/http-app.ts';
@@ -83,27 +84,87 @@ export async function startCore(options: CoreStartOptions, factories: ServiceFac
 
     stage = 'services';
     const bus = createEventBus();
+    const providers = createProvidersStore(join(options.dataDir, 'providers.json'), {
+      onMigrated: (backup) =>
+        logger.record({
+          level: 'info',
+          module: 'providers',
+          event: 'providers.migrated',
+          data: { from: 1, to: 2, backup },
+        }),
+    });
     const deps = {
       shutdown: shutdown.signal,
       dataDir: options.dataDir,
       db: opened.db,
       bus,
       logger,
+      providers,
     };
     const llm = factories.llm(deps);
-    const library = factories.library(deps);
     const settings = factories.settings(deps);
     const summary = factories.summary({ ...deps, llm });
     const authoring = factories.authoring({ ...deps, llm });
-    const play = factories.play({ ...deps, llm, summary });
-    const services: Services = { llm, library, authoring, play, settings, summary, bus, logger };
-    waitForTasks = () => Promise.all([authoring.whenIdle(), play.whenIdle(), summary.whenIdle()]);
+    const image = factories.image({ ...deps, llm });
+    const illustration = factories.illustration({ ...deps, llm, image });
+    const cleanupTasks = new Set<Promise<void>>();
+    const recordGcFailure = (trigger: 'startup' | 'work_deleted', error: unknown): void => {
+      logger.record({
+        level: 'warn',
+        module: 'illustration',
+        event: 'image.gc.failed',
+        data: { trigger, code: diagnosticFault(error).systemCode ?? 'internal' },
+      });
+    };
+    const library = factories.library({
+      ...deps,
+      onWorkDeleted: () => {
+        const task = illustration
+          .collectGarbage()
+          .catch((error: unknown) => recordGcFailure('work_deleted', error))
+          .finally(() => {
+            cleanupTasks.delete(task);
+          });
+        cleanupTasks.add(task);
+      },
+    });
+    const play = factories.play({
+      ...deps,
+      llm,
+      summary,
+      image,
+      illustration,
+      onIllustrationQueued: () => illustration.kick(),
+    });
+    const services: Services = {
+      llm,
+      image,
+      illustration,
+      library,
+      authoring,
+      play,
+      settings,
+      summary,
+      bus,
+      logger,
+    };
+    waitForTasks = () =>
+      Promise.all([
+        authoring.whenIdle(),
+        play.whenIdle(),
+        summary.whenIdle(),
+        image.whenIdle(),
+        illustration.whenIdle(),
+        Promise.all(cleanupTasks),
+      ]);
 
     stage = 'recovery';
     const recoverStarted = (stageStarted = performance.now());
     const turnRequests = play.recoverInterrupted();
     const jobs = authoring.recoverInterrupted();
     const summaries = summary.backfill();
+    const illustrations = illustration.recoverInterrupted();
+    image.pruneCalls();
     llm.pruneCalls();
     play.pruneOldRequestLogs();
     logger.sample({ metric: 'core.recover', durationMs: performance.now() - recoverStarted, outcome: 'ok' });
@@ -111,8 +172,13 @@ export async function startCore(options: CoreStartOptions, factories: ServiceFac
       level: 'info',
       module: 'core',
       event: 'recovery.interrupted',
-      data: { turnRequests, jobs, summaries },
+      data: { turnRequests, jobs, summaries, illustrations },
     });
+    try {
+      await illustration.prepareStorage();
+    } catch (error) {
+      recordGcFailure('startup', error);
+    }
 
     stage = 'client_assets';
     const token = options.token ?? randomBytes(32).toString('base64url');
@@ -134,6 +200,7 @@ export async function startCore(options: CoreStartOptions, factories: ServiceFac
     const url = `${options.clientOrigin ?? origin}/#token=${token}`;
     logger.record({ level: 'info', module: 'core', event: 'core.started', data: { port } });
     logger.sample({ metric: 'core.startup', durationMs: performance.now() - startupStarted, outcome: 'ok' });
+    illustration.kick();
 
     let closing: Promise<void> | null = null;
     return {

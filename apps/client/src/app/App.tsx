@@ -42,7 +42,11 @@ export function App() {
           }
           await queryClient.invalidateQueries();
           for await (const event of iterator) {
-            if (event.type === 'llm.config_changed') void queryClient.invalidateQueries({ queryKey: queryKeys.llm });
+            if (event.type === 'llm.config_changed') {
+              void queryClient.invalidateQueries({ queryKey: queryKeys.llm });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.autoIllustration });
+              void queryClient.invalidateQueries({ queryKey: ['startInfo'] });
+            }
             if (event.type === 'works.changed') {
               void queryClient.invalidateQueries({ queryKey: queryKeys.works });
               void queryClient.invalidateQueries({ queryKey: queryKeys.work(event.workId) });
@@ -59,6 +63,24 @@ export function App() {
             }
             if (event.type === 'playthrough.updated') {
               void queryClient.invalidateQueries({ queryKey: queryKeys.playthrough(event.playthroughId) });
+            }
+            if (event.type === 'illustration.updated') {
+              void queryClient.invalidateQueries({ queryKey: queryKeys.route(event.routeId) });
+            }
+            if (event.type === 'portrait.updated') {
+              void queryClient.invalidateQueries({ queryKey: queryKeys.portraits(event.workId) });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.work(event.workId) });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.journals });
+            }
+            if (event.type === 'image.config_changed') {
+              void queryClient.invalidateQueries({ queryKey: queryKeys.imageConfig });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.imageOutput });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.autoIllustration });
+              void queryClient.invalidateQueries({ queryKey: ['startInfo'] });
+            }
+            if (event.type === 'image.service_state') {
+              void queryClient.invalidateQueries({ queryKey: queryKeys.imageConfig });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.imageOutput });
             }
             if (event.type === 'settings.changed') {
               applyAppearance(event.appearance);

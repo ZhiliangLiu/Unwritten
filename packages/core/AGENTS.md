@@ -38,7 +38,7 @@
 
 - **新增一种 `changes` 类型：** `story/types.ts` 的 schema、`story/changes.ts` 的解析与校验、`story/writer.ts` 的写入、`play/propose-turn-tool.ts` 的参数说明、`play/narrator-prompt.ts` 的系统提示（如需）、`story/tools.test.ts` 的 token 棘轮，以及每条规则一个测试。
 - **新增一个只读工具：** `story/tools.ts`、`story/render.ts` 的结果格式、`turn_requests.log` 的足迹、`story.tool` 样本、token 棘轮。
-- **新增一个模型用途：** contracts 的用途枚举、`llm/providers-schema.ts`、`llm/service.ts` 的回落规则、client 设置页的用途列表和文案。
+- **新增一个模型用途：** contracts 的用途枚举、`providers/schema.ts`、`llm/service.ts` 的回落规则、client 设置页的用途列表和文案。
 - **新增一种出图协议或一种插件：** 见[插件 §7](../../docs/plugins.md#7-新增插件)。
 - **新增一个错误码：** 见 §2。
 

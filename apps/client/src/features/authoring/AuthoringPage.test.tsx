@@ -85,6 +85,7 @@ function workDetail(overrides: Partial<WorkDetail> = {}): WorkDetail {
     },
     latestPreviewJob: null,
     latestPlanJob: null,
+    illustrationStyle: null,
     ...overrides,
   };
 }

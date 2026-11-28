@@ -1,0 +1,66 @@
+.form {
+  display: grid;
+  gap: var(--uw-space-3);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--uw-typography-section-title-font-family);
+  font-size: var(--uw-typography-section-title-font-size);
+  font-weight: var(--uw-typography-section-title-font-weight);
+  line-height: var(--uw-typography-section-title-line-height);
+  letter-spacing: var(--uw-typography-section-title-letter-spacing);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--uw-space-3);
+}
+
+.warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--uw-space-2);
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  color: var(--uw-color-warning);
+}
+
+.warningIcon {
+  display: flex;
+  flex: none;
+}
+
+.launcher {
+  display: grid;
+  gap: var(--uw-space-3);
+  padding-block-start: var(--uw-space-3);
+  border-block-start: var(--uw-border-width) solid var(--uw-color-border);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--uw-space-2);
+  min-block-size: var(--uw-size-target-min);
+  font-family: var(--uw-typography-body-font-family);
+  font-size: var(--uw-typography-body-font-size);
+  line-height: var(--uw-typography-body-line-height);
+  cursor: pointer;
+}
+
+.checkbox input {
+  inline-size: var(--uw-size-icon-sm);
+  block-size: var(--uw-size-icon-sm);
+  margin: 0;
+  accent-color: var(--uw-color-accent);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--uw-space-2);
+}

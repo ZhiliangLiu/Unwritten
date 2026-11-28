@@ -1,4 +1,5 @@
 import {
+  AppearanceTextSchema,
   EntityKindSchema,
   LanguageTagSchema,
   PLAN_SUMMARY_KEYS,
@@ -35,7 +36,7 @@ export const PROPOSE_PLAN_PARAMETERS = {
     entities: {
       type: 'string',
       description:
-        '每行一个 JSON：{"ref":"e1","kind":"character|place|item|group|other","role":"protagonist|cast|other","name":"名字","known_as":"主角一开始怎么称呼它，不知道时留空","profile":"一句话档案","from":"author|ai"}。恰好一个 protagonist。主要人物每次新开局生成时，cast 行再写 "slot_role":"它在故事里的作用","encounter":"一次相遇的样例"，name 写这个位置的称呼',
+        '每行一个 JSON：{"ref":"e1","kind":"character|place|item|group|other","role":"protagonist|cast|other","name":"名字","known_as":"主角一开始怎么称呼它，不知道时留空","profile":"一句话档案","appearance":"短卷发，左眉有一道浅缺口，穿深色短外套","from":"author|ai"}。恰好一个 protagonist。主要人物每次新开局生成时，cast 行再写 "slot_role":"它在故事里的作用","encounter":"一次相遇的样例"，name 写这个位置的称呼。人物行可以带 appearance。用一行写此刻能看到的长相、身形、衣着或显眼特征，最多 300 字。看不清时省略。形象里不写真名、身份、来历和秘密。',
     },
     secrets: {
       type: 'string',
@@ -311,6 +312,11 @@ export function parsePlanArgs(args: Record<string, unknown>, ctx: PlanParseConte
       }
       const knownAs = optionalText('entities', line, value, 'known_as', PLAN_NAME_MAX_LENGTH);
       const profile = optionalText('entities', line, value, 'profile', PLAN_PROFILE_MAX_LENGTH) ?? '';
+      let appearance: string | null = null;
+      if (kind.data === 'character' && value.appearance !== undefined && value.appearance !== null) {
+        const parsedAppearance = AppearanceTextSchema.safeParse(value.appearance);
+        if (parsedAppearance.success) appearance = parsedAppearance.data;
+      }
       const slotRole = optionalText('entities', line, value, 'slot_role', 100);
       const encounter = optionalText('entities', line, value, 'encounter', PLAN_TEXT_MAX_LENGTH);
       let slot: { role: string; encounter: string } | null = null;
@@ -343,6 +349,7 @@ export function parsePlanArgs(args: Record<string, unknown>, ctx: PlanParseConte
         name,
         knownAs,
         profile,
+        appearance,
         slot,
         source,
       };

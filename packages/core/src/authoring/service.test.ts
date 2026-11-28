@@ -35,7 +35,7 @@ const previewArgs = {
   language: 'zh-CN',
   present: '',
   changes:
-    '{"type":"new_entity","kind":"character","name":"沈岚","known_as":"撑伞的女人","profile":"带着黑伞","para":"2"}',
+    '{"type":"new_entity","kind":"character","name":"沈岚","known_as":"撑伞的女人","profile":"带着黑伞","appearance":"短卷发，深色短外套","para":"2"}',
   state: '',
 };
 
@@ -62,6 +62,7 @@ const protagonist: PlanItem = {
   name: '新来的邮差',
   knownAs: null,
   profile: '二十多岁，记性好',
+  appearance: null,
   slot: null,
 };
 const keeper: PlanItem = {
@@ -73,6 +74,7 @@ const keeper: PlanItem = {
   name: '林潮',
   knownAs: '守灯人',
   profile: '守灯人，五十岁上下，话少',
+  appearance: null,
   slot: null,
 };
 const slotKeeper: PlanItem = {
@@ -90,6 +92,7 @@ const tower: PlanItem = {
   name: '灯塔',
   knownAs: '灯塔',
   profile: '山顶的灯塔，只在夜里亮着',
+  appearance: null,
   slot: null,
 };
 const tide: PlanItem = {
@@ -215,14 +218,17 @@ describe('createAuthoringService', () => {
         sql`select count(*) as count from work_versions where work_id = ${workId} and kind = 'published'`,
       )?.count;
       expect(publishedCount).toBe(1);
-      const draftRows = opened.db.all<{ id: string; name: string }>(
-        sql`select id, name from entities where version_id = ${work?.draft_id ?? ''}`,
+      const draftRows = opened.db.all<{ id: string; name: string; profile: string }>(
+        sql`select id, name, profile from entities where version_id = ${work?.draft_id ?? ''}`,
       );
-      const publishedRows = opened.db.all<{ id: string; name: string }>(
-        sql`select id, name from entities where version_id = ${work?.published_id ?? ''}`,
+      const publishedRows = opened.db.all<{ id: string; name: string; profile: string }>(
+        sql`select id, name, profile from entities where version_id = ${work?.published_id ?? ''}`,
       );
       expect(publishedRows.map((row) => row.id).sort()).toEqual(draftRows.map((row) => row.id).sort());
       expect(publishedRows.map((row) => row.name)).toContain('沈岚');
+      expect(publishedRows.find((row) => row.name === '沈岚')?.profile).toBe(
+        JSON.stringify({ text: '带着黑伞', appearance: '短卷发，深色短外套' }),
+      );
       expect(opened.db.all(sql`select * from playthroughs`)).toEqual([]);
       expect(opened.db.all(sql`select * from turns`)).toEqual([]);
       expect(opened.db.all(sql`select * from routes`)).toEqual([]);

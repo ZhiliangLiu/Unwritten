@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import PQueue from 'p-queue';
 import type {
+  IllustrationView,
   PlaythroughIdInput,
   PlaythroughView,
   RetryInput,
@@ -18,9 +19,18 @@ import type {
 } from '@unwritten/contracts';
 import { appError } from '../errors.ts';
 import { diagnosticFault, storageError } from '../log/fault.ts';
-import type { CoreDeps, LlmService, PlayService, SummaryService } from '../services.ts';
+import type {
+  CoreDeps,
+  IllustrationService,
+  ImageService,
+  LlmService,
+  PlayService,
+  SummaryService,
+} from '../services.ts';
 import { playthroughs, routes, turnRequests, turns, workVersions, works } from '../store/schema.ts';
 import type { StoredAction, StoredScene, TurnRequestLog, VersionMeta } from '../store/meta.ts';
+import { PlaythroughIllustrationSchema } from '../store/illustration-types.ts';
+import { illustrationEnabled } from '../services.ts';
 import type { LlmTool } from '../llm/types.ts';
 import { LlmRunError } from '../llm/types.ts';
 import { indexTurnProse } from '../store/prose-index.ts';
@@ -73,7 +83,7 @@ type TurnWithOptions = Omit<TurnRow, 'options'> & {
   originRequest: { id: string; attempt: number } | null;
 };
 
-function turnView(turn: TurnWithOptions): TurnView {
+function turnView(turn: TurnWithOptions, illustration: IllustrationView | null): TurnView {
   return {
     id: turn.id,
     originRequest: turn.originRequest,
@@ -81,11 +91,20 @@ function turnView(turn: TurnWithOptions): TurnView {
     action: turn.action ? { text: turn.action.text, optionIndex: turn.action.optionIndex } : null,
     paragraphs: splitParagraphs(turn.prose),
     options: turn.options.map((option) => ({ text: option.text, hint: option.hint ?? null })),
+    illustration,
     createdAt: turn.createdAt,
   };
 }
 
-export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: SummaryService }): PlayService {
+export function createPlayService(
+  deps: CoreDeps & {
+    llm: LlmService;
+    summary: SummaryService;
+    image: ImageService;
+    illustration: IllustrationService;
+    onIllustrationQueued: () => void;
+  },
+): PlayService {
   const queue = new PQueue({ concurrency: TURN_CONCURRENCY });
   const openingJobs = createOpeningJobs(deps);
 
@@ -111,13 +130,15 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
       )
       .orderBy(desc(turnRequests.createdAt))
       .get();
+    const illustrationViews = deps.illustration.forRoute(route.id);
     return {
       id: route.id,
       workId: work.id,
       workTitle: work.title,
       language: (version.meta as VersionMeta).narration?.language ?? 'zh-CN',
       headTurnId: route.headTurnId,
-      turns: chain.map(turnView),
+      playthroughId: route.playthroughId,
+      turns: chain.map((turn) => turnView(turn, illustrationViews.get(turn.id) ?? null)),
       pending: pending ? requestView(pending) : null,
       ended: chain.at(-1)?.ending === 1,
     };
@@ -214,6 +235,10 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
       },
     });
     const codebook = createCodeBook(projection);
+    const illustration = PlaythroughIllustrationSchema.safeParse(playthrough.illustration);
+    const illustrationTarget = deps.image.activeTarget();
+    const protagonistAppearance =
+      illustration.success && illustration.data.protagonistInFrame ? illustration.data.protagonistAppearance : null;
     const toolSchemaText = `${storyToolSchemaText()}${JSON.stringify(PROPOSE_TURN_PARAMETERS)}${PROPOSE_TURN_DESCRIPTION}`;
     const contextStartedAt = performance.now();
     const context = buildNarratorContext({
@@ -223,6 +248,7 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
       codebook,
       action: request.action ?? { text: '', optionIndex: null },
       model,
+      protagonistAppearance,
       estimateTokens: (text) => deps.llm.estimateTokens(text),
       toolSchemaText,
     });
@@ -243,6 +269,7 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
             secretLines: context.secretLines,
             stateLines: context.stateLines,
             sceneLines: context.sceneLines,
+            appearanceLines: context.appearanceLines,
           }
         : { anchorTokens: context.anchorTokens },
     });
@@ -417,7 +444,13 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
 
     if (!proposal) return;
     const commitStartedAt = performance.now();
-    let committed: { superseded: boolean; turnId: string | null };
+    let committed: {
+      superseded: boolean;
+      turnId: string | null;
+      illustrationId: string | null;
+      depth: number;
+      para: number | null;
+    };
     try {
       committed = deps.db.transaction(
         (tx) => {
@@ -427,7 +460,7 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
               .set({ status: 'superseded', log, updatedAt: now })
               .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
               .run();
-            return { superseded: true, turnId: null };
+            return { superseded: true, turnId: null, illustrationId: null, depth: 0, para: null };
           }
           const parent = tx.select().from(turns).where(eq(turns.id, parentId)).get();
           if (!parent) throw new Error('parent turn disappeared');
@@ -458,10 +491,23 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
               options: proposal.draft.options,
               scene,
               ending: proposal.draft.ending ? 1 : 0,
+              illustratePara: proposal.draft.illustratePara,
               status: 'committed',
               createdAt: now,
             })
             .run();
+          const illustrationId =
+            proposal.draft.illustratePara !== null &&
+            illustration.success &&
+            illustrationEnabled(illustration.data, illustrationTarget)
+              ? deps.illustration.enqueue(tx, {
+                  turnId,
+                  playthroughId: route.playthroughId,
+                  para: proposal.draft.illustratePara,
+                  settings: illustration.data,
+                  now,
+                })
+              : null;
           const parentStates = new Map<string, { value: string | null; visible: boolean; closed: boolean }>();
           for (const id of projection.stateDefs.keys()) {
             const value = stateAt(projection, id, parent.depth);
@@ -491,7 +537,13 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
             .where(and(eq(turnRequests.id, requestId), eq(turnRequests.status, 'running')))
             .run();
           if (requestUpdate.changes !== 1) throw new Error('request is no longer running');
-          return { superseded: false, turnId };
+          return {
+            superseded: false,
+            turnId,
+            illustrationId,
+            depth: parent.depth + 1,
+            para: proposal.draft.illustratePara,
+          };
         },
         { behavior: 'immediate' },
       );
@@ -560,6 +612,23 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
     });
     deps.bus.publish({ type: 'turn.committed', routeId: route.id, turnId: committed.turnId! });
     deps.bus.publish({ type: 'turn_request.updated', routeId: route.id, requestId, status: 'done' });
+    if (committed.illustrationId !== null && committed.turnId !== null) {
+      deps.logger.record({
+        level: 'info',
+        module: 'illustration',
+        workId: version.workId,
+        requestId: committed.illustrationId,
+        event: 'illustration.flagged',
+        data: { routeId: route.id, depth: committed.depth, para: committed.para },
+      });
+      deps.bus.publish({
+        type: 'illustration.updated',
+        routeId: route.id,
+        turnId: committed.turnId,
+        illustrationId: committed.illustrationId,
+      });
+      deps.onIllustrationQueued();
+    }
     if (committed.turnId) deps.summary.enqueue(committed.turnId, route.id);
     deps.logger.record({
       level: 'info',
@@ -621,13 +690,23 @@ export function createPlayService(deps: CoreDeps & { llm: LlmService; summary: S
           scene: turn.scene,
         })),
       });
-      return buildJournal(projection, route.id);
+      const parsed = PlaythroughIllustrationSchema.safeParse(playthrough.illustration);
+      const portraits = parsed.success
+        ? deps.illustration.journalPortraits({
+            routeId: route.id,
+            projection,
+            settings: parsed.data,
+            playthroughId: playthrough.id,
+          })
+        : new Map();
+      return buildJournal(projection, route.id, portraits);
     },
     getStartInfo(input: WorkIdInput): StartInfo {
-      return getStartInfo(deps, input);
+      return getStartInfo(deps, input, deps.image);
     },
     start(input: StartPlaythroughInput): PlaythroughView {
       const result = startPlaythrough(deps, input);
+
       if (result.enqueue) openingJobs.enqueue(result.enqueue);
       return result.view;
     },

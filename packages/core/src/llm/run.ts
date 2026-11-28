@@ -6,7 +6,7 @@ import {
   type LlmHttpExchange,
   type LlmLogContent,
 } from '@unwritten/contracts';
-import { createGuardedFetch, createFetchRecorder, unguardedFetch } from './fetch-guard.ts';
+import { createGuardedFetch, createFetchRecorder, unguardedFetch } from '../net/fetch.ts';
 import { classifyFailure } from './classify.ts';
 import { scrubSecrets } from '../log/scrub.ts';
 import { completeOnce, createAgentSession, type CompletionOutcome, type RuntimeTarget } from './pi.ts';
@@ -408,8 +408,12 @@ export function createCompleter(deps: RunnerDeps): (input: LlmCompleteInput) => 
   return async (input) => {
     const target = deps.targetFor(input.purpose);
     if (!target) throw new LlmRunError('llm_not_configured', null);
+    if (input.guard && (target.endpointId !== input.guard.endpointId || target.modelId !== input.guard.modelId)) {
+      throw new DOMException('the background recipient changed', 'AbortError');
+    }
 
     for (let index = 0; index < 2; index += 1) {
+      input.guard?.assertCurrent();
       const callId = randomUUID();
       const recorder = createFetchRecorder(deps.logBodies);
       const guardedFetch = createGuardedFetch(unguardedFetch(), recorder);

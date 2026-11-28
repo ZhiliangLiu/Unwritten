@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UuidSchema } from './common.ts';
+import { TimestampSchema, UuidSchema } from './common.ts';
 
 export const ENTITY_KINDS = ['character', 'place', 'item', 'group', 'other'] as const;
 export const EntityKindSchema = z.enum(ENTITY_KINDS);
@@ -20,10 +20,13 @@ export const JournalLineSchema = z.object({
   source: StorySourceSchema.nullable(),
 });
 
+export const JournalPortraitSchema = z.object({ setId: UuidSchema, updatedAt: TimestampSchema });
+
 export const JournalSubjectSchema = z.object({
   entityId: z.string().min(1),
   kind: EntityKindSchema,
   name: z.string(),
+  portrait: JournalPortraitSchema.nullable().default(null),
   lines: z.array(JournalLineSchema),
 });
 
@@ -38,5 +41,6 @@ export type EntityKind = z.infer<typeof EntityKindSchema>;
 export type KnowledgeLevel = z.infer<typeof KnowledgeLevelSchema>;
 export type StorySource = z.infer<typeof StorySourceSchema>;
 export type JournalLine = z.infer<typeof JournalLineSchema>;
+export type JournalPortrait = z.infer<typeof JournalPortraitSchema>;
 export type JournalSubject = z.infer<typeof JournalSubjectSchema>;
 export type JournalView = z.infer<typeof JournalViewSchema>;

@@ -43,7 +43,7 @@ selfhost/colab/
 | 名称 | Drive 上的目录名，也用在状态文件名里 |
 | 节点名和标签 | 这个服务在 tailnet 上的主机名和访问控制标签 |
 | 两个 Secret 的名字 | 服务令牌和 Tailscale 认证 key（§7） |
-| 资源下限 | 显存、内存、本地磁盘。磁盘下限是 `models.lock.json` 的文件合计，再加 `DISK_HEADROOM_GIB`（默认 20，可配置） |
+| 资源下限 | 显存、内存、本地磁盘。磁盘下限是 `models.lock.json` 的 `files` 合计，加上可选的 `artifacts` 的源文件与打包文件，再加 `DISK_HEADROOM_GIB`（默认 20，可配置） |
 | 对外端口 | 服务唯一对外的端口，只监听 127.0.0.1。`tailscale serve` 只转发这一个 |
 | 状态文件 | `/tmp/unwritten-<名称>.state`，见下文 |
 | 准备 | 一个函数：安装引擎和依赖。模型由宿主放到本地（§8） |
@@ -123,7 +123,7 @@ Drive 挂载在 `/content/drive`。宿主在挂载点下依次查找 `MyDrive` �
 4. **接入 Tailscale。**
    - 用 Tailscale 官方的安装脚本安装；
    - 启动 `tailscaled --tun=userspace-networking --statedir=/content/unwritten/<名称>/tailscale --socket=/tmp/tailscaled.sock`；
-   - 状态目录里还没有节点身份时，执行 `tailscale --socket=/tmp/tailscaled.sock up --auth-key=<认证 key> --hostname=<节点名> --advertise-tags=<标签>`；已有身份时只执行 `up`，不带认证 key；
+   - 状态目录里还没有节点身份时，把认证 key 写进权限 `0600` 的临时文件，执行 `tailscale --socket=/tmp/tailscaled.sock up --auth-key=file:<临时文件> --hostname=<节点名> --advertise-tags=<标签>`，执行完删掉临时文件；已有身份时只执行 `up`，不带认证 key。认证 key 不出现在命令行参数里，因为命令行参数在 `ps` 里人人可见；
    - 把状态目录复制回 Drive。
 5. **卸载 Drive：** `drive.flush_and_unmount()`。
 6. **服务的「启动」。** 令牌经环境变量传入，等到状态文件出现。
@@ -203,7 +203,7 @@ unwritten-host {"phase": "exiting", "reason": "idle"}
   - 首次接入和再次接入时 `up` 的参数，以及再次接入时不读认证 key；
   - 看护循环的空闲判断和进程退出；
   - 由启动器启动时：读完 `launch.json` 就删掉，Drive 已挂载时不再调用 `drive.mount`，状态行的格式和内容。
-- **CI** 跑宿主的 pytest。
+- **`pnpm test:python`** 跑宿主的 pytest。这条命令不进 `pnpm test`，因为它要求本机装有 uv。
 
 ## 12. 已知限制
 

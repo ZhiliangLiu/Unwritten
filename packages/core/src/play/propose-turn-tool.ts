@@ -24,10 +24,11 @@ export const PROPOSE_TURN_PARAMETERS = {
       type: 'string',
       description:
         '每行一个 JSON，这一回合没有变化时填空字符串。引用人物或事物写编号（如 @3）或名字；引用事实写编号（如 #12），或本次事实行自己起的 id（如 f1）。para 是出处在正文里的段号，从 1 起。可用的类型：\n' +
-        '{"type":"new_entity","kind":"character|place|item|group|other","name":"真名","known_as":"主角此刻的称呼，不知道时留空","profile":"一句话档案","para":"1"}\n' +
+        '{"type":"new_entity","kind":"character|place|item|group|other","name":"真名","known_as":"主角此刻的称呼，不知道时留空","profile":"一句话档案","appearance":"此刻看得见的样子，只写长相、身形、衣着","para":"1"}\n' +
         '{"type":"name","entity":"@3","name":"称呼","holder":"@1","para":"2"}\n' +
         '{"type":"event","subject":"@3","object":"@1","statement":"一句话","witnesses":"@1,@3","para":"2"}\n' +
         '{"type":"trait","subject":"@3","key":"特征名","statement":"一句话","para":"2"}\n' +
+        '人物出现可见形象变化时，写一条 trait，key 填 "appearance"，statement 只写这一段已看到的外貌，para 填该段号。主角前后能认出同一人时可填 "same_visible_identity":"true"。这种特征只供呈现，不能作为 knowledge 的引用。\n' +
         '{"type":"relation","subject":"@1","object":"@3","key":"acquaintance","stage":"heard_of|met|familiar","statement":"一句话","para":"2"}\n' +
         '{"type":"promise","subject":"@3","object":"@1","key":"约定名","status":"agreed|kept|broken","statement":"一句话","para":"3"}\n' +
         '{"type":"knowledge","fact":"#12","holder":"@4","level":"heard|suspects|confirmed|misled","perceived_statement":"他听到或相信的说法","via":"@3","para":"3"}\n' +
@@ -41,6 +42,11 @@ export const PROPOSE_TURN_PARAMETERS = {
         '新人物和已有人物同名时：是同一个人，就用编号引用，不要新增；是另一个人，加上 "distinct":"true"，并在 profile 里写明区别。省略 witnesses 时，默认上一回合在场的人加主角；场景有变化时必须写明。不在场的人得知一件事，必须写 via。清单栏目不写 value，用 state_item 改条目；state 只在改值、改显示或了结时写。',
     },
     ending: { type: 'string', description: '作品有结束条件、而且这一回合满足了它时填 "true"，否则填 "false"' },
+    illustrate: {
+      type: 'string',
+      description:
+        '可选。若这一回合有值得画的已发生瞬间，填正文段号，从 1 起数，只填一个数字字符串。可以选关键动作、人物互动、行动的可见结果、首次露出的线索或明显环境变化。没有合适的瞬间时留空。不要标记尚未被选择的行动或未来结果。',
+    },
   },
   required: ['prose', 'options', 'changes', 'ending'],
   additionalProperties: false,
@@ -52,6 +58,15 @@ export interface ProposedTurnDraft {
   options: OptionView[];
   changesRaw: string;
   ending: boolean;
+  illustratePara: number | null;
+}
+
+export function parseIllustrate(raw: unknown, paragraphCount: number): number | null {
+  if (typeof raw !== 'string') return null;
+  const value = raw.trim();
+  if (!/^[1-9]\d*$/.test(value)) return null;
+  const para = Number(value);
+  return para <= paragraphCount ? para : null;
 }
 
 function stringArg(args: Record<string, unknown>, key: string, errors: string[]): string | null {
@@ -109,6 +124,13 @@ export function parseProposeTurnArgs(
   if (errors.length) return { ok: false, errors };
   return {
     ok: true,
-    value: { prose, paragraphs, options, changesRaw: changesRaw ?? '', ending },
+    value: {
+      prose,
+      paragraphs,
+      options,
+      changesRaw: changesRaw ?? '',
+      ending,
+      illustratePara: parseIllustrate(args.illustrate, paragraphs.length),
+    },
   };
 }

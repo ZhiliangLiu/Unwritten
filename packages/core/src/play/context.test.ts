@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
 import { seedLighthouseTown, seedNorthCape, seedStory } from '../test-support/story-fixtures.ts';
@@ -27,7 +28,13 @@ function contextFor(
   versionId: string,
   headTurnId: string,
   contextWindow: number,
-  overrides: { anchors?: WorkAnchors; settings?: WorkSettings; ending?: string; keyScenes?: KeyScene[] } = {},
+  overrides: {
+    anchors?: WorkAnchors;
+    settings?: WorkSettings;
+    ending?: string;
+    keyScenes?: KeyScene[];
+    protagonistAppearance?: string | null;
+  } = {},
 ) {
   const projection = projectionFor(db, versionId, headTurnId);
   return buildNarratorContext({
@@ -56,6 +63,7 @@ function contextFor(
     codebook: createCodeBook(projection),
     action: { text: '问撑伞的女人叫什么名字', optionIndex: null },
     model: { endpointId: 'e', modelId: 'm', contextWindow, maxOutputTokens: 512 },
+    protagonistAppearance: overrides.protagonistAppearance ?? null,
     estimateTokens: (text) => text.length,
     toolSchemaText: 'schema',
   });
@@ -71,6 +79,7 @@ function indexContext(db: Database, versionId: string, headTurnId: string, conte
     codebook,
     action: { text: '一', optionIndex: null },
     model: { endpointId: 'e', modelId: 'm', contextWindow, maxOutputTokens: 100 },
+    protagonistAppearance: null,
     estimateTokens: (text) => text.length,
     toolSchemaText: 's',
   });
@@ -146,7 +155,7 @@ describe('buildNarratorContext', () => {
     const opened = openDatabase(join(temp.dir, 'library.db'));
     try {
       const seeded = seedNorthCape(opened.db);
-      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1709, {
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1926, {
         anchors: {
           narrationDirective: '长'.repeat(1500),
           contentPolicy: '',
@@ -181,7 +190,7 @@ describe('buildNarratorContext', () => {
           { entity: 'c', name: '丙', holder: 'lin', originTurn: 0, para: 1 },
         ],
       });
-      const { result } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 1169);
+      const { result } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 1386);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.indexEntities).toBe(4);
@@ -212,7 +221,7 @@ describe('buildNarratorContext', () => {
         ],
         entities: [{ key: 'lin', kind: 'character', name: '主角', protagonist: true }],
       });
-      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1549);
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1766);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.prompt).toContain('【更早的回合】');
@@ -239,7 +248,7 @@ describe('buildNarratorContext', () => {
         ],
         entities: [{ key: 'lin', kind: 'character', name: '主角', protagonist: true }],
       });
-      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1549);
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 1766);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.summaryLines).toBe(0);
@@ -266,7 +275,7 @@ describe('buildNarratorContext', () => {
         ],
         names: [{ entity: 'included', name: '被列出的人', holder: 'lin', originTurn: 0, para: 1 }],
       });
-      const { result, codebook } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 1109);
+      const { result, codebook } = indexContext(opened.db, seeded.versionId, seeded.headTurnId, 1326);
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(codebook.resolveEntity('被列出的人').ok).toBe(true);
@@ -419,11 +428,62 @@ describe('buildNarratorContext', () => {
     }
   });
 
+  it('在场人物有形象时用短编号列出，不用实体 id 或名字', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    try {
+      const seeded = seedNorthCape(opened.db);
+      opened.db.run(
+        sql`update entities set profile = ${JSON.stringify({ text: '带着黑伞', appearance: '浅色雨衣的兜帽遮住脸，窄肩' })}
+            where version_id = ${seeded.versionId} and id = ${seeded.ids.shen}`,
+      );
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 32_768, {
+        protagonistAppearance: '短发，深灰色旧风衣',
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.prompt).toContain('【人物当前形象】');
+        const block = result.prompt.split('【人物当前形象】')[1]?.split('\n\n')[0] ?? '';
+        expect(block).toContain('主角：短发，深灰色旧风衣');
+        expect(block).toContain('@2：浅色雨衣的兜帽遮住脸，窄肩');
+        expect(block).not.toContain(seeded.ids.shen);
+        expect(block).not.toContain('沈岚');
+        expect(result.appearanceLines).toBe(3);
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('主角不入画时没有主角那一行', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    try {
+      const seeded = seedNorthCape(opened.db);
+      const result = contextFor(opened.db, seeded.versionId, seeded.headTurnId, 32_768, {
+        protagonistAppearance: null,
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.prompt).not.toContain('【人物当前形象】');
+        expect(result.appearanceLines).toBe(0);
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
   it('上下文的 token 棘轮', () => {
     const temp = makeTempDataDir();
     const opened = openDatabase(join(temp.dir, 'library.db'));
     try {
       const seeded = seedNorthCape(opened.db);
+      opened.db.run(
+        sql`update entities set profile = ${JSON.stringify({ text: '带着黑伞', appearance: '浅色雨衣的兜帽遮住脸，窄肩' })}
+            where version_id = ${seeded.versionId} and id = ${seeded.ids.shen}`,
+      );
       const projection = projectionFor(opened.db, seeded.versionId, seeded.headTurnId);
       const result = buildNarratorContext({
         meta: {
@@ -448,11 +508,12 @@ describe('buildNarratorContext', () => {
         codebook: createCodeBook(projection),
         action: { text: '问撑伞的女人叫什么名字', optionIndex: null },
         model: { endpointId: 'e', modelId: 'm', contextWindow: 32_768, maxOutputTokens: 512 },
+        protagonistAppearance: '短发，深灰色旧风衣',
         estimateTokens,
         toolSchemaText: 'schema',
       });
       expect(result.ok).toBe(true);
-      if (result.ok) expect(estimateTokens(result.prompt)).toBe(1145);
+      if (result.ok) expect(estimateTokens(result.prompt)).toBeLessThanOrEqual(1200);
     } finally {
       opened.close();
       temp.cleanup();

@@ -27,16 +27,16 @@ import type {
 import { appError } from '../errors.ts';
 import type { CoreDeps, LlmService } from '../services.ts';
 import { llmCallLogs, llmCalls } from '../store/schema.ts';
-import { keyStatus, resolveApiKey } from './keys.ts';
+import { keyStatus, resolveApiKey } from '../providers/keys.ts';
 import { DEFAULT_CONTEXT_WINDOW, defaultMaxTokens, estimateTokens } from './budget.ts';
-import { newEndpointId } from './endpoint-id.ts';
+import { newEndpointId } from '../providers/ids.ts';
 import { paramsFromFile, paramsProblem, paramsToFile, sanitizeParams } from './params.ts';
-import { createProvidersStore, type ProvidersState } from './providers-file.ts';
+import { createProvidersStore, type ProvidersState } from '../providers/file.ts';
 import { createRunner, createCompleter, LLM_LOG_RETENTION_DAYS, type LlmTimeouts } from './run.ts';
 import { createConnectionTester } from './test-connection.ts';
-import { normalizeBaseUrl } from './url.ts';
+import { normalizeBaseUrl } from '../net/url.ts';
 import type { Purpose } from './types.ts';
-import type { EndpointEntry, ProvidersFile } from './providers-schema.ts';
+import type { EndpointEntry, ProvidersFile } from '../providers/schema.ts';
 
 const LLM_CALL_RETENTION_DAYS = 90;
 
@@ -159,7 +159,8 @@ export function createLlmService(
 ): LlmService {
   const env = options?.env ?? process.env;
   let firstRevision: string | null = null;
-  const store = createProvidersStore(join(deps.dataDir, 'providers.json'), (state) => {
+  const store = deps.providers ?? createProvidersStore(join(deps.dataDir, 'providers.json'));
+  store.subscribe((state) => {
     const first = firstRevision === null;
     firstRevision = state.revision;
     deps.logger.record({

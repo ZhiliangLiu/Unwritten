@@ -1,0 +1,61 @@
+{
+  "files": [
+    {
+      "repo": "ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF",
+      "commit": "ed59f92082b1e93c0e96d60a8b11aab089b52f09",
+      "path": "Q2_0/Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00001-of-00002.gguf",
+      "size": 37623740192,
+      "sha256": "69820c02ec7d0b45ef2ebb19d6620299db749fe2aded7f39f93c6b88b199b720",
+      "dest": "Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00001-of-00002.gguf"
+    },
+    {
+      "repo": "ISTA-DASLab/Qwen3.8-Flash-Next-GSQ-RCO-GGUF",
+      "commit": "ed59f92082b1e93c0e96d60a8b11aab089b52f09",
+      "path": "Q2_0/Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00002-of-00002.gguf",
+      "size": 28800138432,
+      "sha256": "316b46f3a2dbd68c900f43136ab9449f9dcc3725dfd8c794847c204bc161e113",
+      "dest": "Qwen3.8-Flash-Next-GSQ-RCO-Q2_0-00002-of-00002.gguf"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "mtp-q2_0",
+      "source": {
+        "repo": "Qwen/Qwen3.8-Flash-Next",
+        "commit": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+        "bytes": 5214301696,
+        "manifest": "mtp-manifest.json",
+        "manifest_sha256": "1ad281ed87ad9cd42f9c048e9c49172165ea714a600d15f1d80cd0a02db12328",
+        "tensor_map_sha256": "4ef372235caf4a756be32c0c62856c251d24df3d785a0c7a9e8c7181e27a6e8c"
+      },
+      "dest": "mtp",
+      "files": [
+        {
+          "path": "mtp-q2_0.gguf",
+          "size": 889017216,
+          "sha256": "a22206a4d74eafbf31063a84610292535fb3b49af9a339963817fd04aed81e4d"
+        },
+        {
+          "path": "rt/experts.bin",
+          "size": 707788800,
+          "sha256": "09398406be61f1f54c93861f449e48b8df0bfccbc9ec9b2b7636775a6ea9244f"
+        },
+        {
+          "path": "rt/dense.bin",
+          "size": 116099072,
+          "sha256": "c724dc0b0822ada5d2977bf5bde821605feabaa64ea2e0045b67ca656329070a"
+        },
+        {
+          "path": "rt/dense.txt",
+          "size": 1851,
+          "sha256": "991456cf4eb266eb8a888c349e548d11bc640f5dbd9149439aa9786af0f732fd"
+        },
+        {
+          "path": "rt/draft_vocab.bin",
+          "size": 425196,
+          "sha256": "b1e1d3a7a9e4bf862dcd5923ce661fb59bbd07907e594df5cf86a62ac235cb91"
+        }
+      ]
+    }
+  ]
+}

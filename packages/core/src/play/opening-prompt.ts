@@ -92,7 +92,7 @@ export function buildOpeningPrompt(input: {
     (entry) =>
       `- 位置${entry.index}（${entry.role}）：${entry.member.name}，${
         entry.member.knownAs ? `主角称作「${entry.member.knownAs}」` : '主角还不知道名字'
-      }，${entry.member.profile}`,
+      }，${entry.member.profile}${entry.member.appearance ? `，形象：${entry.member.appearance}` : ''}`,
   );
   const openingBlock = [
     `【采用的开场】\n${input.opening.prose}`,

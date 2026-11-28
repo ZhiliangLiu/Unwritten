@@ -1,0 +1,60 @@
+@import url('../../../theme/media.css');
+
+.editor {
+  display: grid;
+  gap: var(--uw-space-3);
+}
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--uw-space-3);
+}
+
+.settings {
+  display: grid;
+  gap: var(--uw-space-2);
+}
+
+.summary {
+  cursor: pointer;
+}
+
+.settingsBody {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--uw-space-2);
+}
+
+.notice {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.hint {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--uw-space-2);
+}
+
+@media (--uw-compact) {
+  .slots,
+  .settingsBody {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

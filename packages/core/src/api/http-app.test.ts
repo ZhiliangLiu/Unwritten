@@ -1,8 +1,17 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { createORPCClient } from '@orpc/client';
+import { RPCLink } from '@orpc/client/fetch';
+import type { ContractRouterClient } from '@orpc/contract';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_APPEARANCE, DEFAULT_WORK_SETTINGS } from '@unwritten/contracts';
+import {
+  DEFAULT_APPEARANCE,
+  DEFAULT_WORK_SETTINGS,
+  PORTRAIT_UPLOAD_MAX_BODY_BYTES,
+  contract,
+  type ImageConfigView,
+} from '@unwritten/contracts';
 import { createLogger, type Logger } from '../log/logger.ts';
 import { createEventBus } from '../events/bus.ts';
 import type { Services } from '../services.ts';
@@ -20,11 +29,72 @@ const logger: Logger = {
   async close() {},
 };
 
+const emptyImageConfig: ImageConfigView = {
+  status: 'missing',
+  revision: 'absent',
+  problem: null,
+  services: [],
+  selectedServiceId: null,
+};
+
+const notUsed = (): never => {
+  throw new Error('not used');
+};
+
 function fakeServices(overrides: Partial<Services> = {}): Services {
   const bus = createEventBus();
   return {
     bus,
     logger,
+    image: {
+      listServices: () => emptyImageConfig,
+      createService: notUsed,
+      updateService: notUsed,
+      removeService: notUsed,
+      generateToken: notUsed,
+      testService: notUsed,
+      select: notUsed,
+      getOutputOptions: notUsed,
+      setOutputPreferences: notUsed,
+      getAutoIllustration: notUsed,
+      setAutoIllustration: notUsed,
+      activeTarget: () => null,
+      prepareGeneration: notUsed,
+      selectedServiceId: () => null,
+      capabilities: () => null,
+      assertFormat: notUsed,
+      generate: notUsed,
+      wake: notUsed,
+      continueWake: notUsed,
+      usageSummary: notUsed,
+      pruneCalls: () => 0,
+      whenIdle: async () => {},
+    },
+    illustration: {
+      retry: notUsed,
+      reroll: notUsed,
+      dismiss: notUsed,
+      portraitDraft: notUsed,
+      portraitGet: notUsed,
+      portraitUpload: notUsed,
+      portraitGenerate: notUsed,
+      portraitUpdate: notUsed,
+      portraitAdopt: notUsed,
+      portraitPreview: notUsed,
+      file: notUsed,
+      storageSummary: notUsed,
+      prewarm: notUsed,
+      suggestAppearance: notUsed,
+      setWorkStyle: notUsed,
+      enqueue: notUsed,
+      forRoute: notUsed,
+      journalPortraits: notUsed,
+      recoverInterrupted: () => 0,
+      prepareStorage: async () => {},
+      collectGarbage: async () => {},
+      kick() {},
+      whenIdle: async () => {},
+    },
     library: {
       list: () => [],
       create: () => {
@@ -244,6 +314,7 @@ describe('createHttpApp', () => {
       expect(firstNonce).toBeTruthy();
       expect(secondNonce).not.toBe(firstNonce);
       expect(first.headers.get('content-security-policy')).toContain(`'nonce-${firstNonce}'`);
+      expect(first.headers.get('content-security-policy')).toContain("img-src 'self' data: blob:");
       expect(first.headers.get('cache-control')).toBe('no-store');
     } finally {
       temp.cleanup();
@@ -397,6 +468,129 @@ describe('createHttpApp', () => {
     } finally {
       db.close();
       await runtimeLogger.close();
+      temp.cleanup();
+    }
+  });
+
+  it('旧过程照常返回，新过程返回真实视图', async () => {
+    const temp = assets();
+    try {
+      const app = createHttpApp({
+        token,
+        getPort: () => 4317,
+        assets: loadClientAssets(temp.dir),
+        services: fakeServices(),
+        logger,
+      });
+      const request = (path: string) =>
+        app.request(`http://127.0.0.1:4317/api/${path}`, {
+          method: 'POST',
+          body: '{}',
+          headers: headers({ 'content-type': 'application/json' }),
+        });
+      const old = await request('works/list');
+      expect(old.status).toBe(200);
+      expect(await old.json()).toEqual({ json: [] });
+
+      const fresh = await request('image/services/list');
+      expect(fresh.status).toBe(200);
+      expect(await fresh.json()).toEqual({ json: emptyImageConfig });
+    } finally {
+      temp.cleanup();
+    }
+  });
+
+  it('人物参考上传超过体积上限时返回 413 且不调用服务', async () => {
+    const temp = assets();
+    try {
+      let uploads = 0;
+      const services = fakeServices({
+        illustration: {
+          ...fakeServices().illustration,
+          portraitUpload: async () => {
+            uploads += 1;
+            throw appError('internal', 'test upload rejected');
+          },
+        },
+      });
+      const app = createHttpApp({
+        token,
+        getPort: () => 4317,
+        assets: loadClientAssets(temp.dir),
+        services,
+        logger,
+      });
+      const link = new RPCLink({
+        url: 'http://127.0.0.1:4317/api',
+        fetch: async (request) => {
+          const forwarded = new Headers(request.headers);
+          forwarded.set('host', '127.0.0.1:4317');
+          forwarded.set('authorization', `Bearer ${token}`);
+          return app.request(new Request(request, { headers: forwarded }));
+        },
+      });
+      const client = createORPCClient(link) as ContractRouterClient<typeof contract>;
+      const input = {
+        requestId: '00000000-0000-4000-8000-000000000001',
+        setId: '00000000-0000-4000-8000-000000000002',
+        slot: 'front',
+        expectedRev: 0,
+      } as const;
+
+      await expect(
+        client.portrait.upload({ ...input, file: new File([new Uint8Array(16)], 'a.png', { type: 'image/png' }) }),
+      ).rejects.toMatchObject({ code: 'internal' });
+      expect(uploads).toBe(1);
+
+      await expect(
+        client.portrait.upload({
+          ...input,
+          requestId: '00000000-0000-4000-8000-000000000003',
+          file: new File([new Uint8Array(PORTRAIT_UPLOAD_MAX_BODY_BYTES)], 'b.png', { type: 'image/png' }),
+        }),
+      ).rejects.toMatchObject({ status: 413 });
+      expect(uploads).toBe(1);
+    } finally {
+      temp.cleanup();
+    }
+  });
+
+  it('取图响应带 nosniff 和图片类型', async () => {
+    const temp = assets();
+    try {
+      const services = fakeServices({
+        illustration: {
+          ...fakeServices().illustration,
+          file: async () => new File([new Uint8Array([1, 2, 3])], 'a.png', { type: 'image/png' }),
+        },
+      });
+      const app = createHttpApp({
+        token,
+        getPort: () => 4317,
+        assets: loadClientAssets(temp.dir),
+        services,
+        logger,
+      });
+      const served: { current: Response | null } = { current: null };
+      const link = new RPCLink({
+        url: 'http://127.0.0.1:4317/api',
+        fetch: async (request) => {
+          const forwarded = new Headers(request.headers);
+          forwarded.set('host', '127.0.0.1:4317');
+          forwarded.set('authorization', `Bearer ${token}`);
+          served.current = await app.request(new Request(request, { headers: forwarded }));
+          return served.current;
+        },
+      });
+      const client = createORPCClient(link) as ContractRouterClient<typeof contract>;
+      const file = await client.image.file({
+        view: { kind: 'work', workId: '00000000-0000-4000-8000-000000000001' },
+        image: { kind: 'portrait', setId: '00000000-0000-4000-8000-000000000002', slot: 'front' },
+      });
+      expect(served.current?.headers.get('x-content-type-options')).toBe('nosniff');
+      expect(file.type).toBe('image/png');
+      expect([...new Uint8Array(await file.arrayBuffer())]).toEqual([1, 2, 3]);
+    } finally {
       temp.cleanup();
     }
   });

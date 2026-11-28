@@ -76,5 +76,5 @@ test('无效模型配置在设置页显示出错位置，且作品库仍可打�
   await page.goto(url);
   await expect(page.getByRole('heading', { name: '作品库' })).toBeVisible();
   await page.getByRole('link', { name: '设置' }).click();
-  await expect(page.getByText(/配置文件第 \d+ 行/)).toBeVisible();
+  await expect(page.getByText(/配置文件第 \d+ 行/).first()).toBeVisible();
 });

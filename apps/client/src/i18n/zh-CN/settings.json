@@ -122,7 +122,8 @@
     "label": "设置分区",
     "appearance": "外观",
     "reading": "阅读",
-    "models": "模型"
+    "models": "模型",
+    "images": "出图服务"
   },
   "appearance": {
     "heading": "外观",
@@ -169,5 +170,98 @@
     "heading": "阅读",
     "description": "只影响正文，界面文字不变。切换主题时这些设置保持不变。"
   },
-  "models": { "heading": "模型" }
+  "models": { "heading": "模型" },
+  "images": {
+    "heading": "出图服务",
+    "description": "连接一个出图服务，用来画故事插图和人物参考。",
+    "selected": "用于出图",
+    "disabled": "不出图",
+    "add": "添加出图服务",
+    "name": "服务名称",
+    "address": "服务地址",
+    "protocolLabel": "协议",
+    "protocol": {
+      "unwritten-image": "Unwritten 图像协议",
+      "openai-images": "OpenAI 图像接口"
+    },
+    "model": "模型 ID",
+    "token": "令牌",
+    "apiKey": "API 密钥",
+    "generateToken": "生成令牌",
+    "copyToken": "复制令牌",
+    "tokenOnce": "令牌只在这里显示一次。请复制到服务一侧。",
+    "plainHttpWarning": "这个地址使用明文 HTTP。发送的密钥和图片可能被网络上的其他人看到。",
+    "references": "最多使用 {{count}} 张参考图",
+    "noReferences": "只靠形象文字保持人物一致。",
+    "negativeSupported": "支持负面提示词",
+    "negativeUnsupported": "不支持负面提示词",
+    "referenceLimit": "最多参考图",
+    "sizeMode": "尺寸方式",
+    "sizeModes": {
+      "fixed": "固定尺寸",
+      "custom": "自定义尺寸"
+    },
+    "lastProbe": "最近探测于 {{time}}",
+    "lastSuccess": "最近一次出图于 {{time}}",
+    "test": "测试连接",
+    "testRunning": "正在测试连接",
+    "testReady": "已连接，服务就绪。",
+    "testNotReady": "已连接，服务还未就绪。",
+    "testImage": "生成测试图",
+    "paidConfirm": "生成测试图可能产生费用。要继续吗？",
+    "testImageDone": "测试图已生成，尺寸为 {{width}} × {{height}}。",
+    "edit": "编辑",
+    "save": "保存出图服务",
+    "remove": "删除出图服务",
+    "removeConfirm": "删除「{{name}}」的出图服务配置？",
+    "removeSelectedConfirm": "删除正在使用的「{{name}}」后，新的插图将停止生成。已经完成的图仍可查看。",
+    "notReady": {
+      "starting": "出图服务正在启动。",
+      "out_of_memory": "出图服务的显存不足。",
+      "workflow_error": "出图服务没能运行出图工作流。",
+      "other": "出图服务还未就绪。"
+    },
+    "launcher": {
+      "heading": "按需启动",
+      "enabled": "通过启动器按需开关",
+      "address": "启动器地址",
+      "token": "启动器令牌",
+      "idleMinutes": "连续空闲多少分钟后关闭",
+      "test": "测试启动器",
+      "notConfigured": "还没有配置启动器。"
+    },
+    "launcherState": {
+      "stopped": "已关闭",
+      "starting": "正在启动",
+      "needs_action": "等待授权",
+      "running": "已启动",
+      "stopping": "正在关闭",
+      "failed": "启动失败"
+    },
+    "privacy": "镜头模型会收到正文片段、人物形象和镜头约束。出图服务会收到提示词和选中的参考图，其中可能包含本机导入处理后的图片。"
+  },
+  "auto": {
+    "heading": "游玩时生成插图",
+    "confirmTitle": "开启自动出图？",
+    "confirm": "确认开启",
+    "backgroundReceives": "「{{endpoint}}」的 {{model}} 会收到正文片段、人物形象和镜头约束。",
+    "serviceReceives": "「{{service}}」会收到提示词和选中的参考图。一张插图可能先用到几张生成的参考图。",
+    "unavailable": "请先选择出图服务，并为镜头描述配置 background 用途。",
+    "reconfirm": "数据接收方变了。请重新确认后开启。"
+  },
+  "output": {
+    "heading": "默认出图规格",
+    "multipleSizes": "多个尺寸",
+    "onlyTier": "当前只有这一档可用。",
+    "unavailable": "当前服务不支持已选规格，请重新选择。"
+  },
+  "usage": {
+    "heading": "出图用量",
+    "last7Days": "最近 7 天",
+    "last30Days": "最近 30 天",
+    "images": "{{count}} 张",
+    "tokens": "{{input}} 输入 token，{{output}} 输出 token",
+    "noTokens": "服务未报告 token 用量",
+    "storage": "插图和人物参考共占用 {{size}}"
+  }
 }

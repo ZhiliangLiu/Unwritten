@@ -89,7 +89,9 @@ core 接口都是 contracts 里的 oRPC 过程：
 | `image.services.test` | 测试连接；`paid: true` 时为 `openai-images` 生成一张测试图；`target: "launcher"` 时读取启动器的 `/v1/info` 和 `/v1/state` |
 | `image.select` | 修改 `image.service` |
 | `image.outputPreferences` | 读取或修改新开局默认的比例偏好与分辨率档位，返回当前服务可用的比例与像素尺寸 |
+| `image.autoIllustration.get`、`image.autoIllustration.set` | 读取或修改「游玩时生成插图」和数据接收方确认（§2） |
 | `image.usage.summary` | 出图用量汇总（§11） |
+| `image.storage.summary` | 插图和人物参考合计占用的空间（§9.5） |
 | `image.file` | 取一张插图或参考图（§10） |
 | `image.prewarm` | 进入开了插图的开局时，让当前服务提前唤醒（§12.3） |
 | `image.wake.continue` | 用户在浏览器里完成启动器要求的操作后，让唤醒继续（§12.3） |
@@ -274,10 +276,15 @@ OpenAI 图像接口的参考图按 core 的单张 `IMAGE_MAX_BYTES` 限制筛选
 
 ### 5.1 调用入口
 
-`image` 模块对 `illustration` 只提供两个函数：
+`image` 模块对 `illustration` 只通过 `services.ts` 的 `ImageService` 接口说话。`illustration` 用到的入口是：
 
-- `capabilities()`：当前服务的能力。`unwritten-image` 服务取最近一次 `/v1/info` 的结果，`openai-images` 服务取配置。
+- `selectedServiceId()`：当前选中的服务 id，没选或服务已删除时为空。
+- `activeTarget()`：已经确认并生效的自动出图接收方；没有确认时为空。
+- `capabilities(serviceId)`：该服务当前的能力。`unwritten-image` 服务取最近一次 `/v1/info` 的结果，`openai-images` 服务取配置。
+- `prepareGeneration(serviceId, input)`：在写镜头描述或调用出图前取得服务当前能力。离线快速失败、按需唤醒和接收方守卫都在这里决定。
+- `assertFormat(capabilities, format)`：检查已确定的规格是否仍可用。
 - `generate(input)`：`input` 包含 `prompt`、`negativePrompt`、`references`、`aspect`、`size`（可省略的实际宽高）、`quality`、`seed`、`signal`、`ref`（调用记录的引用，§11）。返回图片字节、类型、宽高、实际用的 seed（没有时为空）、服务 id 和模型。
+- `wake(serviceId, trigger)`：进入开了插图的开局时预热，或按需唤醒。失败只记诊断，不阻塞正文。
 
 规则：
 
@@ -420,7 +427,7 @@ OpenAI 图像接口的参考图按 core 的单张 `IMAGE_MAX_BYTES` 限制筛选
 
 - `refs` 里的编号都在场、不重复，视角有效，数量不超过上限。`prompt` 里的每个 `{{ref:N}}` 都有对应的参考人物。某个人物改用文字时，以该段投影中的外貌替换其引用，并同步调整其他引用的序号。
 - 有多个比例可自动选择时，`ASPECT` 必须在该档的可用列表内。比例已确定时，core 使用确定的规格，模型多写的 `ASPECT` 不参与规格校验。比例和可选的实际宽高由 core 确定后再调用出图服务。
-- **`PROMPT` 和 `NEGATIVE` 里不出现任何人物的真名**（实体表里的 `name`）。画面靠参考图和外貌描述来认人；真名一进提示词，模型就可能把它当成文字画进画面，而主角未必知道这个名字。称呼不在禁止之列：「撑伞的女人」「the old man」这类称呼本身就是外貌描述，禁掉会把正常的描写也拒掉。
+- **`PROMPT` 和 `NEGATIVE` 里不出现在场人物的真名和主角的名字**（实体表里的 `name`）。画面靠参考图和外貌描述来认人；真名一进提示词，模型就可能把它当成文字画进画面，而主角未必知道这个名字。称呼不在禁止之列：「撑伞的女人」「the old man」这类称呼本身就是外貌描述，禁掉会把正常的描写也拒掉。
 - **`caption` 经过不泄露校验**（[回合循环 §6](./turn-loop.md#6-校验与保存)），以图所在段号的已知称呼为准。
 - 缺标签、标签重复，或者校验不通过时，把逐条的错误附在下一轮请求里让模型重写，最多 2 次，仍不通过就以 `invalid_output` 失败。重写的次数和[回合循环 §6](./turn-loop.md#6-校验与保存)的修正次数相同。
 
@@ -433,9 +440,11 @@ OpenAI 图像接口的参考图按 core 的单张 `IMAGE_MAX_BYTES` 限制筛选
 ```
 <数据目录>/images/
   blobs/<sha256>.<ext>
+  tmp/<随机名>.part
 ```
 
 - 文件名取内容的 sha256，扩展名按实际类型取 `.webp`、`.png` 或 `.jpg`。相同内容全库只存一份。作品采用参考、预览归入开局和开局锁定参考都只写引用，避免复制多张大图。
+- 临时文件只放在 `images/tmp/`，写入后改名进 `blobs/`。core 启动时清空 `tmp/`。
 - 归属和可见性由数据库中的记录决定。文件引用记录哈希、媒体类型、宽高和字节数，路径从哈希和媒体类型推出。移动数据目录时，一起带上 `library.db` 和 `images/`。
 
 ### 9.2 表
@@ -446,8 +455,8 @@ illustrations (
   turn_id         TEXT NOT NULL UNIQUE REFERENCES turns ON DELETE CASCADE,
   playthrough_id  TEXT NOT NULL REFERENCES playthroughs ON DELETE CASCADE,
   para            INTEGER NOT NULL,   -- 图放在第几段之后；0 = 第一段之前
-  format_preference JSON NOT NULL,    -- 排队时的比例偏好和分辨率档位
-  format          JSON,               -- 已确定的比例、档位和可选的请求宽高
+  format_preference JSON NOT NULL,    -- 排队时的 { aspectPreference, resolutionTier }
+  format          JSON,               -- 已确定的比例偏好、档位和可选的请求宽高 { aspectPreference, resolutionTier, size }
   status          TEXT NOT NULL,      -- queued | running | done | failed | cancelled | dismissed
   stage           TEXT,               -- 失败时停在哪一步：wake | appearance | shot | portrait | generate | save
   caption         TEXT,               -- 画面说明，作品语言
@@ -506,7 +515,7 @@ CREATE UNIQUE INDEX portrait_sets_playthrough_identity
 
 1. 服务结果按 §5.3 校验。导入按 §6.2 校验。
 2. 写进同一目录下的临时文件。校验和临时文件写入可与其他任务并行。
-3. 进入与图片清理互斥的写入区间。先核对归属和草稿修订号或尝试 id，游玩任务另核对 §7.1 的启用条件。检查哈希文件是否已经就位，需要时把临时文件改成哈希文件名，再提交数据库引用。清理不能在哈希文件就位检查和引用提交之间运行。
+3. 进入与图片清理互斥的写入区间。这个区间是一个进程内的串行锁。先核对归属和草稿修订号或尝试 id，游玩任务另核对 §7.1 的启用条件。检查哈希文件是否已经就位，需要时把临时文件改成哈希文件名，再提交数据库引用。清理不能在哈希文件就位检查和引用提交之间运行。
 4. 事务提交之后推送事件。
 
 这样不会出现「记录说有图、文件却不在」的中间状态。崩溃发生在第 2、3 步之间时，最多留下一个没人引用的文件。
@@ -524,11 +533,11 @@ CREATE UNIQUE INDEX portrait_sets_playthrough_identity
 
 ## 10. 交给 client
 
-- **取图是一个 oRPC 过程。** `image.file` 接收图片标识和视图来源。插图以插图 id 标识，参考图以组 id 加位置标识。作品编辑和开局预览传作品 id，游玩传路线 id。core 只返回对应视图可以看到的图片：编辑页核对作品归属，开局预览核对预览所属作品，游玩核对该路线可见的回合插图或手记投影实际返回的参考图位置。存储哈希留在 core。响应带正确的 `Content-Type` 和 `X-Content-Type-Options: nosniff`。
+- **取图是一个 oRPC 过程。** `image.file` 接收图片标识和视图来源。插图以插图 id 标识，参考图以组 id 加位置标识。作品编辑和开局预览传作品 id，游玩传路线 id。core 只返回对应视图可以看到的图片：编辑页核对作品归属，开局预览核对预览所属作品，游玩核对该路线可见的回合插图或手记投影实际返回的参考图位置。存储哈希留在 core。响应带正确的媒体类型（客户端从 oRPC `File` 的 `type` 取得）和 `X-Content-Type-Options: nosniff`。
 - **client 带令牌取图，再转成 blob URL 交给 `<img>`。** `<img src>` 带不了 `Authorization` 请求头，所以不能直接写接口地址。为此内容安全策略的 `img-src` 加上 `blob:`（[架构总览 §2.1](./architecture.md#21-本机接口的安全)）。
 - **client 在内存里按视图来源、记录 id、位置和更新时间缓存最近用过的 blob URL。** 记录更新后取新图。回合卸载或缓存淘汰时调用 `URL.revokeObjectURL`。
 - **手记缩略图由 core 选。** 主角见过的人物才可能返回当前路线可见基础组的正面位置。形象变化但身份可延续时，仍可显示基础组正面。欠缺可见参考时省略缩略图（[数据模型 §5](./data-model.md#5-可见性规则)）。
-- **回合视图里的插图**提供 id、更新时间、状态、是否在重画、段号、已确定的规格、实际宽高、画面说明和错误类别。尚无完成图时，使用当前尝试已确定的规格留画框。重画成功后才切换完成图的规格。提示词留在 core。
+- **回合视图里的插图**随 `play.getRoute` 返回的每个回合一起给出，提供 id、更新时间、状态、是否在重画、段号、已确定的规格、实际宽高、画面说明和错误类别。尚无完成图时，使用当前尝试已确定的规格留画框。重画成功后才切换完成图的规格。提示词留在 core。
 - **服务的唤醒状态**随 `image.services.list` 返回：已就绪、连不上、唤醒中、等待用户操作（附操作地址）、唤醒失败。排队中的插图、参考图和画风预览据此显示「正在唤醒出图服务」或「等待你完成授权」。
 - **事件。** `illustration.updated`、`portrait.updated`、`image.config_changed` 和 `image.service_state` 让 client 刷新相关查询。人物参考组变更通知只带作品 id，图片标识和详情由可见视图的查询返回。状态以查询结果为准，见[架构总览 §3](./architecture.md#3-client-与-core-的通信)。
 
@@ -545,7 +554,9 @@ CREATE UNIQUE INDEX portrait_sets_playthrough_identity
 | `portrait.update` | 移除草稿中的图片或确认待复核的视角。核对预期修订号 |
 | `portrait.adopt` | 采用时按预期草稿修订号固定已复核图片。作者的采用和撤下命令另带预期当前组 id。玩家选定预览快照时只核对预览草稿 |
 | `portrait.preview` | 创作页和开局页用固定题材预览画风，返回独立的预览 id |
+| `portrait.get` | 按组 id 取一组参考或一张画风预览 |
 | `play.suggestAppearance` | 开局页的「按设定写一个」：用可公开的主角外观设定起草形象文字，只返回文字 |
+| `works.setIllustrationStyle` | 保存作者默认画风（§6.3）；直接写 `works.illustration_style`，不计入草稿修订号 |
 
 `play.start` 的输入带本局是否出图、画风、比例偏好、分辨率档、主角是否入画和主角形象。选过主角参考时带预览快照 id。预览快照已过期或条件变化时，开局照常，按 §6.2 选择可用参考。试玩开局使用同一套规则（[数据模型 §3](./data-model.md#3-经历开局回合树路线存档)）。
 
@@ -676,7 +687,7 @@ image_calls (
 | 服务在最近的连接探测中已确认离线 | 连续玩到两个有有效插图标记的回合 | 两处都很快显示失败和「重试」。服务上线后点「重试」能画成 |
 | 一张正文插图在最后的出图调用处失败 | 点「重试」 | 复用镜头描述和参考图，只重新生成正文插图 |
 | 两位人物都入画，第一位没有可见参考，第二位有 | 生成插图并查看伪服务实际收到的请求 | 第一位用当时可见的外貌文字，第二位是 `{{ref:1}}`。数组第一张是第二位的图片 |
-| 第 2 段图已生成，第 5 段才揭晓人物身份并出现新地点 | 查看发出的提示词、参考图和说明，再在存档分出的路线重画 | 各处都只使用第 2 段时可见的形象、地点和称呼 |
+| 第 2 段图已生成，第 5 段才揭晓人物身份并出现新地点 | 查看发出的提示词、参考图和说明，再从当前路线重画第 2 段的图 | 各处都只使用第 2 段时可见的形象、地点和称呼 |
 | 正文写一人递出钥匙、另一人收回手，下一段才有人接过钥匙 | 让 narrator 标记递出钥匙的段落，查看发出的提示词和画面说明 | 明确谁递出、谁收回手，钥匙仍在递出者手中。下一段的动作不进入镜头 |
 | 一张正在画、一张排队、一张已完成 | 关闭自动出图，再等在画的服务返回结果 | 占位收起，排队请求没有发出，迟到的结果不被采用，已完成的图仍可查看 |
 | 已完成的图正在重画 | 点「不要这张图」，再等待重画结果 | 这处图收起。重画结果到达后，重新进入路线仍看不到这张图 |
@@ -684,7 +695,7 @@ image_calls (
 | 已选定主角参考快照，随后只改画风 | 开局并等主角首次入画 | 发出的请求沿用已选图片，提示词使用本局画风 |
 | 已选定主角参考快照，随后改了主角形象 | 开局并等主角首次入画 | 正文照常打开，引用已切换为与新形象匹配的参考 |
 | `background` 用途配的是一个不支持工具调用的模型 | 玩到一个标记了插图的回合 | 镜头描述照常写成，插图照常画出 |
-| narrator 在一次换一种发展的候选里标了插图 | 打开比较，再采用候选 | 比较时候选没有占位。采用之后出现占位并开始画。原版回合上的图仍在原版上 |
+| narrator 在一次换一种发展的候选里标了插图 | 打开比较，再采用候选 | 本里程碑不验证：候选采用尚未实现，依赖对应功能。设计行为是比较时候选没有占位，采用之后出现占位并开始画，原版回合上的图仍在原版上 |
 | JPEG 带拍摄位置、方向和原始文件名 | 未配置服务时导入正面，再配置服务并用这组出图 | 预览方向正确。导入只经本机接口，外发只有处理过的参考图，没有原始文件名或 EXIF |
 | 浏览器的 Canvas 编码回落到 PNG | 导入参考图并出图 | core 保存静态 PNG，出图请求带 `image/png` 和有效图片字节 |
 | 同一个草稿正在重画正面 | 导入新正面，让旧生成任务稍后返回，再采用新组 | 旧任务无法覆盖新正面。未复核的斜侧脸和全身未被采用 |

@@ -15,7 +15,7 @@ export interface LlmTool {
 }
 
 export interface LlmRunRef {
-  kind: 'turn_request' | 'job' | 'turn';
+  kind: 'turn_request' | 'job' | 'turn' | 'illustration' | 'portrait';
   id: string;
   attempt: number;
   workId: string | null;
@@ -43,6 +43,12 @@ export interface ResolvedModel {
   maxOutputTokens: number;
 }
 
+export interface LlmCompleteGuard {
+  endpointId: string;
+  modelId: string;
+  assertCurrent(): void;
+}
+
 export interface LlmCompleteInput {
   purpose: Purpose;
   system: string;
@@ -51,6 +57,7 @@ export interface LlmCompleteInput {
   ref: LlmRunRef;
   maxOutputTokens: number;
   signal?: AbortSignal;
+  guard?: LlmCompleteGuard;
 }
 
 export interface LlmCompleteResult {

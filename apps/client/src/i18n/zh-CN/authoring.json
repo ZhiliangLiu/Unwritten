@@ -127,6 +127,9 @@
       "ending": "结束条件"
     },
     "entityKind": { "character": "人物", "place": "地点", "item": "物品", "group": "组织", "other": "其他" },
+    "appearance": "形象",
+    "appearanceHint": "只写此刻看得见的样子。身份和秘密留在设定里。",
+    "noAppearance": "还没有写形象。",
     "entity": {
       "role": { "protagonist": "主角", "cast": "主要人物", "other": "其他" },
       "knownAs": "主角称作：{{name}}",
@@ -216,6 +219,52 @@
       "unknown_placeholder": "用了作者没留的填写项"
     },
     "adoptBlocked": "先改好上面的句子，才能采用"
+  },
+  "style": {
+    "heading": "插图",
+    "label": "画风",
+    "description": "这是新开局的默认画风。玩家可以在开局时另选。",
+    "custom": "自己写",
+    "customLabel": "自定义画风",
+    "resetToAuthor": "恢复作者默认",
+    "preview": "预览画风",
+    "previewing": "正在生成画风预览",
+    "previewAlt": "画风示例，窗边放着一盏纸灯和一枝白花。",
+    "noService": "请先在设置里选择出图服务。"
+  },
+  "portrait": {
+    "heading": "人物参考",
+    "slotHint": {
+      "front": "平视的头肩像，能看清五官、发际线和左右不对称的特征",
+      "three_quarter": "四分之三角度的头肩像，可看清鼻梁、下颌和侧面轮廓",
+      "full_body": "自然站立、完整入画，能看出身形和比例"
+    },
+    "slotAlt": "人物参考 · {{slot}}",
+    "empty": "这里还没有图片。",
+    "generating": "正在生成",
+    "needsReview": "待复核",
+    "reviewHint": "正面已换过。请查看其他视角，确认还能用的图片再采用。",
+    "needFront": "请先准备一张正面图。",
+    "generateSettings": "生成设置",
+    "fillViews": "补齐视角",
+    "adopt": "采用",
+    "useForPlaythrough": "用作本局参考",
+    "retire": "撤下",
+    "choose": "选择图片",
+    "chooseNamed": "为{{slot}}选择图片",
+    "useImage": "使用这张",
+    "generateNamed": "生成{{slot}}参考图",
+    "retryNamed": "重试{{slot}}参考图",
+    "confirmNamed": "确认{{slot}}参考图",
+    "removeNamed": "移除{{slot}}参考图",
+    "sendNotice": "生成图片时，出图服务「{{service}}」会收到提示词和本次选用的参考图。",
+    "importProblem": {
+      "type": "请选择 PNG、JPEG 或 WebP 图片。",
+      "too_large": "图片文件太大。请选择一张更小的图。",
+      "too_many_pixels": "图片的像素太多。请缩小后再选。",
+      "decode": "这张图片打不开。请换一张。",
+      "encode": "没能处理这张图片。请换一张。"
+    }
   },
   "cast": {
     "heading": "出场人物",
