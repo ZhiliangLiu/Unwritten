@@ -3,7 +3,7 @@ import { join, resolve, sep } from 'node:path';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { RPCHandler } from '@orpc/server/fetch';
-import { PORTRAIT_UPLOAD_MAX_BODY_BYTES } from '@unwritten/contracts';
+import { NOVEL_IMPORT_MAX_BODY_BYTES, PORTRAIT_UPLOAD_MAX_BODY_BYTES } from '@unwritten/contracts';
 import type { Services } from '../services.ts';
 import type { Logger } from '../log/logger.ts';
 import type { ClientAssets } from './client-assets.ts';
@@ -67,6 +67,14 @@ export function createHttpApp(options: HttpAppOptions): Hono {
     bodyLimit({
       maxSize: PORTRAIT_UPLOAD_MAX_BODY_BYTES,
       onError: (c) => c.json({ error: 'payload_too_large' }, 413),
+    }),
+  );
+
+  app.post(
+    '/api/works/importNovel',
+    bodyLimit({
+      maxSize: NOVEL_IMPORT_MAX_BODY_BYTES,
+      onError: (c) => c.json({ defined: false, code: 'novel_too_large', status: 413, message: 'novel_too_large' }, 413),
     }),
   );
 

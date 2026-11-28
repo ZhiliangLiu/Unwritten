@@ -186,6 +186,12 @@ export const PlanJobViewSchema = z.object({
   basedOnContentRev: ContentRevSchema,
   error: ErrorCodeSchema.nullable(),
   stale: z.boolean(),
+  novelProgress: z
+    .object({
+      processed: z.number().int().nonnegative(),
+      total: z.number().int().positive(),
+    })
+    .optional(),
   updatedAt: TimestampSchema,
 });
 

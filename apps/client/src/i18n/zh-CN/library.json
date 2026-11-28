@@ -1,7 +1,13 @@
 {
   "page": { "heading": "作品库", "count": "{{count}} 部作品，都保存在这台电脑上" },
   "empty": { "heading": "还没有作品", "description": "写一句背景，AI 会帮你写出开场。" },
-  "action": { "create": "新建故事" },
+  "action": { "create": "新建故事", "importNovel": "导入小说" },
+  "novel": {
+    "file": "选择 TXT 小说",
+    "title": "从小说生成作品",
+    "description": "创作模型会读取「{{name}}」中与开场有关的原文，用来提炼设定并生成开场预览；确认后会在作品库新建一部草稿。",
+    "uploading": "正在传入本机（{{progress}}）"
+  },
   "card": {
     "draft": "草稿",
     "playable": "可玩",

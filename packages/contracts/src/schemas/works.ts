@@ -12,6 +12,10 @@ import { ContentRevSchema, LanguageTagSchema, TimestampSchema, UuidSchema } from
 import { IllustrationStyleSchema } from './illustration.ts';
 import { EntityKindSchema } from './story.ts';
 
+export const NOVEL_IMPORT_MAX_BYTES = 64 * 1024 * 1024;
+export const NOVEL_IMPORT_PART_BYTES = 1024 * 1024;
+export const NOVEL_IMPORT_MAX_BODY_BYTES = NOVEL_IMPORT_PART_BYTES + 64 * 1024;
+
 export const BACKGROUND_MAX_LENGTH = 20_000;
 
 export const WorkAnchorsSchema = z.object({
@@ -96,10 +100,23 @@ export const WorkDetailSchema = z.object({
   }),
   latestPreviewJob: PreviewJobViewSchema.nullable(),
   latestPlanJob: PlanJobViewSchema.nullable(),
+  novelImport: z
+    .object({
+      chapters: z.array(z.string()),
+      chapter: z.number().int().nonnegative(),
+      referenceChapter: z.number().int().nonnegative().optional(),
+    })
+    .optional(),
   illustrationStyle: IllustrationStyleSchema.nullable().default(null),
 });
 
 export const WorkIdInputSchema = z.object({ workId: UuidSchema });
+
+export const ImportNovelInputSchema = WorkIdInputSchema.extend({
+  file: z.file().max(NOVEL_IMPORT_PART_BYTES),
+  offset: z.number().int().nonnegative().max(NOVEL_IMPORT_MAX_BYTES),
+  totalBytes: z.number().int().nonnegative().max(NOVEL_IMPORT_MAX_BYTES),
+});
 
 export const SaveDraftInputSchema = z.object({
   workId: UuidSchema,
@@ -123,6 +140,8 @@ export const GeneratePlanInputSchema = z.object({
   workId: UuidSchema,
   jobId: UuidSchema,
   contentRev: ContentRevSchema,
+  novelChapter: z.number().int().nonnegative().optional(),
+  novelReferenceChapter: z.number().int().nonnegative().optional(),
 });
 
 export const AdoptStalePlanInputSchema = z.object({ workId: UuidSchema, jobId: UuidSchema });
@@ -157,6 +176,7 @@ export type PreviewCastMember = z.infer<typeof PreviewCastMemberSchema>;
 export type PreviewJobView = z.infer<typeof PreviewJobViewSchema>;
 export type WorkDetail = z.infer<typeof WorkDetailSchema>;
 export type WorkIdInput = z.infer<typeof WorkIdInputSchema>;
+export type ImportNovelInput = z.infer<typeof ImportNovelInputSchema>;
 export type SaveDraftInput = z.input<typeof SaveDraftInputSchema>;
 export type SaveDraftOutput = z.infer<typeof SaveDraftOutputSchema>;
 export type GeneratePreviewInput = z.infer<typeof GeneratePreviewInputSchema>;

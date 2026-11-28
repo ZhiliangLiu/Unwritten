@@ -1,7 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { and, eq, sql } from 'drizzle-orm';
 import PQueue from 'p-queue';
-import type { PlanJobView, Preview, PreviewJobView, PreviewJobView as PreviewJobViewType } from '@unwritten/contracts';
+import type {
+  ErrorCode,
+  GeneratePreviewInput,
+  PlanJobView,
+  Preview,
+  PreviewJobView,
+  PreviewJobView as PreviewJobViewType,
+} from '@unwritten/contracts';
 import { appError } from '../errors.ts';
 import { diagnosticFault, storageError } from '../log/fault.ts';
 import type { AuthoringService, CoreDeps, LlmService } from '../services.ts';
@@ -15,6 +22,7 @@ import { entities, jobs, workVersions, works } from '../store/schema.ts';
 import type { PreviewJobResult, VersionMeta } from '../store/meta.ts';
 import { PUBLIC_SETTING_PLAN_ITEM_ID, previewJobParts, readAnchors } from '../store/meta.ts';
 import { isPlanConfirmed, readPlan, readSettings } from '../store/plan.ts';
+import { pruneNovelFiles } from '../store/novel-file.ts';
 import { createCodeBook } from '../story/codebook.ts';
 import { copyAuthorSetting } from '../story/copy.ts';
 import type { OpeningProposal, OpeningProposalContext } from '../story/opening-proposal.ts';
@@ -33,7 +41,10 @@ function viewOf(row: typeof jobs.$inferSelect): PreviewJobViewType {
 
 export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): AuthoringService {
   const queue = new PQueue({ concurrency: PREVIEW_CONCURRENCY });
-  const planJobs = createPlanJobs(deps);
+  const planJobs = createPlanJobs(deps, (workId, baseContentRev) => {
+    const { contentRev } = confirmPlan(deps, { workId, baseContentRev });
+    generatePreview({ workId, jobId: randomUUID(), contentRev }, true);
+  });
 
   const saveFailure = (jobId: string, workId: string, code: NonNullable<PreviewJobView['error']>) => {
     try {
@@ -71,6 +82,10 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
     if (!work) return;
     const draft = deps.db.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
     if (!draft) return;
+    if (draft.contentRev !== previewJobParts(job).input.contentRev) {
+      saveFailure(jobId, job.workId, 'stale_preview');
+      return;
+    }
     const meta = draft.meta as VersionMeta;
     const settings = readSettings(meta);
     const projection = loadProjection(deps.db, { versionId: draft.id, chain: [] });
@@ -291,82 +306,127 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
     );
   };
 
-  return {
-    generatePreview(input): PreviewJobView {
-      const result = deps.db.transaction(
-        (tx) => {
-          const existing = tx.select().from(jobs).where(eq(jobs.id, input.jobId)).get();
-          if (existing) {
-            if (existing.workId !== input.workId || previewJobParts(existing).input.contentRev !== input.contentRev) {
-              throw appError('idempotency_conflict', 'job id is already used');
-            }
-            return { view: viewOf(existing), created: false, workId: existing.workId };
+  const generatePreview = (input: GeneratePreviewInput, automatic = false): PreviewJobView => {
+    const result = deps.db.transaction(
+      (tx) => {
+        const existing = tx.select().from(jobs).where(eq(jobs.id, input.jobId)).get();
+        if (existing) {
+          if (
+            existing.kind !== 'preview' ||
+            existing.workId !== input.workId ||
+            previewJobParts(existing).input.contentRev !== input.contentRev
+          ) {
+            throw appError('idempotency_conflict', 'job id is already used');
           }
-          const work = tx.select().from(works).where(eq(works.id, input.workId)).get();
-          if (!work) throw appError('not_found', 'work not found');
-          if (work.publishedId) throw appError('already_published', 'work is already published');
-          const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
-          if (!draft) throw appError('not_found', 'draft not found');
-          if (draft.contentRev !== input.contentRev) throw appError('stale_revision', 'draft revision is stale');
-          const meta = draft.meta as VersionMeta;
-          const background = meta.background;
-          if (!background.trim()) throw appError('background_required', 'background is empty');
-          if (!isPlanConfirmed(meta, input.contentRev)) {
-            throw appError('plan_not_confirmed', 'plan is not confirmed');
-          }
-          const settings = readSettings(meta);
-          if (settings.opening.mode === 'author_text' && !settings.opening.text.trim()) {
-            throw appError('invalid_input', 'author text is empty');
-          }
-          const running = tx
-            .select()
-            .from(jobs)
-            .where(and(eq(jobs.workId, input.workId), eq(jobs.kind, 'preview'), eq(jobs.status, 'running')))
-            .get();
-          if (running) throw appError('job_running', 'a preview job is already running');
-          if (!deps.llm.resolve('narrator')) throw appError('llm_not_configured', 'no narrator model');
-          const now = Date.now();
-          tx.insert(jobs)
-            .values({
-              id: input.jobId,
-              workId: input.workId,
-              kind: 'preview',
-              status: 'running',
-              input: { contentRev: input.contentRev, background, anchors: readAnchors(draft.meta as VersionMeta) },
-              createdAt: now,
-              updatedAt: now,
-            })
+          return { view: viewOf(existing), created: false, superseded: null };
+        }
+        const work = tx.select().from(works).where(eq(works.id, input.workId)).get();
+        if (!work) throw appError('not_found', 'work not found');
+        if (work.publishedId) throw appError('already_published', 'work is already published');
+        const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
+        if (!draft) throw appError('not_found', 'draft not found');
+        if (draft.contentRev !== input.contentRev) throw appError('stale_revision', 'draft revision is stale');
+        const meta = draft.meta as VersionMeta;
+        const background = meta.background;
+        if (!background.trim()) throw appError('background_required', 'background is empty');
+        if (!isPlanConfirmed(meta, input.contentRev)) {
+          throw appError('plan_not_confirmed', 'plan is not confirmed');
+        }
+        const settings = readSettings(meta);
+        const failure: ErrorCode | null =
+          settings.opening.mode === 'author_text' && !settings.opening.text.trim()
+            ? 'invalid_input'
+            : deps.llm.resolve('narrator')
+              ? null
+              : 'llm_not_configured';
+        if (failure && !automatic) {
+          throw appError(failure, failure === 'invalid_input' ? 'author text is empty' : 'no narrator model');
+        }
+        const running = tx
+          .select()
+          .from(jobs)
+          .where(and(eq(jobs.workId, input.workId), eq(jobs.kind, 'preview'), eq(jobs.status, 'running')))
+          .get();
+        if (running && previewJobParts(running).input.contentRev === input.contentRev) {
+          throw appError('job_running', 'a preview job is already running');
+        }
+        const now = Date.now();
+        if (running) {
+          tx.update(jobs)
+            .set({ status: 'failed', error: 'stale_preview', updatedAt: now })
+            .where(eq(jobs.id, running.id))
             .run();
-          const row = tx.select().from(jobs).where(eq(jobs.id, input.jobId)).get();
-          return { view: viewOf(row!), created: true, workId: input.workId };
-        },
-        { behavior: 'immediate' },
-      );
+        }
+        tx.insert(jobs)
+          .values({
+            id: input.jobId,
+            workId: input.workId,
+            kind: 'preview',
+            status: failure ? 'failed' : 'running',
+            error: failure,
+            input: { contentRev: input.contentRev, background, anchors: readAnchors(draft.meta as VersionMeta) },
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
+        const row = tx.select().from(jobs).where(eq(jobs.id, input.jobId)).get();
+        return { view: viewOf(row!), created: true, superseded: running?.id ?? null };
+      },
+      { behavior: 'immediate' },
+    );
 
-      if (result.created) {
-        deps.bus.publish({ type: 'job.updated', workId: result.workId, jobId: input.jobId, status: 'running' });
-        deps.logger.record({
-          level: 'info',
-          module: 'authoring',
-          event: 'preview.job.started',
-          jobId: input.jobId,
-          workId: result.workId,
-        });
-        startPreviewJob(input.jobId, result.workId);
-      }
-      return result.view;
+    if (result.superseded) {
+      deps.bus.publish({ type: 'job.updated', workId: input.workId, jobId: result.superseded, status: 'failed' });
+    }
+    if (result.created) {
+      const { status, error } = result.view;
+      deps.bus.publish({ type: 'job.updated', workId: input.workId, jobId: input.jobId, status });
+      deps.logger.record({
+        level: error ? 'warn' : 'info',
+        module: 'authoring',
+        event: error ? 'preview.job.failed' : 'preview.job.started',
+        jobId: input.jobId,
+        workId: input.workId,
+        ...(error && { data: { code: error, stage: 'schedule' } }),
+      });
+      if (status === 'running') startPreviewJob(input.jobId, input.workId);
+    }
+    return result.view;
+  };
+
+  const service: AuthoringService = {
+    importNovel(input) {
+      return planJobs.importNovel(input);
+    },
+    generatePreview(input) {
+      return generatePreview(input);
     },
     adoptPreview(input) {
       const adopted = deps.db.transaction(
         (tx) => {
           const job = tx.select().from(jobs).where(eq(jobs.id, input.jobId)).get();
-          if (!job || job.workId !== input.workId) throw appError('not_found', 'preview job not found');
+          if (!job || job.workId !== input.workId || job.kind !== 'preview') {
+            throw appError('not_found', 'preview job not found');
+          }
           const parts = previewJobParts(job);
           if (parts.result?.adoption) return null;
           const work = tx.select().from(works).where(eq(works.id, input.workId)).get();
           if (!work) throw appError('not_found', 'work not found');
           if (work.publishedId) throw appError('already_published', 'work is already published');
           if (job.status !== 'done' || !parts.result) throw appError('preview_not_ready', 'preview is not ready');
+          const importRunning = tx
+            .select({ id: jobs.id })
+            .from(jobs)
+            .where(
+              and(
+                eq(jobs.workId, input.workId),
+                eq(jobs.kind, 'plan'),
+                eq(jobs.status, 'running'),
+                sql`json_type(${jobs.input}, '$.novel') = 'object'`,
+              ),
+            )
+            .get();
+          if (importRunning) throw appError('job_running', 'novel import is already running');
           const draft = tx.select().from(workVersions).where(eq(workVersions.id, work.draftId)).get();
           if (!draft) throw appError('not_found', 'draft not found');
           if (parts.input.contentRev !== draft.contentRev) throw appError('stale_preview', 'preview is stale');
@@ -514,6 +574,16 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
       return confirmPlan(deps, input);
     },
     recoverInterrupted(): number {
+      try {
+        pruneNovelFiles(deps.db, deps.dataDir);
+      } catch (error) {
+        deps.logger.record({
+          level: 'warn',
+          module: 'authoring',
+          event: 'novel.file.cleanup_failed',
+          data: { code: diagnosticFault(error).systemCode ?? 'internal' },
+        });
+      }
       const now = Date.now();
       const recovered = deps.db.all<{ id: string; work_id: string; kind: string }>(
         sql`update jobs set status = 'failed', error = 'interrupted', updated_at = ${now}
@@ -533,8 +603,10 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
       }
       return recovered.length;
     },
-    whenIdle() {
-      return Promise.all([queue.onIdle(), planJobs.whenIdle()]).then(() => undefined);
+    async whenIdle() {
+      await planJobs.whenIdle();
+      await queue.onIdle();
     },
   };
+  return service;
 }

@@ -1,6 +1,7 @@
 import { AlertDialog } from '@base-ui/react/alert-dialog';
 import { useTranslation } from 'react-i18next';
 import { Button } from './Button.tsx';
+import { ErrorNotice } from './ErrorNotice.tsx';
 import styles from './ConfirmDialog.module.css';
 
 export function ConfirmDialog({
@@ -13,6 +14,7 @@ export function ConfirmDialog({
   tone,
   onConfirm,
   busy = false,
+  error,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -23,6 +25,7 @@ export function ConfirmDialog({
   tone: 'default' | 'danger';
   onConfirm: () => void;
   busy?: boolean;
+  error?: unknown;
 }) {
   const { t } = useTranslation();
   const cancel = cancelLabel ?? t('common:action.cancel');
@@ -35,6 +38,7 @@ export function ConfirmDialog({
           <AlertDialog.Popup className={styles.popup}>
             <AlertDialog.Title className={styles.title}>{title}</AlertDialog.Title>
             <AlertDialog.Description className={styles.description}>{description}</AlertDialog.Description>
+            <ErrorNotice error={error} />
             <div className={styles.actions}>
               <Button variant='secondary' onClick={() => onOpenChange(false)}>
                 {cancel}

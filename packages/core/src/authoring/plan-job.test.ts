@@ -1,20 +1,22 @@
 import { join } from 'node:path';
+import { existsSync } from 'node:fs';
 import { eq, sql } from 'drizzle-orm';
-import { describe, expect, it } from 'vitest';
-import { DEFAULT_WORK_SETTINGS } from '@unwritten/contracts';
+import { describe, expect, it, vi } from 'vitest';
+import { DEFAULT_WORK_SETTINGS, NOVEL_IMPORT_PART_BYTES } from '@unwritten/contracts';
 import { createEventBus } from '../events/bus.ts';
 import type { LogEvent, Logger, PerformanceSample } from '../log/logger.ts';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
 import { createScriptedLlm, type ScriptedLlm } from '../test-support/scripted-llm.ts';
-import { proposePlanStep } from '../test-support/llm-steps.ts';
+import { proposePlanStep, proposePreviewStep } from '../test-support/llm-steps.ts';
 import type { FakeStep } from '../test-support/fake-openai-server.ts';
 import type { ScriptStep } from '../test-support/scripted-llm.ts';
 import { openDatabase } from '../store/db.ts';
-import { workVersions } from '../store/schema.ts';
+import { facts, knowledge, workVersions } from '../store/schema.ts';
 import type { VersionMeta } from '../store/meta.ts';
 import { createLibraryService } from '../library/service.ts';
 import type { LlmRunInput, LlmRunResult } from '../llm/types.ts';
-import type { LibraryService } from '../services.ts';
+import type { AuthoringService, LibraryService } from '../services.ts';
+import { novelFilePath } from '../store/novel-file.ts';
 import { createAuthoringService } from './service.ts';
 
 const logger: Logger = {
@@ -57,7 +59,378 @@ function setup(makeLlm?: (library: LibraryService) => ScriptedLlm) {
   return { temp, opened, llm, library, authoring, events, samples };
 }
 
+function submitNovelPart(authoring: AuthoringService, file: File, offset = 0, totalBytes = file.size) {
+  return authoring.importNovel({ workId, file, offset, totalBytes });
+}
+
+function openingAnalysis(notes: string, queries: Array<{ question: string; terms: string[] }> = []): ScriptStep {
+  return { text: JSON.stringify({ notes, queries }) };
+}
+
+function novelPreview(prose: string): ScriptStep {
+  return scripted(
+    proposePreviewStep({
+      title: '潮汐邮局',
+      blurb: '信使到了码头。',
+      publicSetting: '城里有一座灯塔。',
+      prose,
+      options: ['走向灯塔', '去找船长'],
+      place: '码头',
+      time: '夜里',
+      language: 'zh-CN',
+      changes: '',
+    }),
+  );
+}
+
 describe('createPlanJobs', () => {
+  it('导入失败后复用开场提炼，自动生成开场并保持草稿状态', async () => {
+    const { temp, opened, llm, library, authoring } = setup();
+    const novel = new File(['第一章 归港\r\n信使抵达码头。\r\n第二章 失灯\r\n灯塔熄灭。'], '港湾.txt');
+    const importedPlan = scripted(
+      proposePlanStep({
+        summary: [
+          { key: 'identity', text: '港口的信使', from: 'author' },
+          { key: 'situation', text: '信使刚到码头', from: 'ai' },
+        ],
+      }),
+    );
+    const preview = scripted(
+      proposePreviewStep({
+        title: '潮汐邮局',
+        blurb: '你带着没写收件人的信抵达港口。',
+        publicSetting: '港口的邮局夜间也开门。',
+        prose: '钟响的时候，你站在码头上。',
+        options: ['找守灯人', '先去邮局'],
+        place: '码头',
+        time: '夜里',
+        language: 'zh-CN',
+        changes: '',
+      }),
+    );
+    try {
+      await expect(submitNovelPart(authoring, new File([''], '空.txt'))).rejects.toMatchObject({
+        code: 'novel_invalid_text',
+      });
+      expect(library.list()).toEqual([]);
+      llm.enqueue(openingAnalysis('信使初到港口。'), { fail: 'invalid_output' });
+      await submitNovelPart(authoring, novel);
+      await authoring.whenIdle();
+      const failed = library.get({ workId });
+      expect(failed.novelImport).toEqual({ chapter: 0, chapters: ['第一章 归港', '第二章 失灯'] });
+      expect(failed.latestPlanJob?.status).toBe('failed');
+      expect(() => authoring.adoptPreview({ workId, jobId: workId })).toThrow(
+        expect.objectContaining({ code: 'not_found' }),
+      );
+      expect(failed.latestPlanJob?.novelProgress?.processed).toBeGreaterThan(0);
+      await expect(submitNovelPart(authoring, novel)).resolves.toEqual({ workId });
+      await expect(submitNovelPart(authoring, new File(['另一部小说'], novel.name))).rejects.toMatchObject({
+        code: 'idempotency_conflict',
+      });
+      expect(library.list()).toHaveLength(1);
+
+      llm.enqueue(importedPlan, preview);
+      authoring.generatePlan({ workId, jobId, contentRev: 0, novelChapter: 0 });
+      await authoring.whenIdle();
+      const work = library.get({ workId });
+      expect(llm.completes).toHaveLength(1);
+      expect(llm.completes[0]?.prompt).toContain('第一章 归港');
+      expect(llm.runs[1]?.prompt).toContain('【开场提炼笔记】\n信使初到港口。');
+      expect(work.status).toBe('draft');
+      expect(work.draft.wizardStep).toBe('opening');
+      expect(work.draft.plan?.items.find((item) => item.kind === 'summary')).toMatchObject({ source: 'ai' });
+      expect(work.latestPreviewJob?.preview?.prose).toBe('钟响的时候，你站在码头上。');
+
+      const identity = work.draft.plan?.items.find((item) => item.kind === 'summary' && item.key === 'identity');
+      expect(identity).toBeDefined();
+      if (!identity || identity.kind !== 'summary') throw new Error('missing imported identity');
+      const edited = authoring.updatePlanItem({
+        workId,
+        baseContentRev: work.draft.contentRev,
+        item: { ...identity, text: '修钟匠兼任信使' },
+      });
+      llm.enqueue(importedPlan, preview);
+      authoring.generatePlan({ workId, jobId: secondJobId, contentRev: edited.contentRev, novelChapter: 0 });
+      await authoring.whenIdle();
+      const regenerated = library.get({ workId });
+      expect(llm.completes).toHaveLength(1);
+      expect(regenerated.draft.plan?.items).toContainEqual({ ...identity, text: '修钟匠兼任信使', source: 'author' });
+      expect(regenerated.latestPreviewJob?.status).toBe('done');
+
+      llm.enqueue(importedPlan, preview);
+      authoring.generatePlan({
+        workId,
+        jobId: crypto.randomUUID(),
+        contentRev: regenerated.draft.contentRev,
+        novelChapter: 0,
+        novelReferenceChapter: 1,
+      });
+      await authoring.whenIdle();
+      expect(llm.completes).toHaveLength(1);
+      const withReference = library.get({ workId });
+      expect(withReference.novelImport).toMatchObject({ chapter: 0, referenceChapter: 1 });
+      const planPrompt = llm.runs.at(-2)!.prompt;
+      expect(planPrompt).toContain('【开场提炼笔记】\n信使初到港口。');
+      expect(planPrompt).toContain('作者指定的参考章：第二章 失灯（开场章后）');
+      expect(planPrompt).toContain('灯塔熄灭。');
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it.each([5, 50])(
+    '从 %i MiB 原文按固定模型预算找到后文证据',
+    async (mebibytes) => {
+      const { temp, opened, llm, library, authoring } = setup();
+      const opening = '第一章 归港\r\n信使向守灯人问路。守灯人戴着旧铜徽。\r\n第二章 巡堤\r\n';
+      const ending = '第三章 证词\r\n守灯人三年前的旧名是暮灯。信使并不知情。\r\n';
+      const filler = '堤岸漫长。'.repeat(500) + '\r\n';
+      const text = new File(
+        [
+          opening,
+          ...Array.from({ length: Math.ceil((mebibytes * 1024 * 1024) / Buffer.byteLength(filler)) }, () => filler),
+          ending,
+        ],
+        '灯塔.txt',
+      );
+      try {
+        llm.enqueue(
+          openingAnalysis('信使初到港口，眼前是守灯人。', [
+            { question: '守灯人此前有旧名吗？', terms: ['守灯人', '旧名'] },
+          ]),
+          scripted(
+            proposePlanStep({
+              entities: [
+                { ref: 'e1', kind: 'character', role: 'protagonist', name: '信使', profile: '初到港口', from: 'ai' },
+                {
+                  ref: 'e2',
+                  kind: 'character',
+                  role: 'cast',
+                  name: '暮灯',
+                  known_as: '守灯人',
+                  profile: '守灯人',
+                  from: 'ai',
+                },
+              ],
+              secrets: [
+                {
+                  title: '守灯人的旧事',
+                  statement: '守灯人三年前的旧名是暮灯。',
+                  subject: 'e2',
+                  knowers: 'e2',
+                  reveal: '待守灯人主动说起',
+                  from: 'ai',
+                },
+              ],
+            }),
+          ),
+          scripted(
+            proposePreviewStep({
+              title: '潮汐邮局',
+              blurb: '信使到了码头。',
+              publicSetting: '城里有一座灯塔。',
+              prose: '你向守灯人问路。',
+              options: ['走向灯塔', '去找船长'],
+              place: '码头',
+              time: '夜里',
+              language: 'zh-CN',
+              changes: '',
+            }),
+          ),
+        );
+        for (let offset = 0; offset < text.size; offset += NOVEL_IMPORT_PART_BYTES) {
+          const part = new File([text.slice(offset, offset + NOVEL_IMPORT_PART_BYTES)], text.name);
+          await submitNovelPart(authoring, part, offset, text.size);
+          if (offset === 0) {
+            expect(library.list()).toEqual([]);
+            await submitNovelPart(authoring, part, 0, text.size);
+          }
+        }
+        await authoring.whenIdle();
+        expect(llm.completes).toHaveLength(1);
+        expect(llm.runs).toHaveLength(2);
+        const read = llm.completes[0]!.prompt.split('】\n').at(-1)!;
+        const evidence = llm.runs[0]!.prompt.split('【补充原文证据】\n').at(-1)!;
+        expect(llm.estimateTokens(read)).toBeLessThanOrEqual(8_000);
+        expect(llm.estimateTokens(evidence)).toBeLessThanOrEqual(4_000);
+        expect(read).not.toContain('暮灯');
+        expect(evidence).toContain('第三章 证词（开场章后）');
+        expect(evidence).toContain('守灯人三年前的旧名是暮灯。');
+        const work = library.get({ workId });
+        expect(work.latestPreviewJob?.preview?.prose).toBe('你向守灯人问路。');
+        const secret = opened.db.select().from(facts).where(eq(facts.kind, 'secret')).get()!;
+        expect(secret.statement).toBe('守灯人三年前的旧名是暮灯。');
+        const orphan = new File(['一段未上传完的小说'], '未上传.txt');
+        await authoring.importNovel({ workId: secondJobId, file: orphan, offset: 0, totalBytes: orphan.size + 1 });
+        expect(existsSync(novelFilePath(temp.dir, secondJobId))).toBe(true);
+        expect(authoring.recoverInterrupted()).toBe(0);
+        expect(existsSync(novelFilePath(temp.dir, secondJobId))).toBe(false);
+        expect(existsSync(novelFilePath(temp.dir, workId))).toBe(true);
+        expect(opened.db.select().from(knowledge).where(eq(knowledge.factId, secret.id)).all()).toEqual([
+          expect.objectContaining({ holderId: secret.subjectId }),
+        ]);
+        library.delete({ workId });
+        expect(existsSync(novelFilePath(temp.dir, workId))).toBe(false);
+      } finally {
+        opened.close();
+        temp.cleanup();
+      }
+    },
+    30_000,
+  );
+
+  it('有参考章时按真实预算划分，检索证据仍进入方案提示', async () => {
+    const { temp, opened, llm, library, authoring } = setup(() =>
+      createScriptedLlm({
+        resolved: {
+          endpointId: 'custom-test-000000',
+          modelId: 'test-model',
+          contextWindow: 10_240,
+          maxOutputTokens: 8_192,
+        },
+      }),
+    );
+    const novel = new File(
+      [
+        '第一章 归港\r\n信使向守灯人问路。守灯人戴着旧铜徽。\r\n',
+        '第二章 失灯\r\n',
+        '潮声盖住脚步。'.repeat(160) + '\r\n',
+        '第三章 证词\r\n守灯人三年前的旧名是暮灯。信使并不知情。\r\n',
+      ],
+      '灯塔.txt',
+    );
+    const plan = () => scripted(proposePlanStep());
+    try {
+      llm.enqueue(
+        openingAnalysis('信使初到港口，眼前是守灯人。', [
+          { question: '守灯人此前有旧名吗？', terms: ['守灯人', '旧名'] },
+        ]),
+        plan(),
+        novelPreview('你向守灯人问路。'),
+      );
+      await submitNovelPart(authoring, novel);
+      await authoring.whenIdle();
+      llm.enqueue(plan(), novelPreview('你向守灯人问路。'));
+      authoring.generatePlan({
+        workId,
+        jobId: crypto.randomUUID(),
+        contentRev: library.get({ workId }).draft.contentRev,
+        novelChapter: 0,
+        novelReferenceChapter: 1,
+      });
+      await authoring.whenIdle();
+      const evidence = llm.runs.at(-2)!.prompt.split('【补充原文证据】\n').at(-1)!;
+      expect(evidence).toContain('作者指定的参考章：第二章 失灯');
+      expect(evidence).toContain('守灯人三年前的旧名是暮灯。');
+      expect(llm.estimateTokens(evidence)).toBeLessThanOrEqual(4_000);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('补证可找到开场预算剪掉的行尾和同一行后面的匹配', async () => {
+    const { temp, opened, llm, authoring } = setup();
+    const text =
+      '第一章 归港\n守灯人递给信使一张纸。' +
+      '潮声。'.repeat(90) +
+      '纸上只写着旧名两个字。' +
+      '潮声。'.repeat(2300) +
+      '守灯人三年前的旧名是秋篙。\n';
+    try {
+      llm.enqueue(
+        openingAnalysis('信使收到守灯人给的纸。', [{ question: '守灯人此前有旧名吗？', terms: ['守灯人', '旧名'] }]),
+        scripted(proposePlanStep()),
+        novelPreview('信使接过纸。'),
+      );
+      await submitNovelPart(authoring, new File([text], '归港.txt'));
+      await authoring.whenIdle();
+      expect(llm.completes[0]?.prompt).not.toContain('秋篙');
+      expect(llm.runs[0]?.prompt).toContain('守灯人三年前的旧名是秋篙。');
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('旧开场还在生成时换章，自动生成新草稿的开场', async () => {
+    const started = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    let previews = 0;
+    const { temp, opened, llm, library, authoring } = setup(() => {
+      const base = createScriptedLlm();
+      return {
+        ...base,
+        async run(input) {
+          const proposal = await base.run(input);
+          if (input.purpose === 'narrator' && previews++ === 0) {
+            started.resolve();
+            await release.promise;
+          }
+          return proposal;
+        },
+      };
+    });
+    try {
+      llm.enqueue(openingAnalysis('信使初到港口。'), scripted(proposePlanStep()), novelPreview('你站在码头上。'));
+      await submitNovelPart(authoring, new File(['第一章 归港\n信使到了码头。\n第二章 失灯\n灯塔暗了。'], '归港.txt'));
+      await started.promise;
+      llm.enqueue(
+        openingAnalysis('灯塔忽然暗了。'),
+        scripted(proposePlanStep()),
+        novelPreview('你抬头时，灯塔刚熄灭。'),
+      );
+      authoring.generatePlan({ workId, jobId, contentRev: library.get({ workId }).draft.contentRev, novelChapter: 1 });
+      await vi.waitFor(() => {
+        expect(library.get({ workId }).latestPlanJob).toMatchObject({ id: jobId, status: 'done' });
+      });
+      release.resolve();
+      await authoring.whenIdle();
+      const work = library.get({ workId });
+      expect(work.latestPreviewJob?.basedOnContentRev).toBe(work.draft.contentRev);
+      expect(work.latestPreviewJob?.preview?.prose).toBe('你抬头时，灯塔刚熄灭。');
+    } finally {
+      release.resolve();
+      await authoring.whenIdle();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('导入方案完成后模型停用时显示开场失败并保留方案', async () => {
+    let narratorAvailable = true;
+    const { temp, opened, llm, library, authoring } = setup(() => {
+      const base = createScriptedLlm();
+      return {
+        ...base,
+        resolve: (purpose) => (purpose === 'narrator' && !narratorAvailable ? null : base.resolve(purpose)),
+        async run(input) {
+          const result = await base.run(input);
+          if (input.purpose === 'author_chat') narratorAvailable = false;
+          return result;
+        },
+      };
+    });
+    try {
+      llm.enqueue(openingAnalysis('信使初到港口。'), scripted(proposePlanStep()));
+      await submitNovelPart(authoring, new File(['第一章 归港\n信使到了码头。'], '归港.txt'));
+      await authoring.whenIdle();
+      const work = library.get({ workId });
+      expect(work.draft.plan?.confirmed).toBe(true);
+      expect(work.latestPreviewJob).toMatchObject({ status: 'failed', error: 'llm_not_configured' });
+
+      narratorAvailable = true;
+      llm.enqueue(novelPreview('你站在码头上。'));
+      authoring.generatePreview({ workId, jobId, contentRev: work.draft.contentRev });
+      await authoring.whenIdle();
+      expect(library.get({ workId }).latestPreviewJob?.preview?.prose).toBe('你站在码头上。');
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
   it('生成方案写进草稿并进入方案步骤', async () => {
     const { temp, opened, llm, library, authoring } = setup();
     try {

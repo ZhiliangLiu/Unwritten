@@ -15,6 +15,7 @@ import type {
   DismissIllustrationInput,
   GeneratePlanInput,
   GeneratePreviewInput,
+  ImportNovelInput,
   GeneratedToken,
   ImageCapabilities,
   ImageConfigView,
@@ -204,6 +205,7 @@ export interface LibraryService {
 }
 
 export interface AuthoringService {
+  importNovel(input: ImportNovelInput): Promise<WorkIdInput>;
   generatePreview(input: GeneratePreviewInput): PreviewJobView;
   adoptPreview(input: AdoptPreviewInput): AdoptPreviewOutput;
   generatePlan(input: GeneratePlanInput): PlanJobView;

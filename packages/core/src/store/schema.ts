@@ -184,7 +184,9 @@ export const jobs = sqliteTable(
     workId: text('work_id')
       .notNull()
       .references(() => works.id, { onDelete: 'cascade' }),
-    kind: text('kind', { enum: ['plan', 'opening', 'title_blurb', 'trial_extract', 'preview'] }).notNull(),
+    kind: text('kind', {
+      enum: ['plan', 'opening', 'title_blurb', 'trial_extract', 'preview', 'novel_source'],
+    }).notNull(),
     status: text('status', { enum: ['running', 'done', 'failed'] }).notNull(),
     input: text('input', { mode: 'json' }).$type<JobInput>().notNull(),
     result: text('result', { mode: 'json' }).$type<JobResult>(),

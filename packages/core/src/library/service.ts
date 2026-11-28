@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
   EMPTY_WORK_ANCHORS,
   SETTING_SECTION_IDS,
@@ -16,6 +16,9 @@ import {
 import { appError } from '../errors.ts';
 import type { CoreDeps, LibraryService } from '../services.ts';
 import type { Database } from '../store/db.ts';
+import { insertDraft } from '../store/draft.ts';
+import { removeNovelFile } from '../store/novel-file.ts';
+import { diagnosticFault } from '../log/fault.ts';
 import { jobs, playthroughs, routes, workVersions, works } from '../store/schema.ts';
 import { planJobParts, previewJobParts, readAnchors, type StoredSettings, type VersionMeta } from '../store/meta.ts';
 import { planView, readSettings, settingsView } from '../store/plan.ts';
@@ -87,6 +90,8 @@ export function previewJobView(row: typeof jobs.$inferSelect): PreviewJobView {
   };
 }
 
+const NOVEL_ANALYSIS_STAGES = 3;
+
 export function planJobView(row: typeof jobs.$inferSelect): PlanJobView {
   const parts = planJobParts(row);
   return {
@@ -95,6 +100,18 @@ export function planJobView(row: typeof jobs.$inferSelect): PlanJobView {
     basedOnContentRev: parts.input.contentRev,
     error: (row.error as PlanJobView['error']) ?? null,
     stale: parts.result?.stale ?? false,
+    ...(parts.input.novel && {
+      novelProgress: {
+        processed: parts.result
+          ? NOVEL_ANALYSIS_STAGES
+          : parts.checkpoint?.evidence !== undefined
+            ? 2
+            : parts.checkpoint
+              ? 1
+              : 0,
+        total: NOVEL_ANALYSIS_STAGES,
+      },
+    }),
     updatedAt: row.updatedAt,
   };
 }
@@ -110,15 +127,36 @@ export function createLibraryService(deps: CoreDeps & { onWorkDeleted?: () => vo
       .select()
       .from(jobs)
       .where(and(eq(jobs.workId, row.id), eq(jobs.kind, 'preview')))
-      .orderBy(desc(jobs.createdAt))
+      .orderBy(desc(jobs.createdAt), sql`rowid desc`)
       .get();
     const planJob = deps.db
       .select()
       .from(jobs)
       .where(and(eq(jobs.workId, row.id), eq(jobs.kind, 'plan')))
-      .orderBy(desc(jobs.createdAt))
+      .orderBy(desc(jobs.createdAt), sql`rowid desc`)
       .get();
     const meta = draft.meta as VersionMeta;
+    const novel = !row.publishedId
+      ? deps.db
+          .select({ result: jobs.result })
+          .from(jobs)
+          .where(and(eq(jobs.id, row.id), eq(jobs.kind, 'novel_source')))
+          .get()
+      : null;
+    const chapters = novel?.result && 'chapters' in novel.result ? novel.result.chapters : null;
+    const novelChapter = chapters
+      ? deps.db
+          .select({
+            chapter: sql`json_extract(${jobs.input}, '$.novel.chapter')`.mapWith(Number),
+            referenceChapter: sql`json_extract(${jobs.input}, '$.novel.referenceChapter')`.mapWith(Number),
+          })
+          .from(jobs)
+          .where(
+            and(eq(jobs.workId, row.id), eq(jobs.kind, 'plan'), sql`json_type(${jobs.input}, '$.novel') = 'object'`),
+          )
+          .orderBy(desc(jobs.createdAt), sql`rowid desc`)
+          .get()
+      : null;
     return {
       id: row.id,
       title: row.title,
@@ -134,6 +172,15 @@ export function createLibraryService(deps: CoreDeps & { onWorkDeleted?: () => vo
       },
       latestPreviewJob: previewJob ? previewJobView(previewJob) : null,
       latestPlanJob: planJob ? planJobView(planJob) : null,
+      ...(chapters && {
+        novelImport: {
+          chapters: chapters.map((chapter) => chapter.title),
+          chapter: novelChapter?.chapter ?? 0,
+          ...(typeof novelChapter?.referenceChapter === 'number' && {
+            referenceChapter: novelChapter.referenceChapter,
+          }),
+        },
+      }),
       illustrationStyle: row.illustrationStyle ?? null,
     };
   };
@@ -152,20 +199,7 @@ export function createLibraryService(deps: CoreDeps & { onWorkDeleted?: () => vo
         (tx) => {
           const existing = tx.select().from(works).where(eq(works.id, input.workId)).get();
           if (existing) return false;
-          const now = Date.now();
-          const draftId = crypto.randomUUID();
-          tx.insert(works).values({ id: input.workId, draftId, createdAt: now, updatedAt: now }).run();
-          tx.insert(workVersions)
-            .values({
-              id: draftId,
-              workId: input.workId,
-              kind: 'draft',
-              contentRev: 0,
-              meta: { background: '' },
-              createdAt: now,
-              updatedAt: now,
-            })
-            .run();
+          insertDraft(tx, { workId: input.workId, meta: { background: '' } });
           return true;
         },
         { behavior: 'immediate' },
@@ -230,7 +264,13 @@ export function createLibraryService(deps: CoreDeps & { onWorkDeleted?: () => vo
               ? { ...settings.status, rev: storedSettings.status.rev + 1 }
               : storedSettings.status,
           };
-          const nextMeta: VersionMeta = { ...meta, background: input.background, anchors, settings: nextSettings };
+          const nextMeta: VersionMeta = {
+            ...meta,
+            background: input.background,
+            novelBackground: meta.background === input.background ? meta.novelBackground : undefined,
+            anchors,
+            settings: nextSettings,
+          };
           tx.update(workVersions)
             .set({ meta: nextMeta, contentRev, updatedAt: now })
             .where(eq(workVersions.id, draft.id))
@@ -253,10 +293,40 @@ export function createLibraryService(deps: CoreDeps & { onWorkDeleted?: () => vo
       return { contentRev: result.contentRev };
     },
     delete(input: WorkIdInput): Record<string, never> {
-      const changes = deps.db.transaction((tx) => tx.delete(works).where(eq(works.id, input.workId)).run().changes, {
-        behavior: 'immediate',
-      });
+      const { changes, hasNovelFile } = deps.db.transaction(
+        (tx) => {
+          const hasNovelFile = Boolean(
+            tx
+              .select({ id: jobs.id })
+              .from(jobs)
+              .where(
+                and(
+                  eq(jobs.id, input.workId),
+                  eq(jobs.kind, 'novel_source'),
+                  sql`json_type(${jobs.input}, '$.encoding') = 'text'`,
+                ),
+              )
+              .get(),
+          );
+          const changes = tx.delete(works).where(eq(works.id, input.workId)).run().changes;
+          return { changes, hasNovelFile };
+        },
+        { behavior: 'immediate' },
+      );
       if (changes === 0) return {};
+      if (hasNovelFile) {
+        try {
+          removeNovelFile(deps.dataDir, input.workId);
+        } catch (error) {
+          deps.logger.record({
+            level: 'warn',
+            module: 'library',
+            event: 'novel.file.remove_failed',
+            workId: input.workId,
+            data: { code: diagnosticFault(error).systemCode ?? 'internal' },
+          });
+        }
+      }
       deps.bus.publish({ type: 'works.changed', workId: input.workId });
       deps.logger.record({ level: 'info', module: 'library', event: 'work.deleted', workId: input.workId });
       deps.onWorkDeleted?.();

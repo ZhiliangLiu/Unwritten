@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_WORK_SETTINGS, EMPTY_WORK_ANCHORS } from '@unwritten/contracts';
-import type { PlanItem, WizardStep, WorkDetail } from '@unwritten/contracts';
+import type { GeneratePlanInput, PlanItem, WizardStep, WorkDetail } from '@unwritten/contracts';
 import { errorCode } from '../../shared/api/errors.ts';
 import { queryKeys } from '../../shared/api/query.ts';
 import { useApi } from '../../shared/api/context.tsx';
@@ -47,6 +47,7 @@ export function AuthoringPage({ workId }: { workId: string }) {
   const data = work.data;
   const previewJob = data?.latestPreviewJob ?? null;
   const planJob = data?.latestPlanJob ?? null;
+  const importing = planJob?.novelProgress !== undefined && planJob.status === 'running';
   const preview = previewJob?.preview ?? null;
   const savedDraft = useMemo<DraftContent>(
     () => ({
@@ -60,9 +61,10 @@ export function AuthoringPage({ workId }: { workId: string }) {
   const draft = localDraft ?? savedDraft;
   const localDirty = localDraft !== null && !sameDraft(localDraft, savedDraft);
   const stale = Boolean(
-    previewJob && preview && (previewJob.basedOnContentRev !== data?.draft.contentRev || localDirty),
+    previewJob && preview && (previewJob.basedOnContentRev !== data?.draft.contentRev || localDirty || importing),
   );
-  const currentStep: WizardStep = step ?? data?.draft.wizardStep ?? 'background';
+  const importNeedsPlan = planJob?.novelProgress !== undefined && planJob.status !== 'done';
+  const currentStep: WizardStep = step ?? (importNeedsPlan ? 'plan' : (data?.draft.wizardStep ?? 'background'));
   const contentRev =
     queryClient.getQueryData<WorkDetail>(queryKeys.work(workId))?.draft.contentRev ?? data?.draft.contentRev ?? 0;
 
@@ -78,10 +80,12 @@ export function AuthoringPage({ workId }: { workId: string }) {
   };
 
   const generatePlan = useMutation({
-    mutationFn: (rev: number) => api.works.generatePlan({ workId, jobId: crypto.randomUUID(), contentRev: rev }),
-    onSuccess: () => {
+    mutationFn: (input: Pick<GeneratePlanInput, 'contentRev' | 'novelChapter' | 'novelReferenceChapter'>) =>
+      api.works.generatePlan({ workId, jobId: crypto.randomUUID(), ...input }),
+    onSuccess: (_result, input) => {
       invalidateWork();
-      selectStep('plan');
+      if (input.novelChapter === undefined) selectStep('plan');
+      else setStep(null);
     },
     onError: setError,
   });
@@ -215,7 +219,13 @@ export function AuthoringPage({ workId }: { workId: string }) {
                   draft={draft}
                   savedDraft={savedDraft}
                   onDraftChange={(next) => setEdit({ workId, draft: next })}
-                  onGeneratePlan={(rev) => generatePlan.mutate(rev)}
+                  onGeneratePlan={(rev) =>
+                    generatePlan.mutate({
+                      contentRev: rev,
+                      novelChapter: data.novelImport?.chapter,
+                      novelReferenceChapter: data.novelImport?.referenceChapter,
+                    })
+                  }
                   generating={generatePlan.isPending || planJob?.status === 'running'}
                   planJob={planJob}
                 />
@@ -225,7 +235,16 @@ export function AuthoringPage({ workId }: { workId: string }) {
               <PlanPanel
                 work={data}
                 busy={generatePlan.isPending || planJob?.status === 'running'}
-                onRegenerate={() => generatePlan.mutate(contentRev)}
+                onRegenerate={() =>
+                  generatePlan.mutate({
+                    contentRev,
+                    novelChapter: data.novelImport?.chapter,
+                    novelReferenceChapter: data.novelImport?.referenceChapter,
+                  })
+                }
+                onChooseNovelChapter={(novelChapter, novelReferenceChapter) =>
+                  generatePlan.mutate({ contentRev, novelChapter, novelReferenceChapter })
+                }
                 onAdoptStale={(jobId) => adoptStalePlan.mutate(jobId)}
                 onUpdateItem={(item) => updatePlanItem.mutate(item)}
                 onRemoveItem={(itemId) => removePlanItem.mutate(itemId)}
