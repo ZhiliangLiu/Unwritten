@@ -14,6 +14,7 @@ import { entities, entityNames, facts, knowledge, stateDefs, workVersions, works
 import { readPlan, readSettings } from '../store/plan.ts';
 import { clearAuthorSetting } from '../story/copy.ts';
 import { checkStateConfig, checkStateValue } from '../story/state.ts';
+import { EntityProfileSchema } from '../story/types.ts';
 
 type EditTx = Pick<Database, 'select'>;
 
@@ -58,6 +59,9 @@ function validateItem(item: PlanItem, plan: StoredPlan, meta: VersionMeta): void
     }
   }
   if (item.kind === 'entity') {
+    if (item.entityKind !== 'character' && item.appearance !== null) {
+      invalidInput('appearance is only for characters');
+    }
     if (item.role === 'protagonist') {
       const current = plan.items.find((candidate) => candidate.id === item.id);
       if (!current || current.kind !== 'entity' || current.role !== 'protagonist') {
@@ -175,7 +179,10 @@ export function confirmPlan(deps: CoreDeps, input: ConfirmPlanInput): SaveDraftO
             id: item.id,
             kind: item.entityKind,
             name: item.name,
-            profile: { text: item.profile },
+            profile: EntityProfileSchema.parse({
+              text: item.profile,
+              ...(item.appearance ? { appearance: item.appearance } : {}),
+            }),
             isProtagonist: item.role === 'protagonist' ? 1 : 0,
             originTurnId: null,
           })),

@@ -38,6 +38,7 @@ function detail(): WorkDetail {
     },
     latestPreviewJob: null,
     latestPlanJob: null,
+    illustrationStyle: null,
   };
 }
 

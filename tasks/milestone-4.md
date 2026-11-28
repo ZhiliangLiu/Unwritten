@@ -167,9 +167,9 @@
 
 T00 在 `docs/milestone-4.md` 的验收表里把这两行标成依赖未实现的功能。
 
-### 1.4 设计决定（本文先按推荐项写）
+### 1.4 设计决定（已确认）
 
-设计文档没写死、但实现必须定下来的地方，本文先按下表写。T00 在维护者确认后把它们写进设计文档。
+设计文档没写死、但实现必须定下来的地方，采用下表。T00 已把它们写进设计文档。
 
 | 编号 | 问题 | 本文采用 | 其他做法 |
 | --- | --- | --- | --- |
@@ -185,7 +185,7 @@ T00 在 `docs/milestone-4.md` 的验收表里把这两行标成依赖未实现�
 | D10 | 写入和清理怎样互斥 | `illustration/storage.ts` 里一个进程内的串行锁 `imageWriteLock`（`p-queue`，并发 1）。§9.3 的第 3 步、`gc()` 都在锁里执行。跨进程不需要：数据目录本来就有单实例锁（`DataDirLockedError`，按符号名找） | 用 SQLite 事务当锁：文件改名不在事务里 |
 | D11 | 参考组的位置名 | `PortraitSlot = 'front' \| 'three_quarter' \| 'full_body'` | — |
 | D12 | 本机导入怎样上传 | `portrait.upload` 的输入是 oRPC 的 multipart：`{ requestId, setId, slot, expectedRev, file: File }`。core 在 Hono 层用 `bodyLimit` 限制 `/api/portrait/upload` 的请求体不超过 `PORTRAIT_UPLOAD_MAX_BODY_BYTES`（默认 `PORTRAIT_IMPORT_MAX_BYTES + 64 KiB`），超出返回 413，不进 oRPC 解析 | base64 进 JSON：体积多三分之一，还要另写解码 |
-| D13 | `image.file` 返回什么 | oRPC 的 `File` 输出（`Content-Type` 取校验时得到的媒体类型），响应头加 `X-Content-Type-Options: nosniff`。client 用 `blob()` 拿字节，再 `URL.createObjectURL` | 返回 base64：大图在 JSON 里 |
+| D13 | `image.file` 返回什么 | oRPC 的 `File` 输出（`File.type` 取校验时得到的媒体类型），响应头加 `X-Content-Type-Options: nosniff`。HTTP 层由 oRPC 的 `File` 编码决定，client 用 `blob()` 拿字节，再 `URL.createObjectURL` | 返回 base64：大图在 JSON 里 |
 | D14 | 新增的事件 | 在 `CoreEventSchema` 里加四个：`illustration.updated { routeId, turnId, illustrationId }`、`portrait.updated { workId }`、`image.config_changed`、`image.service_state { serviceId }`。事件只带标识，详情由查询返回 | 事件里带完整状态：client 会有两份真相 |
 | D15 | 插图视图放哪 | `TurnViewSchema` 加 `illustration: IllustrationViewSchema.nullable().default(null)`。`play.getRoute` 返回时带上。`illustration.updated` 让 client 失效 `queryKeys.route(routeId)` | 单独的过程：client 要按回合再查一遍 |
 | D16 | 插图任务放在哪个队列 | `illustration/worker.ts` 一个后台循环，从库里按 `created_at` 取 `queued` 行，每次一行，并发 1。出图请求本身再进 `image` 模块按服务的队列（并发 1） | 每张插图一个 Promise：进程重启后丢失 |
@@ -194,13 +194,13 @@ T00 在 `docs/milestone-4.md` 的验收表里把这两行标成依赖未实现�
 | D19 | `pnpm test:python` 做什么 | 依次在四个 Python 目录里跑 `uv run --frozen pytest`；再用伪 ComfyUI 启动包装、用伪 colab 命令启动启动器，对着它们跑 core 的两组一致性测试。任一步失败就以非零退出 | 并进 `pnpm test`：没装 uv 的机器跑不了 |
 | D20 | 源码扫描的名单 | `comfy`、`colab`、`tailscale`、`strata`，大小写无关。不含 `qwen`：core 的思考写法里本来就有 `qwen`、`qwen-chat-template`（按 `THINKING_FORMATS` 找，规划时在 `contracts/src/schemas/llm.ts`），它们指模型的请求写法，不是插件。扫描范围是 `apps/`、`packages/` 下被 git 跟踪的文件（`git ls-files apps packages`），跳过 `pnpm-lock.yaml` | 扫描工作区全部文件：会扫到 `node_modules` |
 | D21 | 主角形象的 AI 补写什么时候发生 | 在插图流程的第 1 步（[插图与出图服务 §7.2](../docs/image.md#72-一张插图的流程)），以及开局页「按设定写一个」（`play.suggestAppearance`）。开局时不补写 | 开局时同步补写：固定人物开场会被一次模型调用挡住 |
-| D22 | 插图记录里 `format` 的形状 | `{ aspect: string, tier: ImageTierPreference, size: { width, height } \| null }`。`format_preference` 的形状是 `{ aspect: 'auto' \| string, tier: ImageTierPreference }`。`tier` 为 `'default'` 时 `size` 为空，请求里不带 `size` | — |
+| D22 | 插图记录里 `format` 的形状 | 统一用 `OutputPreferences` 的字段名：`format_preference` 是 `{ aspectPreference: 'auto' \| string, resolutionTier: ImageTierPreference }`，`format` 是 `{ aspectPreference, resolutionTier, size: { width, height } \| null }`。`resolutionTier` 为 `'default'` 时 `size` 为空，请求里不带 `size`。重画以已有 `format` 为基准，`formatOverride` 只在用户另选规格时覆盖 | — |
 | D23 | 回合循环文档里的一处矛盾 | [回合循环 §6](../docs/turn-loop.md#6-校验与保存)的校验表写的是「`illustrate` 不合格就丢弃标记」「形象不合格就丢弃形象、保留人物」，形象可选；但同一文档验收表里「narrator 新增一个人物，没写 `appearance`」那一行写的是「返回修正，要求补上形象」。本文按校验表和[插图与出图服务 §6.1](../docs/image.md#61-形象)写：形象可选，不合格的形象和插图标记直接丢弃，不返回修正。T00 改掉验收表那一行 | 按验收表返回修正：和维护者修订后的「形象可选」矛盾 |
 | D24 | `play.suggestAppearance` 和作者默认画风由哪个服务实现 | 契约路径照设计写：`play.suggestAppearance`，以及新增的 `works.setIllustrationStyle`。路由把两者都交给 `IllustrationService`（`suggestAppearance`、`setWorkStyle`）。这样 `PlayService`、`LibraryService` 的接口不变，占位不会和改回合循环的任务抢同一个文件 | 加到 `PlayService`、`LibraryService`：T06 和 T12 会在同一波次改 `play/service.ts` |
 | D25 | 新的伪服务放哪、怎样导入 | 放在 `packages/core/src/test-support/` 下各自的文件里，**不加进 `test-support/index.ts`**，测试按路径导入。这样同一波次的几个任务不会同时改 `index.ts` | 都加进 `index.ts`：并行任务改同一行，合并冲突 |
 | D26 | 作者默认画风怎样保存 | 新过程 `works.setIllustrationStyle({ workId, style })`，直接写 `works.illustration_style`，不碰草稿、不改 `content_rev`（[插图与出图服务 §6.3](../docs/image.md#63-画风)）。`style` 为 `null` 时清空，回到 `DEFAULT_ILLUSTRATION_STYLE` | 并进 `saveDraft`：会让画风改动计入草稿修订号，违反设计 |
 | D27 | 段落投影里「这一刻在场的人」从哪里找 | 在场候选取三种来源的并集：上一回合 `scene.present` 里的人；目标回合里出处段号不晚于这一段的新登记人物；主角此刻已知的称呼（长度不少于 2 个字符）出现在截至这一段的正文里的人物。只取人物。不用目标回合结束时的 `scene`（[数据模型 §5](../docs/data-model.md#5-可见性规则)）。候选再走 D28 的亲见守卫。T00 把这条写进数据模型 §5。登记段号从 `entities.source_para` 读取，缺出处的旧记录不据此列为本段新人物 | 让模型判断谁在场：可见性边界不能交给模型 |
-| D28 | 形象变化如何成为段落里可用的可见事实 | T12 已禁止模型用 `knowledge` 引用形象特征。T14 将有明确出处的 `appearance` 特征作为呈现事实，按本路线和目标段投影，只在有已见过的知情状态和当场证据时采用。当场证据来自上一回合的在场记录，或截至该段明确登记的相遇。形象特征本身、只听说过的称呼和未确认的知情都不能证明亲眼看见。现有的基础人物档案也只在目标场景已经见到该人物时使用 | 等待模型另填 `knowledge` 会和提案契约冲突；只按 `trait` 的存在或旁人提及推断会泄露形象 |
+| D28 | 形象变化如何成为段落里可用的可见事实 | T12 已禁止模型用 `knowledge` 引用形象特征。T14 将有明确出处的 `appearance` 特征作为呈现事实，按本路线和目标段投影，只在有已见过的知情状态和当场证据时采用。当场证据来自上一回合的在场记录，或截至该段明确登记的相遇。形象特征本身、只听说过的称呼和未确认的知情都不能证明亲眼看见。现有的基础人物档案也只在目标场景已经见到该人物时使用。`data.same_visible_identity` 在提案里写字符串 `"true"`，存储为数字 `1`，T12 和 T14 都按 `1` 判断 | 等待模型另填 `knowledge` 会和提案契约冲突；只按 `trait` 的存在或旁人提及推断会泄露形象 |
 
 ### 1.5 已验证的前提
 
@@ -407,7 +407,7 @@ T00 把这张表的新增行写进 `docs/diagnostics.md` §2 的事件约定和 
 
 **图片夹具。** 测试需要的图片字节一律在测试里现造，不提交二进制文件：
 
-- TypeScript 一侧由 T07 在 `packages/core/src/test-support/image-bytes.ts` 提供 `pngBytes`、`jpegBytes`、`webpBytes`、`withTextChunk`、`withExif`，造出最小但合法的文件头；
+- TypeScript 一侧由 T07 在 `packages/core/src/test-support/image-bytes.ts` 提供 `pngBytes`、`TINY_WEBP`、`webpHeaderBytes`、`jpegHeaderBytes`，造出最小但合法的文件头或能解码的小图；
 - client 浏览器测试用 `OffscreenCanvas` 现画；
 - Python 一侧用 Pillow 现画。
 
@@ -610,7 +610,8 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 | `src/shared/api/query.ts`、`src/app/App.tsx`（改） | T20 | 查询键与事件失效，测试沿用已有伪接口 |
 | `src/shared/hooks/useImageBlob.ts`、`src/shared/ui/WakePrompt.tsx`、`src/shared/lib/image-import.ts` 及测试（新建） | T20 | 带令牌取图、唤醒提示、本机导入的整理 |
 | `src/features/settings/ImageServiceSection.tsx` 等（新建）、`SettingsPage.tsx`、`SettingsNav.tsx`（改） | T21 | 设置页的出图服务 |
-| `src/features/authoring/IllustrationStyleSection.tsx`、`PortraitSetEditor.tsx` 等（新建）、`SettingsSections.tsx`、`PlanItemEditor.tsx`、`PlanItemCard.tsx`（改） | T22 | 作者画风、方案人物的形象、人物参考组 |
+| `src/features/authoring/IllustrationStyleSection.tsx`（新建）、`SettingsSections.tsx`、`PlanItemEditor.tsx`、`PlanItemCard.tsx`（改） | T22 | 作者画风、方案人物的形象、人物参考组入口 |
+| `src/shared/ui/illustration/StylePicker.tsx`、`StylePreview.tsx`、`PortraitSetEditor.tsx`、`PortraitSlotCard.tsx` 及测试（新建） | T22 | 作者和玩家共用的人物参考组与画风选择 |
 | `src/features/play/StartIllustrationPanel.tsx` 等（新建）、`StartPage.tsx`（改） | T23 | 开局页的插图设置 |
 | `src/features/play/IllustrationFrame.tsx`、`IllustrationLightbox.tsx` 等（新建）、`TurnArticle.tsx`、`PlayPage.tsx`、`JournalSubject.tsx`（改）；`packages/tokens/tokens.json`（加 `image-dim`） | T24 | 游玩页的插图、大图、唤醒提示、手记缩略图 |
 
@@ -657,11 +658,13 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   §6.3 第二条写明默认画风由这个过程保存。
 - [ ] 4. `docs/image.md` §10 的「回合视图里的插图」一条，写明插图视图随 `play.getRoute` 返回的每个回合一起给出（D15）。
 - [ ] 5. `docs/image.md` §9.1 写明临时文件放在 `images/tmp/`，启动时清空（D9）；§9.3 第 3 步写明写入区间是一个进程内的串行锁（D10）。
+- [ ] 5a. `docs/image.md` §5.1 把 `image` 对 `illustration` 的入口列全：`selectedServiceId`、`activeTarget`、`capabilities`、`prepareGeneration`、`assertFormat`、`generate`、`wake`。§8 的真名规则改成「在场人物的真名和主角的名字」。§9.2 的 `format_preference` 和 `format` 改成 `OutputPreferences` 的字段名（D22）。
 - [ ] 6. `docs/data-model.md`：
   - `works.illustration_style` 的注释改成 `{"kind":"preset","preset":"<预设 id>"}` 或 `{"kind":"custom","text":"<画风原文>"}`；
   - 如果有 `app_settings` 的表定义，加 `illustration` 列，说明见 D3。
   - 在实体表登记可空的 `source_para`。回合内登记的人物用已校验的 `new_entity.para`，作者设定和缺少出处的旧记录留空。
-- [ ] 6a. `docs/data-model.md` §5「插图按段落投影」写明 D27 的在场候选、D28 的亲见与形象规则和 D8 的「这一刻还不知道的名字」。
+- [ ] 6a. `docs/data-model.md` §5「插图按段落投影」写明 D27 的在场候选、D28 的亲见与形象规则和 D8 的「这一刻还不知道的名字」。§4 的 `same_visible_identity` 写成提案里是字符串 `"true"`、存储为数字 `1`。
+- [ ] 6b. `docs/colab-host.md` §8 第 4 步改成把认证 key 写进权限 `0600` 的临时文件，用 `--auth-key=file:<临时文件>`，执行完删除；不把 key 放进命令行参数。
 - [ ] 7. `docs/turn-loop.md` §12 验收表里「narrator 新增一个人物，没写 `appearance`」那一行改成：
   - **从什么情况开始：** narrator 新增一个人物，没写 `appearance`，并把 `illustrate` 写成正文里不存在的段号；
   - **操作：** 提交 `propose_turn`；
@@ -1102,8 +1105,8 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   export const IllustrationStageSchema = z.enum(ILLUSTRATION_STAGES);
 
   export const IllustrationFormatSchema = z.object({
-    aspect: AspectSchema,
-    tier: ImageTierPreferenceSchema,
+    aspectPreference: AspectSchema,
+    resolutionTier: ImageTierPreferenceSchema,
     size: ImageSizeSchema.nullable(),
   });
 
@@ -1255,7 +1258,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 
   | 文件 | 补什么 |
   | --- | --- |
-  | `packages/core/src/play/service.ts`、`apps/client/src/features/play/PlayPage.test.tsx` | `turnView`、`makeTurn` 填 `illustration: null`；路线生产者和 `makeRoute` 填 `playthroughId: null` |
+  | `packages/core/src/play/service.ts`、`apps/client/src/features/play/PlayPage.test.tsx` | `turnView`、`makeTurn` 填 `illustration: null`；路线生产者填实际的 `routes.playthrough_id`，`makeRoute` 夹具填 `playthroughId: null` |
   | `packages/core/src/play/start.ts`、`apps/client/src/features/play/StartPage.test.tsx` | 两处 `getStartInfo` / `startInfo` 填 `DEFAULT_START_ILLUSTRATION_INFO` |
   | `packages/core/src/library/service.ts`、client 的 `AuthoringPage.test.tsx`、`PlanPanel.test.tsx`、`BackgroundEditor.test.tsx`、`LibraryPage.test.tsx` | 每个 `WorkDetail` 构造处填 `illustrationStyle: null` |
   | `packages/core/src/story/journal.ts`、`apps/client/src/features/play/PlayPage.test.tsx` | 每个 `JournalSubject` 构造处填 `portrait: null` |
@@ -2162,7 +2165,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   **`illustrations`：**
   - 列：`id`、`turnId`（唯一，引用 `turns.id`，`onDelete: 'cascade'`）、`playthroughId`（引用 `playthroughs.id`，级联删除）、`para`、`formatPreference`（json，非空）、`format`（json）、`status`、`stage`、`caption`、`prompt`、`negativePrompt`、`shotCapability`（json）、`refs`（json）、`referenceFiles`（json）、`seed`、`serviceId`、`model`、`file`（json）、`error`、`attempts`（非空，默认 0）、`activeAttemptId`、`attemptData`（json）、`createdAt`、`updatedAt`。
   - `status` 用 `text('status', { enum: ILLUSTRATION_STATUSES })`，`stage` 用 `text('stage', { enum: ILLUSTRATION_STAGES })`。
-  - JSON 列的 `$type` 用第 2 步的类型。
+  - `formatPreference` 的 `$type` 是 `OutputPreferences`；`format` 的 `$type` 是 `IllustrationFormat`。其余 JSON 列的 `$type` 用第 2 步的类型。
   - 索引：
     - `index('illustrations_queue_idx').on(table.status, table.createdAt)`：工作循环按它取队首；
     - `index('illustrations_playthrough_idx').on(table.playthroughId)`。
@@ -2789,7 +2792,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 - 新建：
   - `apps/client/src/shared/hooks/useImageBlob.ts`、`useImageBlob.test.tsx`；
   - `apps/client/src/shared/hooks/useImageServiceState.ts`；
-  - `apps/client/src/shared/lib/image-import.ts`、`image-import.test.ts`；
+  - `apps/client/src/shared/lib/image-import.ts`、`image-import.test.tsx`；
   - `apps/client/src/shared/ui/WakePrompt.tsx`、`WakePrompt.module.css`、`WakePrompt.test.tsx`；
   - `apps/client/src/shared/lib/image-labels.ts`、`image-labels.test.ts`。
 
@@ -2932,7 +2935,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
   - 挂载 65 个不同的输入再全部卸载，然后挂第 66 个：`revokeObjectURL` 至少被调用一次；被淘汰的 URL 不是任何一个仍挂着的组件正在用的；
   - 请求失败返回 `image_file_missing`：`status === 'error'`，`code === 'image_file_missing'`。
 
-  `image-import.test.ts`（浏览器项目）：
+  `image-import.test.tsx`（浏览器项目）：
   - 用 `OffscreenCanvas` 画一张 3000×2000 的图，导出 PNG，包成 `File`：结果 `ok`，宽 1536，高 1024；
   - 结果文件名是 `portrait.webp` 或 `portrait.png`，和原文件名无关：原文件名用 `secret-name.png`，断言结果里没有 `secret`；
   - 一个内容是 `<svg/>` 的 `File`，`type` 写成 `image/png`：`problem === 'type'`；
@@ -2964,7 +2967,7 @@ throw appError('internal', 'not implemented: <服务名>.<方法名>');
 | --- | --- |
 | `useImageBlob.test.tsx` 全绿 | 把淘汰条件里的 `refs === 0` 去掉：「被淘汰的 URL 不是正在用的」变红 |
 | 同上 | 去掉缓存命中，每次都请求：「只被调用一次」变红 |
-| `image-import.test.ts` 全绿 | 类型判断改成看 `file.type`：SVG 那一条变红 |
+| `image-import.test.tsx` 全绿 | 类型判断改成看 `file.type`：SVG 那一条变红 |
 | `WakePrompt.test.tsx` 全绿 | 把 `'noopener,noreferrer'` 删掉：对应断言变红 |
 | `image-labels.test.ts` 全绿 | 从 `play.json` 删掉 `play:tier.2k`：变红 |
 | `rg -n "image.config_changed\|illustration.updated\|portrait.updated\|image.service_state" apps/client/src/app/App.tsx` 四个都命中 | — |
@@ -3311,6 +3314,12 @@ selfhost/colab/
   ```
 
   - `Services` 加 `image: ImageService; illustration: IllustrationService;`。
+  - `services.ts` 同时从 `./image/engine-types.ts` re-export `ImageDispatchGuard`、`ImageGenerateInput`、`ImageGenerateResult`，从 `./image/errors.ts` re-export `ImageError`，从 `./story/writer.ts` re-export `StoryTx`。T16–T19 和 `play` 从 `services.ts` 导入这些类型，不直接导入 `image/`、`story/` 的内部文件。
+  - `IllustrationService` 再加三个给 `play` 用的同步入口：
+    - `enqueue(tx: StoryTx, input: IllustrationQueueInput): string`：按 T18 第 2 步登记一条插图。
+    - `forRoute(routeId: string): Map<string, IllustrationView>`：按回合 id 返回这条路线上的插图视图；`play.getRoute` 直接用它挂到 `TurnView.illustration`。
+    - `journalPortraits(input: JournalPortraitsInput): Map<string, { setId: string; updatedAt: number }>`：T19 的手记缩略图查询。
+  - 在 `services.ts` 定义 `IllustrationQueueInput`、`JournalPortraitsInput` 和 `StoryService` 不新增；这些输入类型的字段照 T18、T19 的签名写。
   - `ServiceFactories` 加：
     - `image(deps: CoreDeps & { llm: LlmService }): ImageService;`
     - `illustration(deps: CoreDeps & { llm: LlmService; image: ImageService }): IllustrationService;`
@@ -3986,9 +3995,10 @@ selfhost/colab/
 **拥有的文件。**
 
 - 新建（在 `apps/client/src/features/authoring/` 下）：
-  - `IllustrationStyleSection.tsx`、`StylePicker.tsx`、`StylePreview.tsx`、`PortraitSetEditor.tsx`、`PortraitSlotCard.tsx`；
-  - 对应的 `*.module.css` 和 `*.test.tsx`。
-  - `StylePicker`、`StylePreview`、`PortraitSetEditor` 三个组件 T23 也会复用，所以放在 `features/authoring/` 下并导出，T23 从这里导入。
+  - `IllustrationStyleSection.tsx`、对应的 `*.module.css` 和 `*.test.tsx`。
+- 新建（在 `apps/client/src/shared/ui/illustration/` 下）：
+  - `StylePicker.tsx`、`StylePreview.tsx`、`PortraitSetEditor.tsx`、`PortraitSlotCard.tsx`，以及对应的 `*.module.css` 和 `*.test.tsx`。
+  - 这四个组件 T23 也会复用，所以放在 `shared/ui/illustration/` 并导出，T23 从这里导入。
 - 改：`SettingsSections.tsx`（在八节之后加「插图」）、`PlanItemEditor.tsx`（人物表单加形象）、`PlanItemCard.tsx`（显示形象和参考组入口）、`AuthoringPage.tsx`（挂 `WakePrompt`）、`apps/client/src/i18n/zh-CN/authoring.json`。
 
 **先读。**
@@ -4001,6 +4011,7 @@ selfhost/colab/
 **步骤。**
 
 - [ ] 1. **核对前提。** T20 已合入：`ls apps/client/src/shared/lib/image-import.ts apps/client/src/shared/ui/WakePrompt.tsx` 存在。
+- [ ] 1a. **文件位置。** 第 2、3、8、9 步的 `StylePicker`、`StylePreview`、`PortraitSetEditor`、`PortraitSlotCard` 放在 `apps/client/src/shared/ui/illustration/`；`IllustrationStyleSection` 留在 `features/authoring/`。
 - [ ] 2. **`StylePicker.tsx`。**
 
   ```tsx
@@ -4173,7 +4184,7 @@ selfhost/colab/
   - `frameAspect(view)`：
     - 有完成图时用 `view.image` 的宽高；
     - 否则用 `view.format.size` 的宽高；
-    - 再没有时用 `view.format.aspect` 解析出的比例；
+    - 再没有时用 `view.format.aspectPreference` 解析出的比例；
     - 都没有返回 `null`，表示自动比例尚未确定，只显示一行状态，不留画框。
   - `placementOf(turn)`：返回插图要插在哪一段之后。`para === 0` 时在第一段之前，`para === n` 时在第 n 段之后。
   - 测试：上面每种情况各一条。
@@ -4185,9 +4196,9 @@ selfhost/colab/
 
   | 状态 | 显示 |
   | --- | --- |
+  | `queued`，服务状态是 `waking` | 有画框时框里写 `play:illustration.waking`；比例未定时写同一行状态文字 |
+  | `queued`，服务状态是 `needs_action` | 有画框时框里写 `play:illustration.waitingAuth`；比例未定时写同一行状态文字 |
   | `queued` 或 `running`，`frameAspect` 为 `null` | 一行状态文字 `play:illustration.composing` |
-  | `queued`，服务状态是 `waking` | 画框，框里写 `play:illustration.waking` |
-  | `queued`，服务状态是 `needs_action` | 画框，框里写 `play:illustration.waitingAuth` |
   | `queued`，其他服务状态 | 画框，框里写 `play:illustration.queued` |
   | `running` | 画框，框里写 `play:illustration.drawing` |
   | `done` | 图片，见下 |
@@ -4233,10 +4244,10 @@ selfhost/colab/
   - 顶部挂 `<WakePrompt serviceId={…} />`，`serviceId` 取页面上任一条未完成插图的 `serviceId`，没有时取 `imageConfig.selectedServiceId`；
   - **进入页面时预热：** 页面挂载、并且路线已加载时，调用一次 `api.image.prewarm({ playthroughId })`。失败时静默：预热失败不打扰阅读，诊断由 core 记。
     - `playthroughId` 取 `route.playthroughId`（T02 加、T12 填）。为 `null` 时不预热。
-- [ ] 9. **`packages/tokens/tokens.json`。** 加 `color.image-dim`：
-  - 浅色主题：`transparent`；
-  - 深色主题：在纯黑上取一个低透明度，例如 `rgb(0 0 0 / 12%)`，具体值按 `tokens.json` 里已有半透明颜色的写法写。
-  - 然后跑 `node packages/tokens/build-css.mjs`（按现有的构建方式）和 `node scripts/check-tokens.mjs`。
+- [ ] 9. **`packages/tokens/tokens.json`。** 加两个 token：
+  - `color.image-dim`：浅色主题 `transparent`，深色主题在纯黑上取低透明度，例如 `rgb(0 0 0 / 12%)`；
+  - `size.image-max-block`：数值 `50`，按视口高度的百分比用于“画框不超过阅读区可见高度的一半”；同时更新 `docs/theme.md`。
+  - 然后跑 `node packages/tokens/build-css.mjs`（按现有的构建方式）、`node scripts/check-tokens.mjs` 和 token 契约测试。
   - 这是本任务唯一改 `packages/` 的地方。
 - [ ] 10. **`JournalSubject.tsx`、`JournalPortrait.tsx`。**
   - `subject.portrait` 不为空时，条目起始端显示一个小方块缩略图：
@@ -4738,7 +4749,7 @@ plugins/colab-launcher/
   - **权限：** 文件权限不是 `0o600` 时拒绝启动，打印 `config file must be 0600`。
   - **`$变量名` 写法：** 三个密钥都支持，规则同 core 的 `resolveApiKey`：以 `$` 开头就从环境变量读。
   - **缺项时**不退出：进程照常启动，`/v1/info` 报告 `ready: false`、`notReadyReason: "not_configured"`。
-  - **地址必须是回环地址**（`127.0.0.1`），否则拒绝启动。
+  - **监听地址：** 配置里 `listen` 缺省为 `127.0.0.1`，只能是回环地址，否则拒绝启动。
   - **令牌**短于 32 个字符时拒绝启动，信息里不含令牌。
 - [ ] 3. **`launcher/cli.py`。** 每个 Colab CLI 命令一个函数，全部用 `asyncio.create_subprocess_exec`，**参数列表里不放任何密钥**（§6）：
 
@@ -5118,7 +5129,7 @@ plugins/colab-launcher/
 - [ ] 6. **给自动插图固定背景模型。** 在 `llm/types.ts` 的 `LlmCompleteInput` 加 `guard?: { endpointId: string; modelId: string; assertCurrent: () => void }`。在 `llm/run.ts` 的 `createCompleter` 拿到 `targetFor(input.purpose)` 的结果后，核对实际的 `RuntimeTarget.endpointId`、`modelId` 和守卫一致。每次调用 `completeOnce` 前（包括传输重试）运行 `assertCurrent()`，将已核对的 `target` 直接传给 `completeOnce`。目标不符、确认失效或尝试取消时以 `AbortError` 结束，放在吞掉或重试传输异常的逻辑之外。其他 `complete` 调用仍按原用途解析。
 
   **`illustration/suggest.ts`：`suggestAppearance(deps, { workId }, options?)`**（§6.1、[游玩流程 §2.1](../docs/gameplay-flow.md#21-插图)「按设定写一个」）。
-  1. 取发布版本的主角实体档案 `text`，以及 `meta` 里可公开的主角设定：用 `store/plan.ts` 的 `readPublicSetting`，按符号名找。**不取**幕后设定和秘密。
+  1. 取发布版本的主角实体档案 `text`。公开材料有两份：`store/plan.ts` 的 `readPublicSetting(meta)`（公开设定或世界），以及 `readSettings(meta).protagonist.text`（作者写的主角设定）。**不取**幕后设定、秘密和 `settings.secrets`。
   2. 用 `deps.llm.complete`：`purpose: 'background'`；`system` 和 `prompt` 照附录 B.5；`ref: { kind: 'illustration', id: workId, attempt: 1, workId }`；`maxOutputTokens: 200`。自动补写时，T18 从 `options` 传入 `signal`、`LlmCompleteInput['guard']`，第一次调用和每次重写都传相同值。开局页手动补写沿用不传守卫的调用。
   3. 结果去首尾空白，取第一行，用 `AppearanceTextSchema` 校验：
      - 不通过时，把错误附在提示词后面，再调一次，最多重写 2 次；
@@ -5126,7 +5137,7 @@ plugins/colab-launcher/
   4. 返回 `{ appearance }`。**不写库**：玩家在开局页看了再决定用不用。
   - **为什么只用 `complete()`：** `background` 用途不要求工具调用（[LLM 端点 §7](../docs/llm-endpoints.md#7-用途分配)）。
 - [ ] 7. **`illustration/service.ts`。**
-  - 建一个 `const store = createImageStore(deps.dataDir)` 放在服务实例的闭包里。用 `storageSummary(deps.db)` 和 `collectGarbage({ db: deps.db, store, now: Date.now(), logger: deps.logger })` 替换占位。T17、T18、T19 复用这个存储。测 `storageSummary` 返回实际去重占用、`collectGarbage` 删除测试目录里已超过保护期的孤儿文件；删掉任一接线相应断言变红。
+  - 建一个 `const store = createImageStore(deps.dataDir, deps.logger)` 放在服务实例的闭包里。用 `storageSummary(deps.db)` 和 `collectGarbage({ db: deps.db, store, now: Date.now(), logger: deps.logger })` 替换占位。T17、T18、T19 复用这个存储。测 `storageSummary` 返回实际去重占用、`collectGarbage` 删除测试目录里已超过保护期的孤儿文件；删掉任一接线相应断言变红。
   - **`suggestAppearance`：** 调用第 6 步。作品不存在或没发布时抛 `not_found`、`not_published`。
   - **`setWorkStyle`：**
     - 校验作品存在；
@@ -5257,8 +5268,8 @@ plugins/colab-launcher/
   - **`identityFactId`**（§6.2「可见身份」）：从这一刻往回找可见的 `appearance` 特征：
     - 最新一条可见特征的 `data.same_visible_identity === 1` 时，继续往前找，直到一条不是 1 的，它的 id 就是起点；
     - 都是 1、或者没有可见特征时，为 `null`，表示基础形象。
-  - **`place`：** 非开场用上一回合的场景地点。开场只取所选版本在开场前明确公开的处境文字，地点未单独给出时为 `null`。
-  - **`bannedNames`：** `people` 里每个人的实体表 `name`，去首尾空白后长度 ≥ 2 的（D7）。主角在列表里时，也包括主角的名字。
+  - **`place`：** 非开场用上一回合结束时的场景地点。目标回合的 `scene` 是结束时状态，不用于段内推断；正文明确写出地点变化时只作为文字线索。开场只取所选版本在开场前明确公开的处境文字，地点未单独给出时为 `null`。
+  - **`bannedNames`：** `people` 里每个人的实体表 `name`，加上主角的实体表 `name`，去首尾空白后长度 ≥ 2 的（D7）。主角不入画时也包含主角的名字。
   - **`unknownNames`**（D8）：候选是版本里全部实体的 `name` 和全部称呼，已知是这一刻主角知道的称呼和名字，用 `protagonistKnownStrings` 的同样规则、只看这一刻之前的记录；取「候选减已知」中长度 ≥ `STORY_LIMITS.nameMinLengthForLeakCheck` 的。
   - **`para === 0`（开场图）：**
     - `paragraphs` 为空，从所选版本的 `readPlan(meta)` 里找 `kind: 'summary', key: 'situation'` 的公开开场处境，按 `opening-prompt.ts` 的 `planSummary` 所用字段读取。规划时 `readPublicSetting` 只读 `public_setting` 或 `world`，它不提供开场处境；
@@ -5320,7 +5331,7 @@ plugins/colab-launcher/
 
 **步骤。**
 
-- [ ] 1. **核对前提。** T22 已合入：`rg -n "export function PortraitSetEditor|export function StylePicker" apps/client/src/features/authoring` 都有命中。
+- [ ] 1. **核对前提。** T22 已合入：`rg -n "export function PortraitSetEditor|export function StylePicker" apps/client/src/shared/ui/illustration` 都有命中。
 - [ ] 2. **`start-illustration.ts`**（纯函数）。
   - **`initialChoice(info: StartIllustrationInfo): StartIllustrationInput`：**
     - `enabled`：`info.available && info.autoEnabled`。自动出图开着时，新开局默认有插图；
@@ -5587,7 +5598,7 @@ plugins/colab-launcher/
 - [ ] 4. **`portrait-runner.ts`。** 后台执行生成任务：
   - `run(task: () => Promise<void>)` 把任务放进一个集合，`whenIdle()` 等集合清空。
   - 生成请求本身经 `image.generate` 进入按服务的队列，这里不另外限制并发。
-- [ ] 5. **`portraits.ts`。** 每个导出函数对应一个过程，参数是 `deps`（`db`、`bus`、`logger`、`image`、`store`、`runner`）加输入。
+- [ ] 5. **`portraits.ts`。** 每个导出函数对应一个过程，参数是 `deps`（`db`、`bus`、`logger`、`image`、`store`、`runner`）加输入。`ImageDispatchGuard` 从 `services.ts` 导入，不直接导入 `image/` 的内部文件。
 
   **`draft`：**
   - **`scope: 'work'`，`target.kind` 必须是 `entity`：**
@@ -5782,17 +5793,17 @@ plugins/colab-launcher/
 - [ ] 3. **回合提交时登记**（§7.1）。
   - **`play/service.ts` 的续写提交**（T12 加了 `illustratePara` 的同一个 `tx.insert(turns)`）：
     - 事务之前，读开局行的 `illustration` 和 `image.activeTarget()`。`activeTarget` 是同步的，取一次传进事务；
-    - 事务里，`draft.illustratePara !== null` 并且 `illustrationEnabled(...)` 时，调用 `enqueueIllustration`；
+    - 事务里，`draft.illustratePara !== null` 并且 `illustrationEnabled(...)` 时，调用 `services.illustration.enqueue(tx, { turnId, playthroughId, para, settings, now })`；
     - 提交后：
       - 有登记时记 `illustration.flagged`，`data: { routeId, depth, para }`；
       - 调用 `worker.kick()`；
       - 发布 `illustration.updated`。
     - 没有启用时，`illustrate_para` 照样写，但不登记。这个值以后给「换一种发展」的采用用（§7.1「候选不画」），本里程碑没有候选。
   - **开场图**（[回合循环 §10](../docs/turn-loop.md#10-开场) 第 4 步）：
-    - `play/start.ts` 的固定人物开场，和 `play/opening-job.ts` 的每局生成开场，在写根回合的 `tx.insert(turns)` 里：`illustrationEnabled(...)` 为真时，`illustratePara: 0`，并在同一个事务里 `enqueueIllustration({ para: 0 })`；
+    - `play/start.ts` 的固定人物开场，和 `play/opening-job.ts` 的每局生成开场，在写根回合的 `tx.insert(turns)` 里：`illustrationEnabled(...)` 为真时，`illustratePara: 0`，并在同一个事务里调用 `services.illustration.enqueue(tx, { para: 0, ... })`；
     - 两处的写法相同，规划时分别在 `start.ts` 第 246 行、`opening-job.ts` 第 351 行附近；
     - 提交后同样 `kick` 并发布事件。
-  - **`play` 拿不到 `image` 服务时：** `ServiceFactories.play` 在 T13 已经加了 `image`；`illustration` 服务的 `worker.kick` 要通知过去，所以 `play` 还需要一个回调。在 `ServiceFactories.play` 的依赖里再加 `onIllustrationQueued: () => void`，`app.ts` 里在建好 `illustration` 之后接上 `illustration.kick`。
+  - **`play` 拿不到 `image` 服务时：** `ServiceFactories.play` 在 T13 已经加了 `image`；`illustration` 服务的 `worker.kick` 要通知过去，所以 `play` 还需要一个回调。在 `ServiceFactories.play` 的依赖里再加 `illustration: IllustrationService; onIllustrationQueued: () => void`，`app.ts` 里在建好 `illustration` 之后接上 `illustration.kick`。
     - **先后关系：** `illustration` 只依赖已有的 image、llm 和 CoreDeps，先创建它，再把 `() => illustration.kick()` 交给 play。三个提交点使用同一个回调。
     - `IllustrationService` 接口加 `kick(): void`。
     - 这些装配和类型化夹具改动都归本任务。用 `rg -n "createPlayService\(|ServiceFactories|: Services" packages/core/src` 核对调用与夹具，真实装配传实际回调，已有纯文字替身用空回调。
@@ -5829,7 +5840,7 @@ plugins/colab-launcher/
     - **按顺序选一张：** 镜头要的视角、正面、同组其他视角；取第一张不超过 `maxReferenceBytes` 的（§7.2 第 3 步）。
     - **组里每一张都超过上限：** 抛 `ImageError('image_reference_too_large', 'final')`。
     - **这个人没有可见形象、也没有组：** 返回 `{ drop: <这个人此刻的称呼或「一个人」> }`。调用方用 `dropReference` 把引用换成文字（§8）。
-- [ ] 5. **`pipeline.ts`：一次尝试**（§7.2）。
+- [ ] 5. **`pipeline.ts`：一次尝试**（§7.2）。`ImageError`、`ImageDispatchGuard` 从 `services.ts` 导入，不直接导入 `image/` 的内部文件。
 
   ```ts
   export async function runAttempt(deps, row: IllustrationRow, signal: AbortSignal): Promise<void>
@@ -5843,7 +5854,7 @@ plugins/colab-launcher/
   - **步骤，按顺序：**
     0. **固定目标与就绪：** 从 `activeTarget()` 保存本次确认的完整接收方，先用已有能力校验可以提前发现的规格问题，再调 `image.prepareGeneration(serviceId, { manual, signal, onWaiting, guard: imageGuard })` 取得服务当前能力。工作循环取到该记录时，将 `attempt_data.serviceId` 写为当前服务 id，并发布事件，让 client 能看到唤醒状态。之前只登记未开始的尝试，其 `serviceId` 保持空。未完成图等待唤醒时保持 `queued`，重画保持 `done` 和旧图。工作循环持有本尝试，等就绪后复核尝试 id、完整接收方和实际能力，再将未完成图改为 `running`。失败记在 `wake`。等待唤醒时如果进程中断，下次启动后有尝试 id 且已写入尝试服务 id 的 `queued` 按中断恢复，尚未取到的 `queued` 继续执行。
     1. **规格**（§7.2 第 2 步、§7.4「规格不可用」）：
-       - 偏好取 `attempt_data.formatOverride ?? format_preference`；
+       - 偏好取 `attempt_data.formatOverride ?? row.format ?? format_preference`。`row.format` 存在时，它的比例、档位和显式宽高是这次重试或重画的基准；只有 `formatOverride` 不为空时才按用户新选择覆盖。
        - 偏好是 `'default'` 档时，可用比例是全部 `aspects`；否则是 `resolutions` 里有这一档的比例；
        - 偏好是固定比例时，可用比例只有它自己（必须在可用比例里）；
        - 可用比例为空 → 以 `image_output_format_unavailable` 失败，`stage: 'shot'`，**本次不发模型或出图请求**；
@@ -5898,7 +5909,7 @@ plugins/colab-launcher/
   - `image`：`file` 的宽高；
   - 等待或生成中的第一次出图，`serviceId` 取 `attempt_data.serviceId`。已有完成图保留已落库服务标识。还在初始队列并且比例固定时，`format` 可由比例、档位偏好给出，`size` 暂空。
   - 其余字段一一对应。
-- [ ] 9. **`play/service.ts` 的 `getRoute`。** 查出路线上全部回合的插图，`turn_id IN (…)`，一次查询，按回合挂到 `TurnView.illustration`。没有插图的回合为 `null`（D15）。
+- [ ] 9. **`play/service.ts` 的 `getRoute`。** 调用 `services.illustration.forRoute(routeId)` 取得这条路线上的插图视图，按回合挂到 `TurnView.illustration`。没有插图的回合为 `null`（D15）。
 - [ ] 10. **`illustration/service.ts`。**
   - **`retry(input)`**（§7.2「失败后不再自动重试」）：
     - 这一行必须是 `failed`，否则抛 `request_not_retryable`；
@@ -5908,8 +5919,7 @@ plugins/colab-launcher/
   - **`reroll(input)`**（§7.4「重画」）：
     - 这一行必须是 `done`；
     - 写 `active_attempt_id`、`attempt_data.kind: 'reroll'`、`formatOverride`；
-    - `formatOverride` 为空、且原图有明确请求宽高时沿用它；
-    - 镜头描述在能力一致时沿用，第 5 步第 3 小步的规则已经覆盖。
+    - `formatOverride` 为空时以 `row.format` 为基准，沿用已确定的比例、档位和显式宽高；`row.format` 也为空时才回到 `format_preference`。镜头描述在能力一致时沿用，第 5 步第 3 小步的规则已经覆盖。
   - **`dismiss(input)`**（§7.4「不要这张图」）：
     - 任何状态都可以；
     - 改成 `dismissed` 并清掉 `active_attempt_id`。提交后调用和停用相同的控制器中止入口，以 id 匹配被撤销的尝试，包括等待授权或重画；
@@ -5955,10 +5965,10 @@ plugins/colab-launcher/
 
 | 功能 | 落点 | 挂上去的地方 |
 | --- | --- | --- |
-| 续写时登记 | `enqueueIllustration` | `play/service.ts` 的续写提交事务，1 处 |
-| 开场图 | `enqueueIllustration({ para: 0 })` | `play/start.ts`、`play/opening-job.ts` 的根回合事务，2 处 |
+| 续写时登记 | `services.illustration.enqueue` | `play/service.ts` 的续写提交事务，1 处 |
+| 开场图 | `services.illustration.enqueue(tx, { para: 0, ... })` | `play/start.ts`、`play/opening-job.ts` 的根回合事务，2 处 |
 | 唤醒工作循环 | `kick` | 上面 3 处提交之后，加上 `retry`、`reroll` |
-| 回合视图 | `illustrationView` | `play/service.ts` 的 `getRoute`，1 处 |
+| 回合视图 | `services.illustration.forRoute` | `play/service.ts` 的 `getRoute`，1 处 |
 | 停用时取消 | `cancel.ts` 的订阅 | `createIllustrationService` 里订阅一次 |
 
 **注意事项。**
@@ -5979,7 +5989,7 @@ plugins/colab-launcher/
 | 同上 | 删除写入锁内的接收方核对：「写入锁等待时换接收方」变红 |
 | 同上 | 调用镜头修正时省略背景模型守卫：T16 用伪 `complete` 断言每次输入带同一守卫，变红；T13 用真实 `complete` 验证错配时不会外发 |
 | 同上 | 参考图不先登记到 `attempt_data`：在 `pickReferenceFiles` 之后、出图之前插入一次 `collectGarbage`，并把保护期打桩为 0，参考文件被删，出图失败，变红。这一条写进集成测试 |
-| `rg -n "enqueueIllustration\(" packages/core/src --glob '!*.test.ts'` 正好 3 处 | — |
+| `rg -n "\.enqueue\(" packages/core/src --glob '!*.test.ts'` 正好 3 处 | — |
 | `grep -n "not implemented:" packages/core/src/illustration/service.ts` 只剩 `file` 一处，由 T19 替换 | — |
 
 ---
@@ -6030,7 +6040,7 @@ plugins/colab-launcher/
   - **用哪一组：** 当前路线可见的形象身份，用 T14 的同一套规则，以路线 head 的最后一段为「这一刻」，算出 `identityFactId`。然后按 T18 第 4 步的顺序找参考组：本局锁定的作者组，或本局的 `playthrough` 组。组里的正面有图才算数。
   - 欠缺可见参考时，不给这个人缩略图（§10）。
 - [ ] 3. **`story/journal.ts`。** `buildJournal(p, routeId, portraits?)`：`portraits` 是一个 `Map<entityId, { setId, updatedAt }>`，有时给对应的 `JournalSubject` 填 `portrait`。不传时都是 `null`。**`story` 不导入 `illustration`**：缩略图由调用方算好传进来。
-- [ ] 4. **`play/service.ts` 的 `getJournal`。** 读开局行的 `illustration`，调用 `journalPortraits`，把结果传给 `buildJournal`。`play` 导入 `illustration/journal-portraits.ts` 是允许的：`illustration` 不导入 `play`，没有环。用 `rg -n "from '\.\./play/" packages/core/src/illustration` 确认零命中。
+- [ ] 4. **`play/service.ts` 的 `getJournal`。** 读开局行的 `illustration`，调用 `services.illustration.journalPortraits(...)`，把结果传给 `buildJournal`。`play` 不直接导入 `illustration/` 的内部文件。用 `rg -n "from '\.\./illustration/" packages/core/src/play` 确认零命中。
 - [ ] 5. **`file-access.ts`：`resolveImageFile(db, store, input)`**（§10 第一条）。
   - **`view.kind: 'work'`：**
     - 只允许 `image.kind: 'portrait'`；
@@ -6076,7 +6086,7 @@ plugins/colab-launcher/
 | 功能 | 落点 | 挂上去的地方 |
 | --- | --- | --- |
 | 取图 | `resolveImageFile` | `illustration.file`，T06 已接路由 |
-| 缩略图 | `journalPortraits` | `play/service.ts` 的 `getJournal`，1 处 |
+| 缩略图 | `services.illustration.journalPortraits` | `play/service.ts` 的 `getJournal`，1 处 |
 | `nosniff` | `http-app.ts` | 1 处 |
 | CSP | `client-assets.ts` | 1 处 |
 
@@ -6122,7 +6132,7 @@ plugins/colab-launcher/
 - [ ] 2. **`services.ts`、`illustration/service.ts`，准备存储。** 在 `IllustrationService` 加 `prepareStorage(): Promise<void>`。实现先在 T15 建的存储上执行 `store.clearTemp()`，然后等待同一服务的 `collectGarbage()`。`app.ts` 只调服务接口。这样启动清理与正常写图仍走同一个存储和写入锁。用 `rg -n ": Services|ServiceFactories" packages/core/src --glob '*.test.ts'` 核对 T06 的测试夹具，给仍使用替身的 `IllustrationService` 补 `prepareStorage`；真实工厂直接用投产实现。
 - [ ] 3. **`library/service.ts`，从删除提交准确触发。** 给 `ServiceFactories.library` 和 `createLibraryService` 的依赖加 `onWorkDeleted?: () => void`，由 `startCore` 在生产装配一定传入。保留 `delete` 的同步返回和既有事件。在删除事务成功、受影响行数大于零时调回调一次，位置与 `works.changed` 同在提交之后。`library/service.test.ts` 用 spy 验证回调里已查不到作品，第二次删同一个 id 时计数仍为 1。作品保存、发布和画风更新共用 `works.changed`，所以清理触发点落在删除方法里。
 - [ ] 4. **`app.ts`，接生命周期。**
-  1. 按依赖顺序创建共用的 providers 存储、llm、image、illustration，再创建依赖它们的 play 和 library。把 `onIllustrationQueued: () => illustration.kick()` 传给 play，删掉 T18 如果留下的占位闭包。确认其他工厂仍能拿到原来的依赖。
+  1. 按依赖顺序创建共用的 providers 存储、llm、image、illustration，再创建依赖它们的 play 和 library。把 `illustration` 服务和 `onIllustrationQueued: () => illustration.kick()` 一起传给 play，删掉 T18 如果留下的占位闭包。确认其他工厂仍能拿到原来的依赖。
   2. 删除回调调 `illustration.collectGarbage()`。用一个进程内 `Set<Promise<void>>` 跟踪还在跑的删除清理，任务结束后移出。每次成功删除都提交一次清理，由 T15 的写入锁串行执行。用 `catch` 记录 §2.5 的 `image.gc.failed`，处理为已结束的任务，避免未处理的 Promise 拒绝。删除已经提交，RPC 继续返回成功。
   3. 在现有恢复阶段调用 `illustration.recoverInterrupted()` 和 `image.pruneCalls()`，将恢复数量加入现有 `recovery.interrupted` 的 `data.illustrations`。随后等 `illustration.prepareStorage()` 结束，再继续启动 HTTP。此时可用的暂存文件只来自上一次进程。准备失败同样记 `image.gc.failed`，保留正常开局和正文路径。
   4. 恢复和清理结束、HTTP 监听成功后调用一次 `illustration.kick()`。工作循环接续仍在排队的记录。T18 恢复过的任务保持显式失败，等待玩家按张重试。
@@ -6734,7 +6744,7 @@ C1 | 称呼=<已知称呼> | 形象=<可见形象> | 主角=<是或否> | 可用
 ### D.2 规格、参考和失败用例
 
 - T07 的 `pngBytes` 提供能实际解码的字节。需要两张参考不同时，用不同宽高的合法图片，直接比较字节数组。导入夹具用虚构原名 `fixture-original-name.jpg`，检查处理后的文件名及实际字节。只有做本机导入的用例才留原图在浏览器。
-- 横竖对照用 `3:2` 的 1536×1024 与 `2:3` 的 1024×1536，窄屏另配 `9:16` 的 576×1024。所有尺寸由伪服务实际报告，测试硬写预期宽高，用来发现 core 交换宽高或错档。固定比例的 720 与 2K 取同一比例下的两组不同尺寸。
+- 横竖对照用 `3:2` 的 1536×1024 与 `2:3` 的 1024×1536，窄屏另配 `9:16` 的 1024×1824。所有尺寸由伪服务实际报告，测试硬写预期宽高，用来发现 core 交换宽高或错档。固定比例的 720 与 2K 取同一比例下的两组不同尺寸。
 - 选择结果对照用「指尖刚碰到尚未扳下的闸杆」和「闸杆已落下，候船厅的三盏灯亮起」。多人和换装取同一组已采用正面。对照正面＋全身、再加斜侧脸时，其余输入一致。
 - 日志测试放入本用例独有的虚构字串，比如 `fixture-caption-private-4`，分别作为画面说明、原始错误或地址的值。先断言真实产生事件和样本，再查字串未入库。临时放开写入后应能查到该字串，用来验证拦截和查询本身。
 
@@ -6748,14 +6758,19 @@ C1 | 称呼=<已知称呼> | 形象=<可见形象> | 主角=<是或否> | 可用
 
 | 编号 | 状态 | 维护者裁定、理由与何时重估 |
 | --- | --- | --- |
-| D1–D28 | 待确认 | §1.4 暂按推荐项写。维护者确认后由 T00 同步到对应设计文档。 |
+| D1–D28 | 已确认 | 按推荐项通过；D7 的主角名始终进入 `bannedNames`，D22 统一用 `OutputPreferences` 字段名并以已有 `format` 为重画基准，D28 的 `same_visible_identity` 存储为 `1`。维护者确认。重估：实现中发现与设计文档冲突时，先改文档再改代码。 |
+| 客户端共用组件 | 已确认 | `StylePicker`、`StylePreview`、`PortraitSetEditor`、`PortraitSlotCard` 下沉到 `apps/client/src/shared/ui/illustration/`，由 T22 实现，T23 从共享层导入。理由：`apps/client/AGENTS.md §7` 禁止 feature 之间互相导入 |
+| core 公共接口 | 已确认 | 扩 `services.ts` 的 `ImageService`、`IllustrationService`，`image` 的错误和守卫类型、`story` 的 `StoryTx` 由 `services.ts` re-export；`play` 通过 `IllustrationService` 使用登记、路线插图视图和手记缩略图 |
 | §1.3 推迟项 | 待确认 | 候选采用、存档分支、试玩入口由对应功能的任务接入。 |
 
 ### 6.2 波次读数
 
 | 波次 | 执行情况 | typecheck | lint | test | Python / E2E / 文档 |
 | --- | --- | --- | --- | --- | --- |
-| W0–W11 | 实现尚未开始 | 待执行 | 待执行 | 待执行 | 待执行 |
+| W0–W1 | 完成 | 0 | 0 | 0 | 文档链接通过；T01/T02 独立 review 无确认问题 |
+| W2–W9 | 完成 | 0 | 0 | 0（core 798、client 327、contracts 42、desktop 43） | `pnpm test:python` 全过；两组一致性测试 15/15、9/9 |
+| W10 | 完成 | 0 | 0 | 0 | `pnpm e2e` 32/32（含 M4 14 个用例） |
+| W11 | 部分执行 | 0 | 0 | 0 | 本机 DMG 与 `Unwritten.app` 已打出；真实 GPU、Colab、VoiceOver、200% 放大待维护者 |
 
 每波另起一行。Python 锁定版本、模型和工作流锁定值、真实 GPU 档位由各自任务给出可复核来源和实际读数。
 
@@ -6763,13 +6778,16 @@ C1 | 称呼=<已知称呼> | 形象=<可见形象> | 主角=<是或否> | 可用
 
 | 任务与判据 | 运行方式 | 原实现读数 | 突变位置与失败读数 | 改回后的读数 |
 | --- | --- | --- | --- | --- |
-| 待执行 |  |  |  |  |
+| T01–T30 | 各任务定向测试与突变 | 均绿 | 见各任务执行汇报；每条判据都有对应突变读数 | 逐条改回后复绿 |
 
 ### 6.4 实机与欠账
 
 | 验收项 | 执行环境 | 结果与证据 | 负责裁定 | 何时重估 |
 | --- | --- | --- | --- | --- |
+| ComfyUI 生产工作流模板 | 本机 | T26 包装、测试和一致性测试完成；`workflows/` 四份官方 API 模板与 `manifest.json` 尚未取得，未伪造。真实插件启动与 T31 验收待模板 | 维护者 | 维护者在装了 ComfyUI 的机器上导出后 |
+| Strata MTP 缓存 | 本机 | `artifacts`、31 个源张量清单、打包文件大小/sha256 已在本地由 Strata 0.2.23 工具验证；Drive 缓存与宿主磁盘统计已接入。真实 Colab 冷启动未跑 | 维护者 | T31 |
 | 真实 GPU、OpenAI 兼容端点与插图评测 | 待实机 | 待走查 | 维护者 | T31 |
 | Colab 接入、启动、释放、重新唤醒与 Strata 重连 | 待实机 | 待走查 | 维护者 | T31 |
-| 安装包、VoiceOver、200% 放大 | 待实机 | 待走查 | 维护者 | T31 |
+| 安装包、VoiceOver、200% 放大 | 本机 DMG 已打出 | 待人工走查 | 维护者 | T31 |
+| 已发布作品编辑人物参考的界面路径 | 本机 | E02 通过 RPC 完成替换；当前已发布作品只显示发布面板，未提供方案/参考组编辑入口 | 维护者 | 对应作者编辑入口实现时 |
 | 候选采用、存档分支与试玩入口 | 对应能力推迟 | §1.3 记录验收范围 | 维护者 | 对应能力进入实现时 |

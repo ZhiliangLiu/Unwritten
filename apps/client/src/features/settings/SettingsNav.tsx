@@ -6,12 +6,14 @@ export const SETTINGS_SECTION_IDS = {
   appearance: 'settings-appearance',
   reading: 'settings-reading',
   models: 'settings-models',
+  images: 'settings-images',
 } as const;
 
 const SECTIONS = [
   { id: SETTINGS_SECTION_IDS.appearance, labelKey: 'settings:nav.appearance' },
   { id: SETTINGS_SECTION_IDS.reading, labelKey: 'settings:nav.reading' },
   { id: SETTINGS_SECTION_IDS.models, labelKey: 'settings:nav.models' },
+  { id: SETTINGS_SECTION_IDS.images, labelKey: 'settings:nav.images' },
 ] as const;
 
 const ACTIVE_LINE_TOLERANCE = 1;

@@ -14,6 +14,7 @@ import {
 } from '../schemas/play.ts';
 import { JournalViewSchema } from '../schemas/story.ts';
 import { WorkIdInputSchema } from '../schemas/works.ts';
+import { SuggestAppearanceInputSchema, SuggestAppearanceOutputSchema } from '../schemas/illustration.ts';
 
 export const playContract = {
   getRoute: oc.input(RouteIdInputSchema).output(RouteViewSchema),
@@ -25,4 +26,5 @@ export const playContract = {
   getPlaythrough: oc.input(PlaythroughIdInputSchema).output(PlaythroughViewSchema),
   retryOpening: oc.input(RetryOpeningInputSchema).output(PlaythroughViewSchema),
   getStatus: oc.input(RouteIdInputSchema).output(StatusViewSchema),
+  suggestAppearance: oc.input(SuggestAppearanceInputSchema).output(SuggestAppearanceOutputSchema),
 };

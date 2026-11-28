@@ -1,9 +1,18 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { createORPCClient } from '@orpc/client';
+import { RPCLink } from '@orpc/client/fetch';
+import type { ContractRouterClient } from '@orpc/contract';
+import { DEFAULT_APPEARANCE, DEFAULT_ILLUSTRATION_STYLE, contract } from '@unwritten/contracts';
+import type { StartIllustrationInput } from '@unwritten/contracts';
 import { startFakeOpenAiServer } from './test-support/fake-openai-server.ts';
 import type { FakeOpenAiServer } from './test-support/fake-openai-server.ts';
+import { startFakeImageServer } from './test-support/fake-image-server.ts';
 import {
   changeLines,
   proposePlanStep,
@@ -11,9 +20,17 @@ import {
   proposeTurnStep,
   rawToolStep,
 } from './test-support/llm-steps.ts';
+import { pngBytes } from './test-support/image-bytes.ts';
 import { makeTempDataDir } from './test-support/temp-dir.ts';
-import { seedStory } from './test-support/story-fixtures.ts';
+import { seedLighthouseTown, seedNorthCape, seedStory } from './test-support/story-fixtures.ts';
 import { openDatabase } from './store/db.ts';
+import {
+  AttemptDataSchema,
+  PlaythroughIllustrationSchema,
+  PortraitSlotsStoredSchema,
+  PortraitTasksSchema,
+  type ImageFileRef,
+} from './store/illustration-types.ts';
 import { DEFAULT_WORK_SETTINGS, EMPTY_GENERATION_PARAMS } from '@unwritten/contracts';
 import { startCore } from './app.ts';
 import type { RunningCore } from './app.ts';
@@ -23,6 +40,10 @@ import { createSettingsService } from './settings/service.ts';
 import { createSummaryService } from './summary/queue.ts';
 import { createAuthoringService } from './authoring/service.ts';
 import { createPlayService } from './play/service.ts';
+import { createImageService } from './image/service.ts';
+import { createIllustrationService } from './illustration/service.ts';
+import { createImageStore } from './illustration/storage.ts';
+import { IMAGE_GC_GRACE_MS } from './illustration/constants.ts';
 import { attachDesktopChannel } from './desktop/channel.ts';
 import type { ParentPortLike } from './desktop/channel.ts';
 
@@ -43,6 +64,8 @@ function assets(dir: string): string {
 
 const factories = {
   llm: createLlmService,
+  image: createImageService,
+  illustration: createIllustrationService,
   library: createLibraryService,
   settings: createSettingsService,
   summary: createSummaryService,
@@ -50,8 +73,8 @@ const factories = {
   play: createPlayService,
 };
 
-async function boot(dataDir: string, clientDir: string): Promise<RunningCore> {
-  return startCore({ dataDir, port: 0, clientDir, clientOrigin: null, logLevel: 'error' }, factories);
+async function boot(dataDir: string, clientDir: string, logLevel: 'error' | 'info' = 'error'): Promise<RunningCore> {
+  return startCore({ dataDir, port: 0, clientDir, clientOrigin: null, logLevel }, factories);
 }
 
 async function configureModels(
@@ -87,6 +110,7 @@ async function publishDefaultWork(
   server: FakeOpenAiServer,
   ids: { workId: string; planJobId: string; previewJobId: string; playthroughId: string },
   background: string,
+  options: { illustration?: StartIllustrationInput; beforeStart?: () => void } = {},
 ): Promise<string> {
   core.services.library.create({ workId: ids.workId });
   const saved = core.services.library.saveDraft({
@@ -121,10 +145,12 @@ async function publishDefaultWork(
   });
   await core.services.authoring.whenIdle();
   core.services.authoring.adoptPreview({ workId: ids.workId, jobId: ids.previewJobId });
+  options.beforeStart?.();
   const started = core.services.play.start({
     workId: ids.workId,
     playthroughId: ids.playthroughId,
     protagonist: {},
+    ...(options.illustration === undefined ? {} : { illustration: options.illustration }),
   });
   return started.routeId!;
 }
@@ -134,6 +160,139 @@ function fakeParentPort(): ParentPortLike {
     on() {},
     postMessage() {},
   };
+}
+
+function shotText(): string {
+  return [
+    'PROMPT: A quiet harbour at night, a lamp glowing at the end of the pier.',
+    'NEGATIVE: ',
+    'CAPTION: 夜色里，码头只剩一盏灯。',
+    'REFS: ',
+  ].join('\n');
+}
+
+function writeProvidersFile(dataDir: string, file: unknown): string {
+  mkdirSync(dataDir, { recursive: true });
+  const path = join(dataDir, 'providers.json');
+  writeFileSync(path, `${JSON.stringify(file, null, 2)}\n`, { mode: 0o600 });
+  return path;
+}
+
+function endpointEntry(server: FakeOpenAiServer, models: string[]) {
+  return {
+    id: 'endpoint-test',
+    name: '测试端点',
+    api: 'openai-completions',
+    baseUrl: server.baseUrl,
+    models: models.map((id) => ({ id })),
+  };
+}
+
+function versionOneProviders(server: FakeOpenAiServer): unknown {
+  const model = { provider: 'endpoint-test', model: 'test-model' };
+  return {
+    version: 1,
+    endpoints: [endpointEntry(server, ['test-model'])],
+    purposes: { default: model, narrator: model, background: model, author_chat: model },
+  };
+}
+
+function versionTwoProviders(server: FakeOpenAiServer, image?: { id: string; url: string; token: string }): unknown {
+  return {
+    version: 2,
+    providers: {},
+    endpoints: [endpointEntry(server, ['narrator-model', 'shot-model'])],
+    purposes: {
+      default: { provider: 'endpoint-test', model: 'narrator-model' },
+      narrator: { provider: 'endpoint-test', model: 'narrator-model' },
+      background: { provider: 'endpoint-test', model: 'shot-model' },
+    },
+    imageServices:
+      image === undefined
+        ? []
+        : [{ id: image.id, name: '伪出图', protocol: 'unwritten-image', baseUrl: image.url, apiKey: image.token }],
+    image: { service: image?.id ?? null },
+  };
+}
+
+async function storeImage(dataDir: string, bytes: Uint8Array): Promise<ImageFileRef> {
+  const store = createImageStore(dataDir);
+  const staged = await store.stage(bytes);
+  await store.commit([staged], () => {});
+  return staged.ref;
+}
+
+function blobPath(dataDir: string, ref: ImageFileRef): string {
+  return join(dataDir, 'images', 'blobs', `${ref.hash}.png`);
+}
+
+function ageBlob(dataDir: string, ref: ImageFileRef, milliseconds: number): void {
+  const seconds = (Date.now() - milliseconds) / 1000;
+  utimesSync(blobPath(dataDir, ref), seconds, seconds);
+}
+
+function rpcClient(core: RunningCore): ContractRouterClient<typeof contract> {
+  const link = new RPCLink({
+    url: `${core.origin}/api`,
+    headers: { authorization: `Bearer ${core.token}` },
+  });
+  return createORPCClient(link) as ContractRouterClient<typeof contract>;
+}
+
+function insertIllustration(
+  db: ReturnType<typeof openDatabase>['db'],
+  input: {
+    id: string;
+    turnId: string;
+    playthroughId: string;
+    para: number;
+    status: string;
+    ref?: ImageFileRef | null;
+    caption?: string | null;
+    serviceId?: string | null;
+    activeAttemptId?: string | null;
+    attemptData?: unknown;
+  },
+): void {
+  const now = Date.now();
+  const preference = { aspectPreference: '3:2', resolutionTier: '1k' };
+  const format = input.ref ? { ...preference, size: { width: input.ref.width, height: input.ref.height } } : null;
+  db.run(sql`insert into illustrations
+      (id, turn_id, playthrough_id, para, format_preference, format, status, caption, service_id, file,
+       attempts, active_attempt_id, attempt_data, created_at, updated_at)
+      values (${input.id}, ${input.turnId}, ${input.playthroughId}, ${input.para},
+        ${JSON.stringify(preference)}, ${format === null ? null : JSON.stringify(format)},
+        ${input.status}, ${input.caption ?? null}, ${input.serviceId ?? null},
+        ${input.ref === undefined || input.ref === null ? null : JSON.stringify(input.ref)}, 1,
+        ${input.activeAttemptId ?? null},
+        ${input.attemptData === undefined ? null : JSON.stringify(input.attemptData)}, ${now}, ${now})`);
+}
+
+async function waitForGcEvents(
+  core: RunningCore,
+  dataDir: string,
+  count: number,
+): Promise<{ sets: number; files: number; bytes: number }> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    await core.services.logger.flush();
+    const diagnostics = new DatabaseSync(join(dataDir, 'diagnostics.db'));
+    try {
+      const row = diagnostics
+        .prepare("select count(*) as count from diagnostic_events where event = 'image.gc'")
+        .get() as { count: number };
+      if (row.count >= count) {
+        const latest = diagnostics
+          .prepare("select data from diagnostic_events where event = 'image.gc' order by rowid desc limit 1")
+          .get() as { data: string };
+        return JSON.parse(latest.data) as { sets: number; files: number; bytes: number };
+      }
+    } finally {
+      diagnostics.close();
+    }
+    await delay(10);
+  }
+  throw new Error('image.gc did not finish in time');
 }
 
 async function parityList(desktop: boolean) {
@@ -1022,6 +1181,530 @@ describe('core integration', () => {
     } finally {
       await core.close();
       await server.close();
+      temp.cleanup();
+    }
+  });
+
+  it('版本 1 配置进入纯文字游玩，不发图片请求', async () => {
+    const temp = makeTempDataDir();
+    const server = await startFakeOpenAiServer();
+    const imageServer = await startFakeImageServer();
+    const dataDir = join(temp.dir, 'data');
+    const clientDir = assets(temp.dir);
+    const providersPath = writeProvidersFile(dataDir, versionOneProviders(server));
+    const original = readFileSync(providersPath);
+    const core = await boot(dataDir, clientDir);
+    try {
+      expect(core.services.image.listServices()).toMatchObject({
+        status: 'ok',
+        services: [],
+        selectedServiceId: null,
+      });
+      const routeId = await publishDefaultWork(
+        core,
+        server,
+        {
+          workId: '00000000-0000-4000-8000-0000000000a1',
+          planJobId: '00000000-0000-4000-8000-0000000000a2',
+          previewJobId: '00000000-0000-4000-8000-0000000000a3',
+          playthroughId: '00000000-0000-4000-8000-0000000000a4',
+        },
+        '雨夜修钟铺',
+      );
+      const root = core.services.play.getRoute({ routeId });
+      server.enqueue(
+        proposeTurnStep({
+          prose: '门外的雨停了。\n\n你退回屋里。',
+          options: ['关灯', '继续等'],
+          illustrate: '9',
+          changes: '',
+        }),
+        { kind: 'text', text: '主角退回屋里。' },
+      );
+      core.services.play.submitAction({
+        requestId: '00000000-0000-4000-8000-0000000000a5' as never,
+        routeId,
+        expectedHeadTurnId: root.headTurnId,
+        action: { text: '关灯', optionIndex: null },
+      });
+      await core.services.play.whenIdle();
+      await core.services.summary.whenIdle();
+
+      const after = core.services.play.getRoute({ routeId });
+      expect(after.turns).toHaveLength(2);
+      expect(after.turns[1]!.illustration).toBeNull();
+      expect(after.turns[1]!.options.map((option) => option.text)).toEqual(['关灯', '继续等']);
+      expect(imageServer.requests).toHaveLength(0);
+
+      await core.close();
+      const library = new DatabaseSync(join(dataDir, 'library.db'));
+      try {
+        const row = library.prepare('select count(*) as count from illustrations').get() as { count: number };
+        expect(row.count).toBe(0);
+      } finally {
+        library.close();
+      }
+      expect(readFileSync(providersPath).equals(original)).toBe(true);
+    } finally {
+      await core.close();
+      await server.close();
+      await imageServer.close();
+      temp.cleanup();
+    }
+  });
+
+  it('配置出图服务后伪出图服务收到排队插图的请求', async () => {
+    const temp = makeTempDataDir();
+    const server = await startFakeOpenAiServer();
+    const imageServer = await startFakeImageServer({ jobDelayMs: 5 });
+    const dataDir = join(temp.dir, 'data');
+    const clientDir = assets(temp.dir);
+    const core = await boot(dataDir, clientDir);
+    try {
+      await configureModels(core, server, {
+        requestId: '00000000-0000-4000-8000-0000000000b1',
+        defaultModel: 'narrator-model',
+      });
+      const created = await core.services.image.createService({
+        requestId: '00000000-0000-4000-8000-0000000000b2' as never,
+        baseRevision: core.services.image.listServices().revision,
+        name: '测试出图',
+        protocol: 'unwritten-image',
+        baseUrl: imageServer.url,
+        apiKey: imageServer.token,
+        model: null,
+        openai: null,
+        launcher: null,
+        idleMinutes: null,
+      });
+      await core.services.image.select({
+        baseRevision: core.services.image.listServices().revision,
+        serviceId: created.serviceId,
+      });
+      core.services.image.setAutoIllustration({
+        enabled: true,
+        confirm: core.services.image.getAutoIllustration().current!,
+      });
+
+      const routeId = await publishDefaultWork(
+        core,
+        server,
+        {
+          workId: '00000000-0000-4000-8000-0000000000b3',
+          planJobId: '00000000-0000-4000-8000-0000000000b4',
+          previewJobId: '00000000-0000-4000-8000-0000000000b5',
+          playthroughId: '00000000-0000-4000-8000-0000000000b6',
+        },
+        '雨夜修钟铺',
+        {
+          illustration: {
+            enabled: true,
+            style: DEFAULT_ILLUSTRATION_STYLE,
+            aspectPreference: '3:2',
+            resolutionTier: '1k',
+            protagonistInFrame: false,
+            protagonistAppearance: null,
+            protagonistSnapshotId: null,
+          },
+          beforeStart: () => server.enqueue({ kind: 'text', text: shotText() }),
+        },
+      );
+      await core.services.play.whenIdle();
+      await core.services.illustration.whenIdle();
+
+      const root = core.services.play.getRoute({ routeId });
+      expect(root.turns[0]!.illustration).toMatchObject({ status: 'done', para: 0 });
+      expect(root.turns[0]!.illustration?.image).not.toBeNull();
+      expect(
+        imageServer.requests.filter((request) => request.method === 'POST' && request.path === '/v1/jobs'),
+      ).toHaveLength(1);
+    } finally {
+      await core.close();
+      await server.close();
+      await imageServer.close();
+      temp.cleanup();
+    }
+  });
+
+  it('重启恢复中断任务、清理存储并接续排队插图', async () => {
+    const temp = makeTempDataDir();
+    const server = await startFakeOpenAiServer();
+    const imageServer = await startFakeImageServer({ jobDelayMs: 5 });
+    const dataDir = join(temp.dir, 'data');
+    const clientDir = assets(temp.dir);
+    mkdirSync(dataDir, { recursive: true });
+    writeProvidersFile(
+      dataDir,
+      versionTwoProviders(server, { id: 'image-fake01', url: imageServer.url, token: imageServer.token }),
+    );
+    const opened = openDatabase(join(dataDir, 'library.db'));
+    const seeded = seedLighthouseTown(opened.db);
+    const store = createImageStore(dataDir);
+    const oldBytes = pngBytes(48, 32);
+    const oldStaged = await store.stage(oldBytes);
+    await store.commit([oldStaged], () => {});
+    ageBlob(dataDir, oldStaged.ref, IMAGE_GC_GRACE_MS + 60_000);
+    const frontBytes = pngBytes(40, 40);
+    const frontStaged = await store.stage(frontBytes);
+    await store.commit([frontStaged], () => {});
+    const orphanStaged = await store.stage(pngBytes(20, 20));
+    await store.commit([orphanStaged], () => {});
+    ageBlob(dataDir, orphanStaged.ref, IMAGE_GC_GRACE_MS + 60_000);
+    const tempFile = join(dataDir, 'images', 'tmp', 'leftover.part');
+    writeFileSync(tempFile, 'partial');
+
+    const settings = PlaythroughIllustrationSchema.parse({
+      enabled: true,
+      style: DEFAULT_ILLUSTRATION_STYLE,
+      aspectPreference: '3:2',
+      resolutionTier: '1k',
+      protagonistInFrame: false,
+      protagonistAppearance: null,
+      authorPortraitSetIds: {},
+      protagonistPortraitSetId: null,
+    });
+    opened.db.run(
+      sql`update playthroughs set illustration = ${JSON.stringify(settings)} where id = ${seeded.playthroughId}`,
+    );
+    opened.db.run(
+      sql`insert into app_settings (id, appearance, illustration, updated_at)
+          values (1, ${JSON.stringify(DEFAULT_APPEARANCE)},
+                  ${JSON.stringify({
+                    autoEnabled: true,
+                    confirmed: {
+                      serviceId: 'image-fake01',
+                      model: null,
+                      background: { endpointId: 'endpoint-test', modelId: 'shot-model' },
+                    },
+                    defaults: { aspectPreference: 'auto', resolutionTier: '1k' },
+                  })},
+                  ${Date.now()})`,
+    );
+    for (const turnId of seeded.turnIds.slice(1)) {
+      opened.db.run(
+        sql`insert into turn_summaries (turn_id, summary, created_at) values (${turnId}, '虚构摘要', ${Date.now()})`,
+      );
+    }
+
+    const runningId = randomUUID();
+    const queuedId = randomUUID();
+    const rerollId = randomUUID();
+    const rerollAttemptId = randomUUID();
+    const runningAttemptId = randomUUID();
+    insertIllustration(opened.db, {
+      id: runningId,
+      turnId: seeded.turnIds[1]!,
+      playthroughId: seeded.playthroughId,
+      para: 1,
+      status: 'running',
+      serviceId: 'image-fake01',
+      activeAttemptId: runningAttemptId,
+      attemptData: AttemptDataSchema.parse({
+        attemptId: runningAttemptId,
+        kind: 'first',
+        formatOverride: null,
+        format: null,
+        shot: null,
+        referenceFiles: null,
+        seed: null,
+        serviceId: 'image-fake01',
+        completed: ['appearance', 'shot', 'portrait'],
+      }),
+    });
+    insertIllustration(opened.db, {
+      id: queuedId,
+      turnId: seeded.turnIds[0]!,
+      playthroughId: seeded.playthroughId,
+      para: 1,
+      status: 'queued',
+    });
+    insertIllustration(opened.db, {
+      id: rerollId,
+      turnId: seeded.turnIds[2]!,
+      playthroughId: seeded.playthroughId,
+      para: 1,
+      status: 'done',
+      serviceId: 'image-fake01',
+      ref: oldStaged.ref,
+      caption: '重画前的旧图',
+      activeAttemptId: rerollAttemptId,
+      attemptData: AttemptDataSchema.parse({
+        attemptId: rerollAttemptId,
+        kind: 'reroll',
+        formatOverride: null,
+        format: { aspectPreference: '3:2', resolutionTier: '1k', size: { width: 48, height: 32 } },
+        shot: null,
+        referenceFiles: null,
+        seed: null,
+        serviceId: 'image-fake01',
+        completed: [],
+      }),
+    });
+
+    const portraitSetId = randomUUID();
+    const portraitAttemptId = randomUUID();
+    opened.db.run(
+      sql`insert into portrait_sets
+          (id, work_id, scope, playthrough_id, entity_id, appearance_fact_id, appearance_hash, appearance,
+           style, state, draft_rev, slots, task, created_at, updated_at)
+          values (${portraitSetId}, ${seeded.workId}, 'work', null, ${seeded.ids.linchao!}, null,
+                  ${'a'.repeat(64)}, '守灯人的参考', ${JSON.stringify(DEFAULT_ILLUSTRATION_STYLE)}, 'active', 0,
+                  ${JSON.stringify(
+                    PortraitSlotsStoredSchema.parse({
+                      front: { file: frontStaged.ref, source: 'generate', needsReview: false },
+                      three_quarter: { file: null, source: null, needsReview: false },
+                      full_body: { file: null, source: null, needsReview: false },
+                    }),
+                  )},
+                  ${JSON.stringify(
+                    PortraitTasksSchema.parse({
+                      front: null,
+                      three_quarter: {
+                        attemptId: portraitAttemptId,
+                        status: 'running',
+                        error: null,
+                        format: { aspectPreference: '3:4', resolutionTier: '1k', size: { width: 720, height: 960 } },
+                        quality: 'fast',
+                        inputFiles: [frontStaged.ref],
+                        appearanceHash: null,
+                      },
+                      full_body: null,
+                    }),
+                  )},
+                  ${Date.now()}, ${Date.now()})`,
+    );
+
+    const expiredCall = randomUUID();
+    const freshCall = randomUUID();
+    const day = 86_400_000;
+    opened.db.run(
+      sql`insert into image_calls
+          (id, service_id, protocol, model, work_id, ref_kind, ref_id, quality, reference_count,
+           input_tokens, output_tokens, duration_ms, status, error, created_at)
+          values (${expiredCall}, 'image-fake01', 'unwritten-image', null, null, 'illustration', null, 'fast', 0,
+                  null, null, 10, 'ok', null, ${Date.now() - 91 * day})`,
+    );
+    opened.db.run(
+      sql`insert into image_calls
+          (id, service_id, protocol, model, work_id, ref_kind, ref_id, quality, reference_count,
+           input_tokens, output_tokens, duration_ms, status, error, created_at)
+          values (${freshCall}, 'image-fake01', 'unwritten-image', null, null, 'illustration', null, 'fast', 0,
+                  null, null, 10, 'ok', null, ${Date.now()})`,
+    );
+    opened.close();
+    server.enqueue({ kind: 'text', text: shotText() });
+
+    const core = await boot(dataDir, clientDir, 'info');
+    try {
+      await core.services.illustration.whenIdle();
+      const views = core.services.illustration.forRoute(seeded.routeId);
+      expect(views.get(seeded.turnIds[1]!)).toMatchObject({
+        status: 'failed',
+        stage: 'generate',
+        error: 'image_interrupted',
+      });
+      expect(views.get(seeded.turnIds[0]!)).toMatchObject({ status: 'done', error: null });
+      expect(views.get(seeded.turnIds[0]!)?.image).not.toBeNull();
+      expect(views.get(seeded.turnIds[2]!)).toMatchObject({
+        status: 'done',
+        error: 'image_interrupted',
+        rerolling: false,
+        caption: '重画前的旧图',
+        image: { width: 48, height: 32 },
+      });
+      expect(
+        imageServer.requests.filter((request) => request.method === 'POST' && request.path === '/v1/jobs'),
+      ).toHaveLength(1);
+
+      const saved = await core.services.illustration.file({
+        view: { kind: 'route', routeId: seeded.routeId },
+        image: { kind: 'illustration', illustrationId: rerollId },
+      });
+      expect(saved.type).toBe('image/png');
+      expect(Buffer.from(await saved.arrayBuffer()).equals(Buffer.from(oldBytes))).toBe(true);
+
+      const portrait = core.services.illustration.portraitGet({ setId: portraitSetId });
+      expect(portrait.slots.find((slot) => slot.slot === 'front')?.image).not.toBeNull();
+      expect(portrait.slots.find((slot) => slot.slot === 'three_quarter')?.task).toEqual({
+        status: 'failed',
+        error: 'image_interrupted',
+      });
+
+      expect(existsSync(tempFile)).toBe(false);
+      expect(existsSync(blobPath(dataDir, orphanStaged.ref))).toBe(false);
+      expect(existsSync(blobPath(dataDir, oldStaged.ref))).toBe(true);
+      expect(existsSync(blobPath(dataDir, frontStaged.ref))).toBe(true);
+
+      await core.services.logger.flush();
+      await core.close();
+
+      const library = new DatabaseSync(join(dataDir, 'library.db'));
+      try {
+        expect(library.prepare('select id from image_calls where id = ?').get(expiredCall)).toBeUndefined();
+        expect(library.prepare('select id from image_calls where id = ?').get(freshCall)).toEqual({ id: freshCall });
+      } finally {
+        library.close();
+      }
+
+      const diagnostics = new DatabaseSync(join(dataDir, 'diagnostics.db'));
+      try {
+        const interrupted = diagnostics
+          .prepare("select data from diagnostic_events where event = 'illustration.interrupted' and request_id = ?")
+          .get(runningId) as { data: string } | undefined;
+        expect(JSON.parse(String(interrupted?.data))).toMatchObject({ stage: 'generate', code: 'image_interrupted' });
+        const portraitEvent = diagnostics
+          .prepare("select data from diagnostic_events where event = 'portrait.interrupted' and request_id = ?")
+          .get(portraitAttemptId) as { data: string } | undefined;
+        expect(JSON.parse(String(portraitEvent?.data))).toMatchObject({
+          setId: portraitSetId,
+          slot: 'three_quarter',
+          code: 'image_interrupted',
+        });
+        const recovery = diagnostics
+          .prepare(
+            "select data from diagnostic_events where event = 'recovery.interrupted' order by created_at desc limit 1",
+          )
+          .get() as { data: string } | undefined;
+        expect(JSON.parse(String(recovery?.data))).toMatchObject({ illustrations: 3 });
+      } finally {
+        diagnostics.close();
+      }
+    } finally {
+      await core.close();
+      await server.close();
+      await imageServer.close();
+      temp.cleanup();
+    }
+  });
+
+  it('删除一部作品后共享图片仍可读，两部都删后回收', async () => {
+    const temp = makeTempDataDir();
+    const dataDir = join(temp.dir, 'data');
+    const clientDir = assets(temp.dir);
+    mkdirSync(dataDir, { recursive: true });
+    const opened = openDatabase(join(dataDir, 'library.db'));
+    const north = seedNorthCape(opened.db);
+    const snow = seedLighthouseTown(opened.db);
+    const bytes = pngBytes(36, 24);
+    const ref = await storeImage(dataDir, bytes);
+    ageBlob(dataDir, ref, IMAGE_GC_GRACE_MS + 60_000);
+    const northIllustration = randomUUID();
+    const snowIllustration = randomUUID();
+    insertIllustration(opened.db, {
+      id: northIllustration,
+      turnId: north.headTurnId,
+      playthroughId: north.playthroughId,
+      para: 1,
+      status: 'done',
+      ref,
+      caption: '北岬的栈桥',
+    });
+    insertIllustration(opened.db, {
+      id: snowIllustration,
+      turnId: snow.headTurnId,
+      playthroughId: snow.playthroughId,
+      para: 1,
+      status: 'done',
+      ref,
+      caption: '灯塔镇的码头',
+    });
+    opened.close();
+
+    const core = await boot(dataDir, clientDir, 'info');
+    try {
+      const client = rpcClient(core);
+      await client.works.delete({ workId: north.workId });
+      const firstGc = await waitForGcEvents(core, dataDir, 2);
+      expect(firstGc).toMatchObject({ files: 0 });
+      expect(existsSync(blobPath(dataDir, ref))).toBe(true);
+      const file = await client.image.file({
+        view: { kind: 'route', routeId: snow.routeId },
+        image: { kind: 'illustration', illustrationId: snowIllustration },
+      });
+      expect(Buffer.from(await file.arrayBuffer()).equals(Buffer.from(bytes))).toBe(true);
+
+      await client.works.delete({ workId: snow.workId });
+      const secondGc = await waitForGcEvents(core, dataDir, 3);
+      expect(secondGc).toMatchObject({ sets: 0, files: 1, bytes: bytes.length });
+      expect(existsSync(blobPath(dataDir, ref))).toBe(false);
+
+      await core.services.logger.flush();
+      const diagnostics = new DatabaseSync(join(dataDir, 'diagnostics.db'));
+      try {
+        const deleted = diagnostics
+          .prepare("select work_id from diagnostic_events where event = 'work.deleted'")
+          .all() as Array<{ work_id: string }>;
+        expect(deleted.map((row) => row.work_id).sort()).toEqual([north.workId, snow.workId].sort());
+        const gc = diagnostics.prepare("select data from diagnostic_events where event = 'image.gc'").all();
+        expect(gc.length).toBeGreaterThanOrEqual(3);
+      } finally {
+        diagnostics.close();
+      }
+    } finally {
+      await core.close();
+      temp.cleanup();
+    }
+  });
+
+  it('取图按路线核对归属并经过鉴权', async () => {
+    const temp = makeTempDataDir();
+    const dataDir = join(temp.dir, 'data');
+    const clientDir = assets(temp.dir);
+    mkdirSync(dataDir, { recursive: true });
+    const opened = openDatabase(join(dataDir, 'library.db'));
+    const north = seedNorthCape(opened.db);
+    const snow = seedLighthouseTown(opened.db);
+    const bytes = pngBytes(28, 18);
+    const ref = await storeImage(dataDir, bytes);
+    const illustrationId = randomUUID();
+    insertIllustration(opened.db, {
+      id: illustrationId,
+      turnId: north.headTurnId,
+      playthroughId: north.playthroughId,
+      para: 1,
+      status: 'done',
+      ref,
+      caption: '北岬的栈桥',
+    });
+    opened.close();
+
+    const core = await boot(dataDir, clientDir);
+    try {
+      const served: Response[] = [];
+      const link = new RPCLink({
+        url: `${core.origin}/api`,
+        headers: { authorization: `Bearer ${core.token}` },
+        fetch: async (request) => {
+          const response = await fetch(request);
+          served.push(response.clone());
+          return response;
+        },
+      });
+      const client = createORPCClient(link) as ContractRouterClient<typeof contract>;
+      const request = {
+        view: { kind: 'route', routeId: north.routeId },
+        image: { kind: 'illustration', illustrationId },
+      } as const;
+      const file = await client.image.file(request);
+      expect(file.type).toBe('image/png');
+      expect([...new Uint8Array(await file.arrayBuffer())]).toEqual([...bytes]);
+      expect(served.at(-1)?.headers.get('x-content-type-options')).toBe('nosniff');
+
+      await expect(
+        client.image.file({
+          view: { kind: 'route', routeId: snow.routeId },
+          image: { kind: 'illustration', illustrationId },
+        }),
+      ).rejects.toMatchObject({ code: 'not_found' });
+
+      const unauthorized = await fetch(`${core.origin}/api/image/file`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ json: request }),
+      });
+      expect(unauthorized.status).toBe(401);
+    } finally {
+      await core.close();
       temp.cleanup();
     }
   });

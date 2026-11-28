@@ -15,6 +15,7 @@ interface RawTurn {
   options: string;
   scene: string;
   ending: number;
+  illustrate_para: number | null;
   status: 'committed' | 'candidate';
   created_at: number;
   request_id: string | null;
@@ -50,6 +51,7 @@ export function ancestorChain(
       options: JSON.parse(row.options) as StoredOption[],
       scene: StoredSceneSchema.parse(JSON.parse(row.scene)),
       ending: row.ending,
+      illustratePara: row.illustrate_para,
       status: row.status,
       createdAt: row.created_at,
       originRequest:

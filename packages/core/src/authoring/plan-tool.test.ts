@@ -59,6 +59,21 @@ describe('parsePlanArgs', () => {
     }
   });
 
+  it('人物行带形象时解析进方案项，非人物不带', () => {
+    const result = parse({
+      entities: changeLines(
+        { ...protagonist, appearance: '短卷发，左眉有一道浅缺口，穿深色短外套' },
+        { ...place, appearance: '不该出现在地点上' },
+      ),
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const entities = result.value.items.filter((item) => item.kind === 'entity');
+      expect(entities[0]).toMatchObject({ appearance: '短卷发，左眉有一道浅缺口，穿深色短外套' });
+      expect(entities[1]).toMatchObject({ appearance: null });
+    }
+  });
+
   it('每局生成的人物位置必须写作用和相遇样例', () => {
     const context: Partial<PlanParseContext> = { castMode: 'per_run' };
     const missing = parse(
@@ -154,6 +169,7 @@ describe('parsePlanArgs', () => {
         name: '灯塔看守',
         knownAs: null,
         profile: '话少',
+        appearance: null,
         slot: null,
         source: 'author',
       },

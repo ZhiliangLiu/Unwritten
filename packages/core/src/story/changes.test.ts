@@ -907,3 +907,157 @@ describe('parseChanges 新类型', () => {
     }
   });
 });
+
+describe('parseChanges 形象', () => {
+  const protagonistLine = {
+    type: 'new_entity',
+    kind: 'character',
+    name: '驿丞',
+    known_as: '',
+    profile: '',
+    para: '1',
+    protagonist: 'true',
+  };
+
+  it('人物形象 300 字保留，301 字丢弃且不报错', () => {
+    const kept = parseChanges(
+      changeLines(protagonistLine, {
+        type: 'new_entity',
+        kind: 'character',
+        name: '沈岚',
+        known_as: '撑伞的女人',
+        profile: '',
+        appearance: '衣'.repeat(300),
+        para: '1',
+      }),
+      opening(),
+    );
+    expect(kept.ok).toBe(true);
+    if (kept.ok) {
+      expect(kept.value.entities[1]?.appearance).toBe('衣'.repeat(300));
+      expect(kept.value.droppedAppearances).toBe(0);
+    }
+
+    const dropped = parseChanges(
+      changeLines(protagonistLine, {
+        type: 'new_entity',
+        kind: 'character',
+        name: '沈岚',
+        known_as: '撑伞的女人',
+        profile: '',
+        appearance: '衣'.repeat(301),
+        para: '1',
+      }),
+      opening(),
+    );
+    expect(dropped.ok).toBe(true);
+    if (dropped.ok) {
+      expect(dropped.value.entities[1]?.appearance).toBeNull();
+      expect(dropped.value.droppedAppearances).toBe(1);
+    }
+  });
+
+  it('形象带换行时丢弃，非人物不读形象', () => {
+    const newline = parseChanges(
+      changeLines(protagonistLine, {
+        type: 'new_entity',
+        kind: 'character',
+        name: '沈岚',
+        known_as: '',
+        profile: '',
+        appearance: '深色风衣\n短靴',
+        para: '1',
+      }),
+      opening(),
+    );
+    expect(newline.ok).toBe(true);
+    if (newline.ok) {
+      expect(newline.value.entities[1]?.appearance).toBeNull();
+      expect(newline.value.droppedAppearances).toBe(1);
+    }
+
+    const place = parseChanges(
+      changeLines(protagonistLine, {
+        type: 'new_entity',
+        kind: 'place',
+        name: '候船厅',
+        known_as: '',
+        profile: '',
+        appearance: '木头长椅，玻璃窗',
+        para: '1',
+      }),
+      opening(),
+    );
+    expect(place.ok).toBe(true);
+    if (place.ok) {
+      expect(place.value.entities[1]?.appearance).toBeNull();
+      expect(place.value.droppedAppearances).toBe(0);
+    }
+  });
+
+  it('形象特征不合格时整行丢弃，其他行照常', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedNorthCape(opened.db);
+      const result = parseChanges(
+        changeLines(
+          { type: 'trait', subject: '@2', key: 'appearance', statement: '白围裙\n短卷发', para: '1' },
+          { type: 'event', subject: '@2', statement: '她换了围裙', witnesses: '@1,@2', para: '1' },
+        ),
+        turnContext(opened.db, seeded.versionId, seeded.headTurnId),
+      );
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.facts.map((fact) => fact.kind)).toEqual(['event']);
+        expect(result.value.droppedAppearances).toBe(1);
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('same_visible_identity 写字符串 true 时存为 1', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedNorthCape(opened.db);
+      const result = parseChanges(
+        '{"type":"trait","subject":"@2","key":"appearance","statement":"换了白围裙，短卷发和左眉缺口仍可见","same_visible_identity":"true","para":"1"}',
+        turnContext(opened.db, seeded.versionId, seeded.headTurnId),
+      );
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.facts[0]?.data).toEqual({ same_visible_identity: 1 });
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('knowledge 引用本次的形象特征时返回附录 B.3 的修正文案', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedNorthCape(opened.db);
+      const result = parseChanges(
+        changeLines(
+          {
+            type: 'trait',
+            subject: '@2',
+            key: 'appearance',
+            statement: '换了白围裙',
+            para: '1',
+            id: 'f1',
+          },
+          { type: 'knowledge', fact: 'f1', holder: '@1', level: 'confirmed', para: '1' },
+        ),
+        turnContext(opened.db, seeded.versionId, seeded.headTurnId),
+      );
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.errors).toContain('形象特征只用于呈现，不能作为 knowledge 的引用。删去这条引用，再提交。');
+      }
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+});

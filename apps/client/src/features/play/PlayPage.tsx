@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { BookOpen, Settings } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,7 @@ import { IconButton } from '../../shared/ui/IconButton.tsx';
 import { LiveRegion } from '../../shared/ui/LiveRegion.tsx';
 import { Page } from '../../shared/ui/Page.tsx';
 import { Skeleton } from '../../shared/ui/Skeleton.tsx';
+import { WakePrompt } from '../../shared/ui/WakePrompt.tsx';
 import { ActionComposer } from './ActionComposer.tsx';
 import { BackToLatest } from './BackToLatest.tsx';
 import { EndedPanel } from './EndedPanel.tsx';
@@ -77,6 +78,12 @@ export function PlayPage({ routeId }: { routeId: string }) {
     queryKey: queryKeys.route(routeId),
     queryFn: () => api.play.getRoute({ routeId }),
   });
+  const imageConfig = useQuery({
+    queryKey: queryKeys.imageConfig,
+    queryFn: () => api.image.services.list(),
+  });
+  const prewarm = useMutation({ mutationFn: (playthroughId: string) => api.image.prewarm({ playthroughId }) });
+  const prewarmedPlaythrough = useRef<string | null>(null);
   const followLatest = useFollowLatest({ contentRef, sentinelRef });
   const { submit, retry, startedAt, activeRequest } = usePlaySubmit({
     routeId,
@@ -113,6 +120,23 @@ export function PlayPage({ routeId }: { routeId: string }) {
     if (focusInputSeq === 0) return;
     inputRef.current?.focus();
   }, [focusInputSeq]);
+
+  const playthroughId = route.data?.playthroughId ?? null;
+
+  useEffect(() => {
+    if (!playthroughId || prewarmedPlaythrough.current === playthroughId) return;
+    prewarmedPlaythrough.current = playthroughId;
+    prewarm.mutate(playthroughId);
+  }, [playthroughId, prewarm]);
+
+  const unfinishedServiceId =
+    route.data?.turns
+      .flatMap((turn) => (turn.illustration ? [turn.illustration] : []))
+      .find(
+        (illustration) =>
+          illustration.status === 'queued' || illustration.status === 'running' || illustration.rerolling,
+      )?.serviceId ?? null;
+  const wakeServiceId = unfinishedServiceId ?? imageConfig.data?.selectedServiceId ?? null;
 
   useEffect(() => {
     if (!latestTurnId) return;
@@ -245,6 +269,7 @@ export function PlayPage({ routeId }: { routeId: string }) {
     >
       <div aria-hidden='true' className={styles.paper} />
       <div className={styles.reading}>
+        <WakePrompt serviceId={wakeServiceId} />
         <ErrorNotice error={route.error ?? submit.error ?? retry.error} />
         {!route.data && !route.error ? <Skeleton variant='prose' count={3} /> : null}
         {route.data ? (
@@ -256,6 +281,7 @@ export function PlayPage({ routeId }: { routeId: string }) {
                   turn={turn}
                   language={route.data.language}
                   arriving={Boolean(initialTurnIds && !initialTurnIds.has(turn.id))}
+                  routeId={routeId}
                 />
               ))}
               {pendingAction ? <PendingTurn action={pendingAction} language={route.data.language} /> : null}

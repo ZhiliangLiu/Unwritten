@@ -10,6 +10,10 @@ pre-commit:
       glob: "apps/client/src/**/*.css"
       run: pnpm exec stylelint --fix {staged_files}
       stage_fixed: true
+    - name: ruff
+      glob: "{plugins,selfhost}/**/*.py"
+      run: node scripts/ruff-staged.mjs {staged_files}
+      stage_fixed: true
     - name: prettier
       glob:
         - "{apps,packages,e2e,scripts}/**/*.{ts,tsx,js,mjs,json,css,md}"

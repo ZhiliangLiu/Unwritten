@@ -5,14 +5,14 @@ import { appError } from '../errors.ts';
 import type { Logger } from '../log/logger.ts';
 import { DEFAULT_CONTEXT_WINDOW, defaultMaxTokens } from './budget.ts';
 import { classifyFailure } from './classify.ts';
-import { createFetchRecorder, createGuardedFetch, unguardedFetch } from './fetch-guard.ts';
-import { resolveApiKey } from './keys.ts';
+import { createFetchRecorder, createGuardedFetch, unguardedFetch } from '../net/fetch.ts';
+import { resolveApiKey } from '../providers/keys.ts';
 import { completeOnce, type RuntimeTarget } from './pi.ts';
-import type { ProvidersStore } from './providers-file.ts';
+import type { ProvidersStore } from '../providers/file.ts';
 import { opencodeHeaders } from './run.ts';
 import { scrubSecrets } from '../log/scrub.ts';
 import type { LlmTool, Purpose } from './types.ts';
-import { normalizeBaseUrl } from './url.ts';
+import { normalizeBaseUrl } from '../net/url.ts';
 
 const TEST_CONNECTION_TIMEOUT_MS = 20_000;
 

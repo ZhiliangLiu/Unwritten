@@ -1,0 +1,85 @@
+.slot {
+  display: grid;
+  align-content: start;
+  gap: var(--uw-space-2);
+  padding: var(--uw-space-3);
+  border: var(--uw-border-width) solid var(--uw-color-border);
+  border-radius: var(--uw-radius-md);
+}
+
+.name {
+  margin: 0;
+  font-family: var(--uw-typography-label-font-family);
+  font-size: var(--uw-typography-label-font-size);
+  font-weight: var(--uw-typography-label-font-weight);
+  line-height: var(--uw-typography-label-line-height);
+  letter-spacing: var(--uw-typography-label-letter-spacing);
+}
+
+.hint {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.image {
+  display: block;
+  max-inline-size: 100%;
+  block-size: auto;
+  border: var(--uw-border-width) solid var(--uw-color-border);
+  border-radius: var(--uw-radius-sm);
+}
+
+.preview {
+  display: grid;
+  gap: var(--uw-space-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--uw-space-2);
+}
+
+.review {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--uw-space-2);
+}
+
+.status {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-text-muted);
+}
+
+.problem {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  font-weight: var(--uw-typography-caption-font-weight);
+  line-height: var(--uw-typography-caption-line-height);
+  letter-spacing: var(--uw-typography-caption-letter-spacing);
+  color: var(--uw-color-danger);
+}
+
+.fileInput {
+  position: absolute;
+  inline-size: var(--uw-border-width);
+  block-size: var(--uw-border-width);
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

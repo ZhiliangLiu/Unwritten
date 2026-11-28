@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ErrorCodeSchema } from '../errors.ts';
 import { ContentRevSchema, TimestampSchema, UuidSchema } from './common.ts';
+import { AppearanceTextSchema } from './illustration.ts';
 import { EntityKindSchema } from './story.ts';
 
 export const SETTING_SECTION_IDS = [
@@ -123,6 +124,7 @@ export const PlanItemSchema = z.discriminatedUnion('kind', [
     name: z.string().min(1).max(PLAN_NAME_MAX_LENGTH),
     knownAs: z.string().min(1).max(PLAN_NAME_MAX_LENGTH).nullable(),
     profile: z.string().max(PLAN_PROFILE_MAX_LENGTH),
+    appearance: AppearanceTextSchema.nullable().default(null),
     slot: z
       .object({
         role: z.string().min(1).max(100),

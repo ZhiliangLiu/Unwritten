@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  AppearanceTextSchema,
   EntityKindSchema,
   KnowledgeLevelSchema,
   ListItemStatusSchema,
@@ -45,8 +46,10 @@ export const STORY_LIMITS = {
   nameMinLengthForLeakCheck: 2,
 } as const;
 
-export const EntityProfileSchema = z.object({ text: z.string() });
+export const EntityProfileSchema = z.object({ text: z.string(), appearance: AppearanceTextSchema.optional() });
 export type EntityProfile = z.infer<typeof EntityProfileSchema>;
+
+export const APPEARANCE_TRAIT_KEY = 'appearance';
 
 export const FactDataSchema = z.record(z.string(), z.union([z.string(), z.number()]));
 export type FactData = z.infer<typeof FactDataSchema>;
@@ -69,6 +72,7 @@ export const NewEntityChangeSchema = z.object({
   name: z.string().min(1),
   knownAs: z.string().min(1).nullable(),
   profile: z.string(),
+  appearance: z.string().nullable().default(null),
   para: z.number().int().positive(),
   protagonist: z.boolean(),
   slot: z.string().nullable().default(null),
@@ -167,6 +171,7 @@ export const ValidatedChangesSchema = z.object({
   newStates: z.array(NewStateChangeSchema).default([]),
   secrets: z.array(SecretChangeSchema).default([]),
   sceneHits: z.array(SceneHitChangeSchema).default([]),
+  droppedAppearances: z.number().int().nonnegative().default(0),
 });
 export type ValidatedChanges = z.infer<typeof ValidatedChangesSchema>;
 export type NewEntityChange = z.infer<typeof NewEntityChangeSchema>;
@@ -191,6 +196,7 @@ export const EMPTY_CHANGES: ValidatedChanges = {
   newStates: [],
   secrets: [],
   sceneHits: [],
+  droppedAppearances: 0,
 };
 
 export interface ProjEntity {
@@ -198,6 +204,8 @@ export interface ProjEntity {
   kind: EntityKind;
   name: string;
   profile: string;
+  appearance: string | null;
+  sourcePara: number | null;
   isProtagonist: boolean;
   originTurnId: string | null;
   originDepth: number;

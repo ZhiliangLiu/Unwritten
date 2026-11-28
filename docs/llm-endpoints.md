@@ -238,7 +238,7 @@ llm_calls (
   work_id            TEXT REFERENCES works ON DELETE SET NULL,
   provider           TEXT NOT NULL,
   model              TEXT NOT NULL,
-  ref_kind           TEXT,           -- turn_request | job | chat_message | turn
+  ref_kind           TEXT,           -- turn_request | job | turn | illustration | portrait
   ref_id             TEXT,
   input_tokens       INTEGER,
   output_tokens      INTEGER,

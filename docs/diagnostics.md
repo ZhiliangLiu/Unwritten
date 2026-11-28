@@ -46,7 +46,23 @@ RPC 的失败事件记录过程名、错误码和失败阶段。输入或输出�
 
 故事方案和开局与预览、续写同样记录开始、完成、失败和中断：方案任务记 `plan.job.started`、`plan.job.done`、`plan.job.failed`、`plan.job.interrupted`，完成时附方案项数、冲突数和结果是否过期；作者改一项、删一项、确认方案各有事件，确认时附写入的人物、秘密、栏目、场面条数和主要人物模式。开局记 `playthrough.started`，附人物模式和玩家填了几项；每局生成人物的开场请求记 `opening.request.done` 或 `opening.request.failed`，失败时附阶段（人物、开场、校验、提交）。保存草稿的事件附本次改了的补充设定节。
 
-插图和出图服务各有事件，见[插图与出图服务](./image.md)。`illustration.flagged` 附路线 id 和回合深度，用来按路线统计标记率。`illustration.done`、`illustration.failed` 和 `illustration.dismissed` 记录结果，失败时附步骤和错误类别。`portrait.done` 和 `portrait.failed` 记录人物参考任务结果。`image.service.probe` 记录服务、协议和探测结果。`image.wake.started`、`image.wake.done`、`image.wake.failed` 记录按需唤醒，附触发方式（预热或按需）、是否等过用户操作、耗时，失败时附错误类别和启动器给出的原因。`image.gc` 记录回收的组数、文件数和字节数。提示词、画面说明和形象原文留在作品库。
+插图和出图服务各有事件，见[插图与出图服务](./image.md)。`illustration.flagged` 附路线 id 和回合深度，用来按路线统计标记率。`illustration.done`、`illustration.failed` 和 `illustration.dismissed` 记录结果，失败时附步骤和错误类别。`portrait.done` 和 `portrait.failed` 记录人物参考任务结果。`image.service.probe` 记录服务、协议和探测结果。`image.wake.started`、`image.wake.done`、`image.wake.failed` 记录按需唤醒，附触发方式（预热或按需）、是否等过用户操作、耗时，失败时附错误类别和启动器给出的原因。`image.gc` 记录回收的组数、文件数和字节数。
+
+出图配置和存储另记这些事件：
+
+- `providers.migrated`：`providers.json` 从版本 1 升到版本 2 时，附来源版本、目标版本和是否写了备份。
+- `image.config.loaded`：读取出图配置时，附服务个数和是否已选中服务。
+- `image.service.created`、`image.service.updated`、`image.service.removed`：服务配置增删改，附协议和是否有启动器。
+- `image.auto_illustration.set`：修改「游玩时生成插图」时，附是否开启。
+- `image.settings.invalid`：`app_settings.illustration` 解析失败时。
+- `image.store.mismatch`：图片文件长度和记录不一致时，附记录字节数和实际字节数。
+- `image.store.failed`：写临时文件、改名或提交图片记录失败时，附失败阶段和系统错误码。
+- `image.gc.failed`：启动或删除作品后的清理失败时，附触发时机和错误码。
+- `illustration.cancelled`：停用自动出图或接收方变化时取消插图，附取消的记录数和原因。
+- `illustration.interrupted`、`portrait.interrupted`：重启恢复中断任务时，按原请求 id 记录，附阶段、参考组或位置以及错误码。
+- `portrait.adopted`：采用或撤下人物参考组时，附参考组 id、作用域和复核过的位置数。
+
+提示词、画面说明和形象原文留在作品库。
 
 desktop 的事件由 contracts 的 `/desktop` 入口逐个定义字段：`desktop.started`（是否打包、是否开发模式、平台）、`desktop.shell_env`（是否成功、是否超时、读到的变量个数）、`desktop.core_exited`（退出码、启动中还是运行中）、`desktop.core_ready_timeout`、`desktop.core_restarted`（重试还是重启）、`desktop.renderer_gone`（Electron 给出的原因）、`desktop.navigation_blocked`（导航还是新窗口、是否交给了系统浏览器）、`desktop.dropped`（丢弃条数）。不合格的进程消息由 core 记 `desktop.channel.invalid`，附消息种类和校验问题数。窗口地址带令牌，任何事件都不记录它。
 
@@ -108,6 +124,9 @@ performance_samples (
 | `illustration.queue`、`illustration.total` | 插图入队；开始处理 | 开始处理；文件写入并提交、失败或中断。总耗时附参考人物数和是否现画了参考图 |
 | `illustration.shot` | 开始写镜头描述 | 镜头描述校验通过并写入，或失败 |
 | `image.generate` | `image` 模块向出图服务提交一张图 | 取回并校验完图片，或失败、超时、取消。附协议、质量档和参考图张数，`call_id` 关联 `image_calls` |
+| `image.wake` | core 开始一次唤醒 | 唤醒结束、失败或取消。附触发方式和是否等过用户操作 |
+| `image.gc` | core 开始一次图片清理 | 清理结束或失败。附删除的文件数和释放的字节数 |
+| `client.illustration_visible` | 插图记录出现 | 图片在屏幕上解码完成。`request_id` 关联插图 id |
 | `desktop.core_ready` | desktop 启动 core | 收到 `ready`、`start-failed`、超时或进程退出。`attempt` 是本次启动的第几次尝试 |
 | `desktop.window_ready` | desktop 创建窗口 | 窗口第一次可以显示 |
 | `preview.validate`、`turn.validate` | 开始校验一次模型提案 | 得到校验结果，包括须修正的情况 |

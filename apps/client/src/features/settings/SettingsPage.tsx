@@ -11,6 +11,7 @@ import { AddEndpointForm } from './AddEndpointForm.tsx';
 import { AppearanceSection } from './AppearanceSection.tsx';
 import { ConfigProblem } from './ConfigProblem.tsx';
 import { EndpointSection } from './EndpointSection.tsx';
+import { ImageServiceSection } from './ImageServiceSection.tsx';
 import { PurposeSection } from './PurposeSection.tsx';
 import { SETTINGS_SECTION_IDS, SettingsNav } from './SettingsNav.tsx';
 import styles from './SettingsPage.module.css';
@@ -58,6 +59,7 @@ export function SettingsPage() {
               <Skeleton variant='lines' count={6} />
             ) : null}
           </section>
+          <ImageServiceSection />
           <section className={styles.models}>
             <h2 className={styles.heading}>{t('settings:debug.heading')}</h2>
             <p className={styles.description}>{t('settings:debug.description')}</p>

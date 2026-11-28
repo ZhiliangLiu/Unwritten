@@ -1,0 +1,9 @@
+.picker {
+  display: grid;
+  gap: var(--uw-space-2);
+}
+
+.reset {
+  display: flex;
+  justify-content: flex-start;
+}

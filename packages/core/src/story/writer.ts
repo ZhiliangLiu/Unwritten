@@ -2,14 +2,15 @@ import { randomUUID } from 'node:crypto';
 import type { Database } from '../store/db.ts';
 import { entities, entityNames, facts, knowledge, stateDefs, stateValues } from '../store/schema.ts';
 import { mergeListItems } from './state.ts';
-import type {
-  EntityRef,
-  FactChange,
-  FactRef,
-  StateChange,
-  StateDefRef,
-  StateItemChange,
-  ValidatedChanges,
+import {
+  EntityProfileSchema,
+  type EntityRef,
+  type FactChange,
+  type FactRef,
+  type StateChange,
+  type StateDefRef,
+  type StateItemChange,
+  type ValidatedChanges,
 } from './types.ts';
 
 export type StoryTx = Pick<Database, 'insert'>;
@@ -31,6 +32,7 @@ export interface WriteChangesInput {
   parentPresentIds: string[];
   parentStates?: Map<string, { value: string | null; visible: boolean; closed: boolean }>;
   castSlots?: Map<number, string>;
+  castAppearances?: Map<string, string | null>;
 }
 
 export interface WriteChangesResult {
@@ -43,6 +45,7 @@ export function writeChanges(tx: StoryTx, input: WriteChangesInput): WriteChange
   const parentStates =
     input.parentStates ?? new Map<string, { value: string | null; visible: boolean; closed: boolean }>();
   const castSlots = input.castSlots ?? new Map<number, string>();
+  const castAppearances = input.castAppearances ?? new Map<string, string | null>();
   const createdId = (line: number): string => {
     const id = input.createdIds.get(line);
     if (!id) throw new Error(`missing created entity for line ${line}`);
@@ -51,16 +54,21 @@ export function writeChanges(tx: StoryTx, input: WriteChangesInput): WriteChange
   const resolve = (ref: EntityRef): string => ('existing' in ref ? ref.existing : createdId(ref.created));
 
   const entityRows = input.entityVersionIds.flatMap((versionId) =>
-    input.changes.entities.map((entity) => ({
-      versionId,
-      id: createdId(entity.line),
-      kind: entity.kind,
-      name: entity.name,
-      profile: { text: entity.profile },
-      isProtagonist: entity.protagonist ? 1 : 0,
-      castSlot: castSlots.get(entity.line) ?? null,
-      originTurnId: input.entityOrigin === 'version' ? null : input.turnId,
-    })),
+    input.changes.entities.map((entity) => {
+      const castSlot = castSlots.get(entity.line) ?? null;
+      const appearance = entity.appearance ?? (castSlot ? (castAppearances.get(castSlot) ?? null) : null);
+      return {
+        versionId,
+        id: createdId(entity.line),
+        kind: entity.kind,
+        name: entity.name,
+        profile: EntityProfileSchema.parse({ text: entity.profile, ...(appearance ? { appearance } : {}) }),
+        isProtagonist: entity.protagonist ? 1 : 0,
+        castSlot,
+        originTurnId: input.entityOrigin === 'version' ? null : input.turnId,
+        sourcePara: input.entityOrigin === 'turn' ? entity.para : null,
+      };
+    }),
   );
   if (entityRows.length) tx.insert(entities).values(entityRows).run();
 

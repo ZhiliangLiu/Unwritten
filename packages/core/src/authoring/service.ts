@@ -19,7 +19,7 @@ import { createCodeBook } from '../story/codebook.ts';
 import { copyAuthorSetting } from '../story/copy.ts';
 import type { OpeningProposal, OpeningProposalContext } from '../story/opening-proposal.ts';
 import { loadProjection } from '../story/projection.ts';
-import { ValidatedChangesSchema } from '../story/types.ts';
+import { EntityProfileSchema, ValidatedChangesSchema } from '../story/types.ts';
 import type { ValidatedChanges } from '../story/types.ts';
 import type { LlmTool } from '../llm/types.ts';
 import { LlmRunError } from '../llm/types.ts';
@@ -393,7 +393,10 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
                       id,
                       kind: entity.kind,
                       name: entity.name,
-                      profile: { text: entity.profile },
+                      profile: EntityProfileSchema.parse({
+                        text: entity.profile,
+                        ...(entity.appearance ? { appearance: entity.appearance } : {}),
+                      }),
                       isProtagonist: entity.protagonist ? 1 : 0,
                       originTurnId: null,
                     },

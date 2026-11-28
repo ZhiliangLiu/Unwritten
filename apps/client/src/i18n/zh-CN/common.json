@@ -4,6 +4,15 @@
   "action": { "cancel": "取消", "retry": "重试", "close": "关闭" },
   "status": { "loading": "正在加载", "saved": "已保存", "saving": "正在保存" },
   "toast": { "region": "通知" },
+  "wake": {
+    "heading": "出图服务启动状态",
+    "needsAction": "出图服务需要你在浏览器里完成授权。",
+    "open": "打开授权页",
+    "continue": "继续",
+    "continuing": "正在继续",
+    "waking": "正在唤醒出图服务",
+    "failed": "没能唤醒出图服务"
+  },
   "error": { "details": "详细信息", "diagnosticId": "诊断编号", "pageHeading": "页面打开失败" },
   "noToken": {
     "heading": "请从启动时给出的地址打开",

@@ -1,0 +1,3 @@
+export const IMAGE_GC_GRACE_MS = 10 * 60 * 1000;
+export const PORTRAIT_PREVIEW_TTL_DAYS = 7;
+export const ILLUSTRATION_MAX_REFERENCES = 4;

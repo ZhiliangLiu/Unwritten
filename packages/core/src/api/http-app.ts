@@ -1,7 +1,9 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { RPCHandler } from '@orpc/server/fetch';
+import { PORTRAIT_UPLOAD_MAX_BODY_BYTES } from '@unwritten/contracts';
 import type { Services } from '../services.ts';
 import type { Logger } from '../log/logger.ts';
 import type { ClientAssets } from './client-assets.ts';
@@ -59,6 +61,19 @@ export function createHttpApp(options: HttpAppOptions): Hono {
   );
   app.use('*', originGuard(options.logger));
   app.use('/api/*', tokenGuard(options.token, options.logger));
+
+  app.post(
+    '/api/portrait/upload',
+    bodyLimit({
+      maxSize: PORTRAIT_UPLOAD_MAX_BODY_BYTES,
+      onError: (c) => c.json({ error: 'payload_too_large' }, 413),
+    }),
+  );
+
+  app.use('/api/image/file', async (c, next) => {
+    await next();
+    c.header('X-Content-Type-Options', 'nosniff');
+  });
 
   app.all('/api/*', async (c) => {
     const { matched, response } = await rpcHandler.handle(c.req.raw, {

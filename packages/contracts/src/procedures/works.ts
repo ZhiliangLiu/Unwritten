@@ -18,6 +18,7 @@ import {
   WorkSummarySchema,
 } from '../schemas/works.ts';
 import { PlanJobViewSchema } from '../schemas/authoring.ts';
+import { SetIllustrationStyleInputSchema } from '../schemas/illustration.ts';
 
 export const worksContract = {
   list: oc.output(z.array(WorkSummarySchema)),
@@ -32,5 +33,6 @@ export const worksContract = {
   removePlanItem: oc.input(RemovePlanItemInputSchema).output(SaveDraftOutputSchema),
   confirmPlan: oc.input(ConfirmPlanInputSchema).output(SaveDraftOutputSchema),
   setWizardStep: oc.input(SetWizardStepInputSchema).output(z.object({})),
+  setIllustrationStyle: oc.input(SetIllustrationStyleInputSchema).output(z.object({})),
   delete: oc.input(WorkIdInputSchema).output(z.object({})),
 };

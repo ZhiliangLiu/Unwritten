@@ -5,7 +5,15 @@ import { makeTempDataDir } from '../test-support/temp-dir.ts';
 import { seedLighthouseTown, seedNorthCape, seedStory } from '../test-support/story-fixtures.ts';
 import { ancestorChain } from '../play/chain.ts';
 import { openDatabase, type Database } from '../store/db.ts';
-import { loadProjection, protagonistNameOf, sceneHitIds, stateAt, stateDefByKey } from './projection.ts';
+import {
+  appearanceFacts,
+  currentAppearance,
+  loadProjection,
+  protagonistNameOf,
+  sceneHitIds,
+  stateAt,
+  stateDefByKey,
+} from './projection.ts';
 
 function load(db: Database, versionId: string, headTurnId: string) {
   const chain = ancestorChain(db, headTurnId).map((turn) => ({
@@ -189,5 +197,86 @@ describe('loadProjection 作者设定与状态栏', () => {
       opened.close();
       temp.cleanup();
     }
+  });
+});
+
+function appearanceFact(id: string, statement: string, depth: number, para: number) {
+  return {
+    id,
+    kind: 'trait' as const,
+    subjectId: 'shen',
+    objectId: null,
+    key: 'appearance',
+    statement,
+    data: null,
+    depth,
+    turnId: null,
+    para,
+  };
+}
+
+function projectionWithAppearanceFacts(facts: ReturnType<typeof appearanceFact>[]) {
+  return {
+    facts,
+    entities: new Map([
+      [
+        'shen',
+        {
+          id: 'shen',
+          kind: 'character' as const,
+          name: '沈岚',
+          profile: '带着黑伞',
+          appearance: '短卷发，深灰色旧风衣',
+          sourcePara: null,
+          isProtagonist: false,
+          originTurnId: null,
+          originDepth: -1,
+        },
+      ],
+    ]),
+  } as unknown as ReturnType<typeof load>;
+}
+
+describe('currentAppearance', () => {
+  it('没有形象特征时取实体档案里的形象', () => {
+    const { temp, opened } = setup();
+    try {
+      const seeded = seedStory(opened.db, {
+        turns: [{ prose: '开场' }],
+        entities: [
+          { key: 'lin', kind: 'character', name: '林远', protagonist: true },
+          { key: 'shen', kind: 'character', name: '沈岚' },
+        ],
+      });
+      opened.db.run(
+        sql`update entities set profile = ${JSON.stringify({ text: '带着黑伞', appearance: '短卷发，深灰色旧风衣' })}
+            where version_id = ${seeded.versionId} and id = ${seeded.ids.shen}`,
+      );
+      const projection = load(opened.db, seeded.versionId, seeded.headTurnId);
+      expect(currentAppearance(projection, seeded.ids.shen ?? '')).toBe('短卷发，深灰色旧风衣');
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('有两层形象特征时取较深的那条', () => {
+    const projection = projectionWithAppearanceFacts([
+      appearanceFact('f1', '浅色雨衣的兜帽遮住脸', 1, 1),
+      appearanceFact('f2', '摘下兜帽，左颧骨有一块月牙形胎记', 2, 1),
+    ]);
+    expect(currentAppearance(projection, 'shen')).toBe('摘下兜帽，左颧骨有一块月牙形胎记');
+  });
+
+  it('同一回合有两条形象特征时取段号较大的那条', () => {
+    const projection = projectionWithAppearanceFacts([
+      appearanceFact('f1', '换了白围裙', 1, 1),
+      appearanceFact('f2', '白围裙上沾了油污', 1, 2),
+    ]);
+    expect(appearanceFacts(projection, 'shen').map((fact) => fact.statement)).toEqual([
+      '换了白围裙',
+      '白围裙上沾了油污',
+    ]);
+    expect(currentAppearance(projection, 'shen')).toBe('白围裙上沾了油污');
   });
 });

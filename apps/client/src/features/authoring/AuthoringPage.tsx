@@ -15,6 +15,7 @@ import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
 import { GeneratingMarker } from '../../shared/ui/GeneratingMarker.tsx';
 import { Page } from '../../shared/ui/Page.tsx';
 import { Skeleton } from '../../shared/ui/Skeleton.tsx';
+import { WakePrompt } from '../../shared/ui/WakePrompt.tsx';
 import { BackgroundEditor } from './BackgroundEditor.tsx';
 import { sameDraft, type DraftContent } from './draft.ts';
 import { PlanPanel } from './PlanPanel.tsx';
@@ -40,6 +41,8 @@ export function AuthoringPage({ workId }: { workId: string }) {
     queryKey: queryKeys.work(workId),
     queryFn: () => api.works.get({ workId }),
   });
+
+  const imageConfig = useQuery({ queryKey: queryKeys.imageConfig, queryFn: () => api.image.services.list() });
 
   const data = work.data;
   const previewJob = data?.latestPreviewJob ?? null;
@@ -184,6 +187,7 @@ export function AuthoringPage({ workId }: { workId: string }) {
       }}
       width='prose'
     >
+      <WakePrompt serviceId={imageConfig.data?.selectedServiceId ?? null} />
       {notFound ? (
         <EmptyState
           headingLevel={2}

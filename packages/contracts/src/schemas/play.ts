@@ -2,6 +2,12 @@ import { z } from 'zod';
 import { ErrorCodeSchema } from '../errors.ts';
 import { CastModeSchema, ProtagonistFieldSchema } from './authoring.ts';
 import { LanguageTagSchema, TimestampSchema, UuidSchema } from './common.ts';
+import {
+  DEFAULT_START_ILLUSTRATION_INFO,
+  IllustrationViewSchema,
+  StartIllustrationInfoSchema,
+  StartIllustrationInputSchema,
+} from './illustration.ts';
 import { OptionViewSchema } from './works.ts';
 
 export const ACTION_TEXT_MAX_LENGTH = 2_000;
@@ -20,6 +26,7 @@ export const TurnViewSchema = z.object({
   action: ActionViewSchema.nullable(),
   paragraphs: z.array(z.string()),
   options: z.array(OptionViewSchema),
+  illustration: IllustrationViewSchema.nullable().default(null),
   createdAt: TimestampSchema,
 });
 
@@ -49,6 +56,7 @@ export const RouteViewSchema = z.object({
   workTitle: z.string().nullable(),
   language: LanguageTagSchema,
   headTurnId: UuidSchema,
+  playthroughId: UuidSchema.nullable().default(null),
   turns: z.array(TurnViewSchema),
   pending: TurnRequestViewSchema.nullable(),
   ended: z.boolean().default(false),
@@ -70,11 +78,13 @@ export const StartInfoSchema = z.object({
   title: z.string().nullable(),
   fields: z.array(ProtagonistFieldSchema),
   castMode: CastModeSchema,
+  illustration: StartIllustrationInfoSchema.default(DEFAULT_START_ILLUSTRATION_INFO),
 });
 
 export const StartPlaythroughInputSchema = z.object({
   workId: UuidSchema,
   playthroughId: UuidSchema,
+  illustration: StartIllustrationInputSchema.optional(),
   protagonist: z.record(
     z.string().min(1).max(20),
     z

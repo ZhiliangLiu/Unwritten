@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { sql } from 'drizzle-orm';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_WORK_SETTINGS, EMPTY_WORK_ANCHORS } from '@unwritten/contracts';
 import { createEventBus } from '../events/bus.ts';
 import type { LogEvent, Logger } from '../log/logger.ts';
@@ -298,6 +298,32 @@ describe('createLibraryService', () => {
       const summary = service.list().find((item) => item.id === workId);
       expect(summary?.routeId).toBeNull();
       expect(summary?.hasProgress).toBe(false);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('删除提交后通知清理，回调里查不到作品，重复删除不再通知', () => {
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    const onWorkDeleted = vi.fn(() => {
+      expect(opened.db.all(sql`select 1 from works where id = ${workId}`)).toHaveLength(0);
+    });
+    const service = createLibraryService({
+      dataDir: temp.dir,
+      db: opened.db,
+      bus: createEventBus(),
+      logger,
+      shutdown: new AbortController().signal,
+      onWorkDeleted,
+    });
+    try {
+      service.create({ workId });
+      service.delete({ workId });
+      expect(onWorkDeleted).toHaveBeenCalledTimes(1);
+      service.delete({ workId });
+      expect(onWorkDeleted).toHaveBeenCalledTimes(1);
     } finally {
       opened.close();
       temp.cleanup();

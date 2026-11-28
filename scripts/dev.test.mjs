@@ -16,7 +16,7 @@ function pidsWithToken() {
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-test('父进程死后被过继的孙子进程也要收掉', async (t) => {
+void test('父进程死后被过继的孙子进程也要收掉', async (t) => {
   t.after(() => signalTrackedGroups('SIGKILL'));
   const parent = spawn(
     process.execPath,

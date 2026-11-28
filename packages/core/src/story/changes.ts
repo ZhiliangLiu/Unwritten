@@ -1,5 +1,5 @@
 import type { EntityKind, StateConfig, StateDisplay } from '@unwritten/contracts';
-import { LIST_ITEM_STATUSES, STATE_DISPLAYS } from '@unwritten/contracts';
+import { AppearanceTextSchema, LIST_ITEM_STATUSES, STATE_DISPLAYS } from '@unwritten/contracts';
 import type { ParseResult } from '../text/turn-text.ts';
 import { parseJsonLines } from '../text/turn-text.ts';
 import type { CodeBook, Resolved } from './codebook.ts';
@@ -7,6 +7,7 @@ import { sceneHitIds, stateDefByKey } from './projection.ts';
 import { checkStateConfig, checkStateValue } from './state.ts';
 import type { StoryProjection } from './types.ts';
 import {
+  APPEARANCE_TRAIT_KEY,
   EMPTY_CHANGES,
   RELATION_STAGES,
   PROMISE_STATUSES,
@@ -183,6 +184,7 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
 
   const newEntities = new Map<number, NewEntity>();
   const newNameLines = new Map<string, number>();
+  let droppedAppearances = 0;
   for (const item of lines) {
     if (item.value.type !== 'new_entity') continue;
     const kindRaw = item.value.kind;
@@ -201,6 +203,12 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
         ? null
         : stringField(item.value, 'known_as', item.line, errors, { max: STORY_LIMITS.nameMax });
     const profile = stringField(item.value, 'profile', item.line, errors, { max: STORY_LIMITS.profileMax }) ?? '';
+    let appearance: string | null = null;
+    if (kind === 'character' && item.value.appearance !== undefined && item.value.appearance !== null) {
+      const parsedAppearance = AppearanceTextSchema.safeParse(item.value.appearance);
+      if (parsedAppearance.success) appearance = parsedAppearance.data;
+      else droppedAppearances += 1;
+    }
     const para = paraField(item.value, item.line, ctx.paragraphCount, errors);
     const protagonist = booleanField(item.value, 'protagonist');
     let slot: string | null = null;
@@ -228,6 +236,7 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
       name,
       knownAs: knownAs || null,
       profile,
+      appearance,
       para,
       protagonist,
       slot,
@@ -369,7 +378,15 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
   const factLines = lines.filter((item) => FACT_LINE_TYPES.includes(String(item.value.type)));
   const factLineIds = new Map<string, number>();
   const misplacedIds = new Map<string, { line: number; type: string }>();
+  const appearanceTraitLines = new Set<number>();
   for (const item of lines) {
+    if (
+      item.value.type === 'trait' &&
+      typeof item.value.key === 'string' &&
+      item.value.key.trim() === APPEARANCE_TRAIT_KEY
+    ) {
+      appearanceTraitLines.add(item.line);
+    }
     const rawId = item.value.id;
     if (!FACT_LINE_TYPES.includes(String(item.value.type))) {
       if (typeof rawId === 'string' || typeof rawId === 'number') {
@@ -421,6 +438,16 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
     }
     errors.push(`第 ${line} 行 changes.fact：找不到「${token}」。${factIdHint(token)}`);
     return null;
+  };
+
+  const isAppearanceTraitFact = (fact: FactRef): boolean => {
+    if ('line' in fact) return appearanceTraitLines.has(fact.line);
+    return (
+      ctx.projection?.facts.some(
+        (candidate) =>
+          candidate.id === fact.existing && candidate.kind === 'trait' && candidate.key === APPEARANCE_TRAIT_KEY,
+      ) ?? false
+    );
   };
 
   const resolveEntity = (field: unknown, line: number, label: string): EntityRef | null => {
@@ -550,10 +577,20 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
         type === 'event'
           ? null
           : stringField(item.value, 'key', line, errors, { required: true, max: STORY_LIMITS.keyMax });
-      const statement = stringField(item.value, 'statement', line, errors, {
-        required: true,
-        max: STORY_LIMITS.statementMax,
-      });
+      let statement: string | null;
+      if (type === 'trait' && key === APPEARANCE_TRAIT_KEY) {
+        const parsedAppearance = AppearanceTextSchema.safeParse(item.value.statement);
+        if (!parsedAppearance.success) {
+          droppedAppearances += 1;
+          continue;
+        }
+        statement = parsedAppearance.data;
+      } else {
+        statement = stringField(item.value, 'statement', line, errors, {
+          required: true,
+          max: STORY_LIMITS.statementMax,
+        });
+      }
       const para = paraField(item.value, line, ctx.paragraphCount, errors);
       let witnesses: EntityRef[] = [];
       if (type === 'event') {
@@ -600,7 +637,11 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
       }
       if (!key) continue;
       if (type === 'trait') {
-        facts.push({ line, kind: 'trait', subject, object: null, key, statement, data: null, para, witnesses: [] });
+        const data: FactData | null =
+          key === APPEARANCE_TRAIT_KEY && item.value.same_visible_identity === 'true'
+            ? { same_visible_identity: 1 }
+            : null;
+        facts.push({ line, kind: 'trait', subject, object: null, key, statement, data, para, witnesses: [] });
         continue;
       }
       if (type === 'promise') {
@@ -665,6 +706,10 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
     }
     if (type === 'knowledge') {
       const fact = resolveFact(line, item.value.fact);
+      if (fact && isAppearanceTraitFact(fact)) {
+        errors.push('形象特征只用于呈现，不能作为 knowledge 的引用。删去这条引用，再提交。');
+        continue;
+      }
       const holder = resolveEntity(item.value.holder, line, 'holder');
       const level = stringField(item.value, 'level', line, errors, { required: true });
       if (level && !['heard', 'suspects', 'confirmed', 'misled'].includes(level)) {
@@ -832,6 +877,7 @@ export function parseChanges(raw: string, ctx: ChangesContext): ParseResult<Vali
       newStates: [...newStatesByLine.values()],
       secrets,
       sceneHits,
+      droppedAppearances,
     },
   };
 }

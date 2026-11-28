@@ -438,6 +438,61 @@ describe('createRunner', () => {
     }
   });
 
+  it('接收方守卫和目标不符时不外发，恢复后原端点收到一次', async () => {
+    const primary = await startFakeOpenAiServer();
+    const other = await startFakeOpenAiServer();
+    const temp = makeTempDataDir();
+    const opened = openDatabase(join(temp.dir, 'library.db'));
+    const base: RuntimeTarget = {
+      endpointId: 'primary',
+      endpointName: 'Primary',
+      baseUrl: primary.baseUrl,
+      modelId: 'model-a',
+      apiKey: undefined,
+      contextWindow: 32_768,
+      maxOutputTokens: 1_024,
+      thinkingFormat: 'auto',
+      params: EMPTY_GENERATION_PARAMS,
+    };
+    let target = base;
+    const completer = createCompleter({
+      db: opened.db,
+      logger,
+      shutdown: new AbortController().signal,
+      timeouts: { firstOutputMs: 2_000, stallMs: 2_000 },
+      logBodies: false,
+      targetFor: () => target,
+    });
+    const call = () =>
+      completer({
+        purpose: 'background',
+        system: 'system',
+        prompt: 'prompt',
+        sessionId: 'work',
+        ref: { kind: 'illustration', id: 'work', attempt: 1, workId: null },
+        maxOutputTokens: 512,
+        guard: { endpointId: 'primary', modelId: 'model-a', assertCurrent() {} },
+      });
+    try {
+      target = { ...base, endpointId: 'other', baseUrl: other.baseUrl, modelId: 'model-b' };
+      other.enqueue({ kind: 'text', text: '不该到达这里。' });
+      await expect(call()).rejects.toMatchObject({ name: 'AbortError' });
+      expect(primary.requests).toHaveLength(0);
+      expect(other.requests).toHaveLength(0);
+
+      target = base;
+      primary.enqueue({ kind: 'text', text: '灯塔亮到天明。' });
+      await expect(call()).resolves.toEqual({ text: '灯塔亮到天明。' });
+      expect(primary.requests).toHaveLength(1);
+      expect(other.requests).toHaveLength(0);
+    } finally {
+      await primary.close();
+      await other.close();
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
   it('complete 持续输出时不受首字超时限制，停住时按 timeout 失败', async () => {
     const server = await startFakeOpenAiServer();
     const { temp, opened, completer } = setup(server.baseUrl, { firstOutputMs: 300, stallMs: 900 });

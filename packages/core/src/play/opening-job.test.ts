@@ -13,6 +13,8 @@ import { makeTempDataDir } from '../test-support/temp-dir.ts';
 import { openDatabase } from '../store/db.ts';
 import { entities, playthroughs, stateValues, workVersions } from '../store/schema.ts';
 import type { VersionMeta } from '../store/meta.ts';
+import { createImageService } from '../image/service.ts';
+import type { IllustrationService } from '../services.ts';
 import { createPlayService } from './service.ts';
 
 function silentLogger(): Logger {
@@ -48,7 +50,7 @@ const castChanges = changeLines(
 
 function castStep() {
   return proposeCastStep([
-    { slot: '1', name: '陶枝', known_as: '提灯的人', profile: '守灯人，话少' },
+    { slot: '1', name: '陶枝', known_as: '提灯的人', profile: '守灯人，话少', appearance: '短卷发，穿深色短外套' },
     { slot: '2', name: '祁望', known_as: '掌柜', profile: '掌柜，爱打盹' },
   ]);
 }
@@ -83,22 +85,33 @@ function setup() {
   const llm = createScriptedLlm();
   const published: CoreEvent[] = [];
   const bus = createEventBus();
-  const play = createPlayService({
+  const deps = {
     dataDir: temp.dir,
     db: opened.db,
     bus: {
-      publish(event) {
+      publish(event: CoreEvent) {
         published.push(event);
         bus.publish(event);
       },
-      subscribe(signal) {
+      subscribe(signal: AbortSignal) {
         return bus.subscribe(signal);
       },
     },
     logger: silentLogger(),
     shutdown: new AbortController().signal,
+  };
+  const play = createPlayService({
+    ...deps,
     llm,
     summary: createRecordingSummary(),
+    image: createImageService({ ...deps, llm }),
+    illustration: {
+      enqueue: () => {
+        throw new Error('not used');
+      },
+      forRoute: () => new Map(),
+    } as unknown as IllustrationService,
+    onIllustrationQueued: () => {},
   });
   return { temp, opened, seeded, llm, published, play };
 }
@@ -126,6 +139,8 @@ describe('opening job 每局生成', () => {
         .all();
       expect(generated.map((entity) => entity.name).sort()).toEqual([...castNames].sort());
       expect(generated.every((entity) => entity.castSlot !== null)).toBe(true);
+      const torchBearer = generated.find((entity) => entity.name === '陶枝');
+      expect(torchBearer?.profile).toEqual({ text: '守灯人，话少', appearance: '短卷发，穿深色短外套' });
       const stored = opened.db.select().from(playthroughs).where(eq(playthroughs.id, playthroughId)).get()!;
       expect(stored.cast).toBeNull();
       const states = opened.db.select().from(stateValues).where(eq(stateValues.turnId, root.id)).all();

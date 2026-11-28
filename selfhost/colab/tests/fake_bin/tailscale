@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+import json
+import os
+from pathlib import Path
+import stat
+import sys
+
+
+def append(line: str) -> None:
+    log_path = os.environ.get("FAKE_BIN_LOG")
+    if log_path:
+        with Path(log_path).open("a") as log:
+            log.write(line + "\n")
+
+
+append("command=tailscale")
+for argument in sys.argv[1:]:
+    append(argument)
+    if argument.startswith("--auth-key=file:"):
+        key_path = Path(argument.split("file:", 1)[1])
+        append(f"authkey-file-length={len(key_path.read_text())}")
+        append(f"authkey-file-mode={stat.S_IMODE(key_path.stat().st_mode):o}")
+
+if os.environ.get("FAKE_TAILSCALE_FAIL") == "1":
+    sys.exit(1)
+
+if "status" in sys.argv[1:]:
+    name = os.environ.get("FAKE_TAILSCALE_DNS_NAME", "unwritten-image.example.ts.net.")
+    print(json.dumps({"Self": {"DNSName": name}}))

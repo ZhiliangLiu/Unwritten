@@ -1,0 +1,50 @@
+.panel {
+  display: grid;
+  gap: var(--uw-space-3);
+  padding-block-start: var(--uw-space-3);
+  border-block-start: var(--uw-border-width) solid var(--uw-color-border);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--uw-typography-section-title-font-family);
+  font-size: var(--uw-typography-section-title-font-size);
+  font-weight: var(--uw-typography-section-title-font-weight);
+  line-height: var(--uw-typography-section-title-line-height);
+  letter-spacing: var(--uw-typography-section-title-letter-spacing);
+}
+
+.notice {
+  margin: 0;
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+  color: var(--uw-color-text-muted);
+}
+
+.options {
+  display: grid;
+  gap: var(--uw-space-3);
+}
+
+.sizes {
+  font-family: var(--uw-typography-caption-font-family);
+  font-size: var(--uw-typography-caption-font-size);
+  line-height: var(--uw-typography-caption-line-height);
+}
+
+.sizes summary {
+  min-block-size: var(--uw-size-target-min);
+  cursor: pointer;
+}
+
+.sizes ul {
+  display: grid;
+  gap: var(--uw-space-1);
+  margin: 0;
+  padding-inline-start: var(--uw-space-5);
+}
+
+.tierName {
+  margin: 0;
+}

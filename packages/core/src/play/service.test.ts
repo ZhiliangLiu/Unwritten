@@ -1,13 +1,17 @@
 import { join } from 'node:path';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { createEventBus } from '../events/bus.ts';
 import type { Logger, LogEvent, PerformanceSample } from '../log/logger.ts';
+import type { IllustrationService, JournalPortraitsInput } from '../services.ts';
 import { makeTempDataDir } from '../test-support/temp-dir.ts';
 import { createScriptedLlm } from '../test-support/scripted-llm.ts';
 import { createRecordingSummary } from '../test-support/fake-summary.ts';
 import { changeLines } from '../test-support/llm-steps.ts';
 import { openDatabase } from '../store/db.ts';
+import { playthroughs } from '../store/schema.ts';
+import { TEXT_ONLY_PLAYTHROUGH_ILLUSTRATION } from '../store/illustration-types.ts';
+import { createImageService } from '../image/service.ts';
 import { createPlayService } from './service.ts';
 
 const workId = '00000000-0000-4000-8000-000000000001';
@@ -114,6 +118,8 @@ function setup(metaOverrides: Record<string, unknown> = {}) {
     async close() {},
   };
   const summary = createRecordingSummary();
+  const journalCalls: JournalPortraitsInput[] = [];
+  const portraitId = '00000000-0000-4000-8000-000000000099';
   const deps = {
     dataDir: temp.dir,
     db: opened.db,
@@ -121,8 +127,26 @@ function setup(metaOverrides: Record<string, unknown> = {}) {
     logger,
     shutdown: new AbortController().signal,
   };
-  const play = createPlayService({ ...deps, llm, summary });
-  return { temp, opened, llm, summary, events, samples, play };
+  const play = createPlayService({
+    ...deps,
+    llm,
+    summary,
+    image: createImageService({ ...deps, llm }),
+    illustration: {
+      enqueue: () => {
+        throw new Error('not used');
+      },
+      forRoute: () => new Map(),
+      journalPortraits: (input: JournalPortraitsInput) => {
+        journalCalls.push(input);
+        return input.settings.enabled
+          ? new Map([[shenId, { setId: portraitId, updatedAt: 1_700_000_000_000 }]])
+          : new Map();
+      },
+    } as unknown as IllustrationService,
+    onIllustrationQueued: () => {},
+  });
+  return { temp, opened, llm, summary, events, samples, play, journalCalls, portraitId };
 }
 
 describe('createPlayService', () => {
@@ -422,6 +446,22 @@ describe('createPlayService', () => {
     }
   });
 
+  it('手记带当前路线的缩略图，并把开局插图设置交给插图服务', () => {
+    const { temp, opened, play, journalCalls, portraitId } = setup();
+    try {
+      const settings = { ...TEXT_ONLY_PLAYTHROUGH_ILLUSTRATION, enabled: true };
+      opened.db.update(playthroughs).set({ illustration: settings }).where(eq(playthroughs.id, playthroughId)).run();
+      const journal = play.getJournal({ routeId });
+      const subject = journal.subjects.find((candidate) => candidate.entityId === shenId);
+      expect(subject?.portrait).toEqual({ setId: portraitId, updatedAt: 1_700_000_000_000 });
+      expect(journalCalls.at(-1)).toMatchObject({ routeId, playthroughId, settings });
+      expect(journalCalls.at(-1)?.projection.headTurnId).toBe(rootTurnId);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
   it('触发关键场面后同一路线不能再触发', async () => {
     const { temp, opened, llm, play, events } = setup({
       keyScenes: [{ id: sceneId, condition: '主角独自推开门', outcome: '门后有灯', once: true }],
@@ -592,6 +632,131 @@ describe('createPlayService', () => {
       await play.whenIdle();
       expect(llm.runs[0]?.prompt).toContain('@2');
       expect(play.getRoute({ routeId }).turns).toHaveLength(2);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('主角入画时形象进上下文，不入画时不进', async () => {
+    const inFrame = setup();
+    try {
+      inFrame.opened.db.run(
+        sql`update playthroughs set illustration = ${JSON.stringify({
+          ...TEXT_ONLY_PLAYTHROUGH_ILLUSTRATION,
+          protagonistInFrame: true,
+          protagonistAppearance: '短发，深灰色旧风衣',
+        })} where id = ${playthroughId}`,
+      );
+      inFrame.llm.enqueue({ args: turnArgs });
+      inFrame.play.submitAction({
+        requestId,
+        routeId,
+        expectedHeadTurnId: rootTurnId,
+        action: { text: '推门', optionIndex: null },
+      });
+      await inFrame.play.whenIdle();
+      expect(inFrame.llm.runs[0]?.prompt).toContain('【人物当前形象】');
+      expect(inFrame.llm.runs[0]?.prompt).toContain('主角：短发，深灰色旧风衣');
+    } finally {
+      inFrame.opened.close();
+      inFrame.temp.cleanup();
+    }
+
+    const outOfFrame = setup();
+    try {
+      outOfFrame.opened.db.run(
+        sql`update playthroughs set illustration = ${JSON.stringify({
+          ...TEXT_ONLY_PLAYTHROUGH_ILLUSTRATION,
+          protagonistInFrame: false,
+          protagonistAppearance: '短发，深灰色旧风衣',
+        })} where id = ${playthroughId}`,
+      );
+      outOfFrame.llm.enqueue({ args: turnArgs });
+      outOfFrame.play.submitAction({
+        requestId,
+        routeId,
+        expectedHeadTurnId: rootTurnId,
+        action: { text: '推门', optionIndex: null },
+      });
+      await outOfFrame.play.whenIdle();
+      expect(outOfFrame.llm.runs[0]?.prompt).not.toContain('【人物当前形象】');
+    } finally {
+      outOfFrame.opened.close();
+      outOfFrame.temp.cleanup();
+    }
+  });
+
+  it('有效的插图标记写进回合，不合格或缺失的形象不触发修正', async () => {
+    const { temp, opened, llm, play } = setup();
+    try {
+      llm.enqueue({
+        args: {
+          ...turnArgs,
+          prose: '你推开门。\n\n雨声更大了。',
+          changes: changeLines(
+            {
+              type: 'new_entity',
+              kind: 'character',
+              name: '学徒',
+              known_as: '学徒',
+              profile: '修表铺的学徒',
+              appearance: '衣'.repeat(301),
+              para: '1',
+            },
+            {
+              type: 'new_entity',
+              kind: 'character',
+              name: '更夫',
+              known_as: '更夫',
+              profile: '打更的人',
+              para: '2',
+            },
+          ),
+          illustrate: '2',
+        },
+      });
+      play.submitAction({
+        requestId,
+        routeId,
+        expectedHeadTurnId: rootTurnId,
+        action: { text: '推门', optionIndex: null },
+      });
+      await play.whenIdle();
+      const route = play.getRoute({ routeId });
+      expect(route.turns).toHaveLength(2);
+      expect(llm.runs).toHaveLength(1);
+      const row = opened.db.get<{ illustrate_para: number | null }>(
+        sql`select illustrate_para from turns where id = ${route.headTurnId}`,
+      );
+      expect(row?.illustrate_para).toBe(2);
+      expect(route.headTurnId).not.toBe(rootTurnId);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('越界的插图标记丢弃，回合照常提交', async () => {
+    const { temp, opened, llm, play } = setup();
+    try {
+      llm.enqueue({
+        args: { ...turnArgs, prose: '你推开门。\n\n雨声更大了。', illustrate: '9' },
+      });
+      play.submitAction({
+        requestId,
+        routeId,
+        expectedHeadTurnId: rootTurnId,
+        action: { text: '推门', optionIndex: null },
+      });
+      await play.whenIdle();
+      const route = play.getRoute({ routeId });
+      expect(route.turns).toHaveLength(2);
+      expect(route.headTurnId).not.toBe(rootTurnId);
+      const row = opened.db.get<{ illustrate_para: number | null }>(
+        sql`select illustrate_para from turns where id = ${route.headTurnId}`,
+      );
+      expect(row?.illustrate_para).toBeNull();
     } finally {
       opened.close();
       temp.cleanup();

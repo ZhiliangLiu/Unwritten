@@ -27,7 +27,7 @@ function checkMutation(update, verdict) {
   return changed;
 }
 
-test('viewport, typography and reading preferences use the source tokens', () => {
+void test('viewport, typography and reading preferences use the source tokens', () => {
   assert.match(css['media.css'], /@custom-media --uw-compact \(width < 48rem\)/);
   assert.match(css['tokens.css'], /--uw-typography-page-title-font-size: var\(--uw-text-2xl\)/);
   assert.match(css['tokens.css'], /data-uw-prose-size='5'[^}]*--uw-prose-size: var\(--uw-prose-size-scale-5\)/s);
@@ -35,7 +35,7 @@ test('viewport, typography and reading preferences use the source tokens', () =>
   assert.match(css['tokens.css'], /data-uw-prose-indent='0'[^}]*--uw-prose-indent: 0em;/s);
 });
 
-test('motion renders the declared aliases and disables looping for reduced motion', () => {
+void test('motion renders the declared aliases and disables looping for reduced motion', () => {
   assert.match(css['tokens.css'], /--uw-transition-feedback: color var\(--uw-motion-duration-fast\)/);
   assert.match(css['tokens.css'], /--uw-animation-pulse: uw-pulse var\(--uw-motion-duration-pulse\)/);
   assert.match(css['tokens.css'], /--uw-animation-spin: uw-spin var\(--uw-motion-duration-spin\)/);
@@ -45,7 +45,7 @@ test('motion renders the declared aliases and disables looping for reduced motio
   );
 });
 
-test('a token referencing a zero duration disables the transition', () => {
+void test('a token referencing a zero duration disables the transition', () => {
   const changed = structuredClone(tokens);
   changed.base.motion['duration-fast'].$value.value = 0;
   const { 'tokens.css': output } = buildCss(changed);
@@ -53,7 +53,7 @@ test('a token referencing a zero duration disables the transition', () => {
   assert.match(output, /--uw-transition-press: none;/);
 });
 
-test('themes render aliases, layers and the original muted color in high contrast', () => {
+void test('themes render aliases, layers and the original muted color in high contrast', () => {
   for (const id of ['light', 'dark']) {
     const theme = css[`themes/${id}.css`];
     assert.ok(theme.includes(`color-scheme: ${id};`));
@@ -67,7 +67,7 @@ test('themes render aliases, layers and the original muted color in high contras
   }
 });
 
-test('checks contrast after compositing transparent ink and checks primary button labels', () => {
+void test('checks contrast after compositing transparent ink and checks primary button labels', () => {
   checkMutation((d) => {
     d.theme.light.color.ink.$value.alpha = 0;
   }, /ink 对 page 为 1\.00/);
@@ -79,7 +79,7 @@ test('checks contrast after compositing transparent ink and checks primary butto
   }, /contrast-more.*text-muted 对 surface 为 1\.00/);
 });
 
-test('checks generated CSS collisions, reading options and references outside the active theme', () => {
+void test('checks generated CSS collisions, reading options and references outside the active theme', () => {
   checkMutation((d) => {
     d.base.typography['page-title-font-size'] = d.base.text.xs;
   }, /--uw-typography-page-title-font-size.*重复/);
@@ -94,7 +94,7 @@ test('checks generated CSS collisions, reading options and references outside th
   }, /theme\.dark\.color\.surface.*作用域/);
 });
 
-test('renders whole-role aliases and preserves overridden original values through alias chains', () => {
+void test('renders whole-role aliases and preserves overridden original values through alias chains', () => {
   const changed = checkMutation((d) => {
     d.base.typography['page-title'].$value = '{base.typography.section-title}';
     d.base.typography['page-title'].$extensions = d.base.typography['section-title'].$extensions;
@@ -108,7 +108,7 @@ test('renders whole-role aliases and preserves overridden original values throug
   assert.match(output['themes/light.css'], /--uw-color-text-subtle: #/);
 });
 
-test('emits declared theme-specific motion overrides and resolves media and backdrop dimensions', () => {
+void test('emits declared theme-specific motion overrides and resolves media and backdrop dimensions', () => {
   const changed = checkMutation((d) => {
     for (const id of ['light', 'dark']) {
       d.override['reduced-motion'][id] = {

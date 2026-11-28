@@ -1,6 +1,12 @@
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ENTITY_KINDS, PLAN_ENTITY_ROLES, PlanItemSchema, STATE_DISPLAYS } from '@unwritten/contracts';
+import {
+  ENTITY_KINDS,
+  PLAN_ENTITY_ROLES,
+  PlanItemSchema,
+  STATE_DISPLAYS,
+  APPEARANCE_MAX_LENGTH,
+} from '@unwritten/contracts';
 import type { EntityKind, PlanEntityRole, PlanItem, StateDisplay } from '@unwritten/contracts';
 import { Button } from '../../shared/ui/Button.tsx';
 import { NumberField } from '../../shared/ui/NumberField.tsx';
@@ -96,6 +102,7 @@ function EntityForm({ item, onSave, onCancel, onRemove }: FormProps<Extract<Plan
   const [name, setName] = useState(item.name);
   const [knownAs, setKnownAs] = useState(item.knownAs ?? '');
   const [profile, setProfile] = useState(item.profile);
+  const [appearance, setAppearance] = useState(item.appearance ?? '');
   const [entityKind, setEntityKind] = useState<EntityKind>(item.entityKind);
   const [role, setRole] = useState<PlanEntityRole>(item.role);
   const [slotRole, setSlotRole] = useState(item.slot?.role ?? '');
@@ -111,6 +118,7 @@ function EntityForm({ item, onSave, onCancel, onRemove }: FormProps<Extract<Plan
       profile,
       entityKind,
       role,
+      appearance: appearance.trim().length > 0 ? appearance : null,
       slot: hasSlot ? { role: slotRole, encounter } : null,
     };
     if (!PlanItemSchema.safeParse(next).success) {
@@ -130,6 +138,18 @@ function EntityForm({ item, onSave, onCancel, onRemove }: FormProps<Extract<Plan
       />
       <TextField label={t('authoring:plan.field.knownAs')} value={knownAs} onValueChange={setKnownAs} />
       <TextArea label={t('authoring:plan.field.profile')} value={profile} onValueChange={setProfile} minRows={2} />
+      {entityKind === 'character' ? (
+        <TextArea
+          label={t('authoring:plan.appearance')}
+          description={t('authoring:plan.appearanceHint')}
+          value={appearance}
+          onValueChange={(value) => setAppearance(value.slice(0, APPEARANCE_MAX_LENGTH))}
+          minRows={1}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !event.nativeEvent.isComposing) event.preventDefault();
+          }}
+        />
+      ) : null}
       <Select
         label={t('authoring:plan.field.entityKind')}
         value={entityKind}

@@ -123,6 +123,19 @@ export function renderSceneBlock(p: StoryProjection, cb: CodeBook): string {
   return lines.join('\n');
 }
 
+export function renderAppearanceBlock(input: {
+  protagonistAppearance: string | null;
+  present: Array<{ code: string; appearance: string | null }>;
+}): string {
+  const lines: string[] = [];
+  if (input.protagonistAppearance) lines.push(`主角：${input.protagonistAppearance}`);
+  for (const person of input.present) {
+    if (person.appearance) lines.push(`${person.code}：${person.appearance}`);
+  }
+  if (lines.length === 0) return '';
+  return ['【人物当前形象】', ...lines].join('\n');
+}
+
 export function renderStateBlock(p: StoryProjection, _cb: CodeBook): string {
   const headDepth = p.chain.at(-1)?.depth ?? -1;
   const defs = [...p.stateDefs.values()].sort((left, right) => left.originDepth - right.originDepth);

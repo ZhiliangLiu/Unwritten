@@ -438,6 +438,7 @@ export function seedLighthouseTown(db: Database): SeededStory {
       name: '新来的邮差',
       knownAs: null,
       profile: '二十多岁，记性好',
+      appearance: null,
       slot: null,
     },
     {
@@ -449,6 +450,7 @@ export function seedLighthouseTown(db: Database): SeededStory {
       name: '林潮',
       knownAs: '守灯人',
       profile: '守灯人，五十岁上下，话少',
+      appearance: null,
       slot: null,
     },
     {
@@ -460,6 +462,7 @@ export function seedLighthouseTown(db: Database): SeededStory {
       name: '灯塔',
       knownAs: null,
       profile: '山顶的灯塔，只在夜里亮着',
+      appearance: null,
       slot: null,
     },
     {

@@ -184,6 +184,7 @@ export function BackgroundEditor({
             settings={draft.settings}
             onChange={(settings) => onDraftChange({ ...draft, settings })}
             openingTextRef={openingTextRef}
+            work={work}
           />
         </div>
       </details>

@@ -1,0 +1,16 @@
+.token {
+  display: grid;
+  gap: var(--uw-space-2);
+}
+
+.reveal {
+  display: grid;
+  gap: var(--uw-space-1);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--uw-space-2);
+}

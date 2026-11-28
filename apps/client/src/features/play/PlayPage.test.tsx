@@ -49,6 +49,7 @@ function makeTurn(overrides: Partial<TurnView> = {}): TurnView {
       { text: '看看窗外的雾', hint: null },
       { text: '把鸟笼接过来', hint: null },
     ],
+    illustration: null,
     createdAt: 1,
     ...overrides,
   };
@@ -65,6 +66,7 @@ function makeRoute(turns: TurnView[], pending: TurnRequestView | null = null): R
     workTitle: '雾港的末班船',
     language: 'zh-CN',
     headTurnId: turns[turns.length - 1]!.id,
+    playthroughId: null,
     turns,
     pending,
     ended: false,
@@ -183,6 +185,7 @@ function journalView(turns: TurnView[], overrides: Partial<JournalView> = {}): J
         entityId: crypto.randomUUID(),
         kind: 'character',
         name: '提鸟笼的人',
+        portrait: null,
         lines: [
           {
             id: 'line-known',
@@ -428,6 +431,7 @@ describe('游玩页', () => {
           entityId: crypto.randomUUID(),
           kind: 'item',
           name: '折过的船票',
+          portrait: null,
           lines: [
             {
               id: 'line-ticket',
@@ -460,6 +464,7 @@ describe('游玩页', () => {
           entityId: crypto.randomUUID(),
           kind: 'character',
           name: '提鸟笼的人',
+          portrait: null,
           lines: [
             {
               id: 'line-sourced',

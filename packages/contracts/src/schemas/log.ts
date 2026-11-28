@@ -32,6 +32,12 @@ export const ClientLogInputSchema = z.union([
       requestId: UuidSchema,
       attempt: z.number().int().positive().optional(),
     }),
+    z.strictObject({
+      ...SampleBase,
+      metric: z.literal('client.illustration_visible'),
+      workId: UuidSchema.optional(),
+      requestId: UuidSchema,
+    }),
   ]),
 ]);
 

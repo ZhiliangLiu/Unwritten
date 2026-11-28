@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { parseProposeTurnArgs } from './propose-turn-tool.ts';
+import { estimateTokens } from '../llm/budget.ts';
+import { PROPOSE_TURN_DESCRIPTION } from './narrator-prompt.ts';
+import { PROPOSE_TURN_PARAMETERS, parseIllustrate, parseProposeTurnArgs } from './propose-turn-tool.ts';
 
 const valid = {
   prose: '你推开门。雨声更大了。',
@@ -56,5 +58,38 @@ describe('parseProposeTurnArgs', () => {
     const accepted = parseProposeTurnArgs({ ...valid, options }, { ...ctx, hintMode: 'known_consequences' });
     expect(accepted.ok).toBe(true);
     if (accepted.ok) expect(accepted.value.options[0]?.hint).toBe('雨里有人等你');
+  });
+});
+
+describe('parseIllustrate', () => {
+  it('只接受 1 到正文段数之间的整数数字字符串', () => {
+    expect(parseIllustrate('2', 3)).toBe(2);
+    expect(parseIllustrate(' 2 ', 3)).toBe(2);
+    expect(parseIllustrate('0', 3)).toBeNull();
+    expect(parseIllustrate('4', 3)).toBeNull();
+    expect(parseIllustrate('1.5', 3)).toBeNull();
+    expect(parseIllustrate(' ', 3)).toBeNull();
+    expect(parseIllustrate(2, 3)).toBeNull();
+    expect(parseIllustrate(undefined, 3)).toBeNull();
+  });
+});
+
+describe('parseProposeTurnArgs 插图标记', () => {
+  it('把 illustrate 解析成段号，缺省为空', () => {
+    const withMarker = parseProposeTurnArgs({ ...valid, prose: '你推开门。\n\n雨声更大了。', illustrate: '2' }, ctx);
+    expect(withMarker.ok).toBe(true);
+    if (withMarker.ok) expect(withMarker.value.illustratePara).toBe(2);
+
+    const without = parseProposeTurnArgs(valid, ctx);
+    expect(without.ok).toBe(true);
+    if (without.ok) expect(without.value.illustratePara).toBeNull();
+  });
+});
+
+describe('提案工具说明的 token 棘轮', () => {
+  it('说明的长度在上限内', () => {
+    expect(estimateTokens(`${JSON.stringify(PROPOSE_TURN_PARAMETERS)}${PROPOSE_TURN_DESCRIPTION}`)).toBeLessThanOrEqual(
+      2000,
+    );
   });
 });

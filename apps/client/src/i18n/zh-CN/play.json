@@ -1,13 +1,87 @@
 {
   "turn": { "opening": "开场", "heading": "第 {{count}} 回合" },
   "page": { "untitled": "未命名的故事" },
+  "style": {
+    "watercolor": "水彩",
+    "ink": "水墨",
+    "anime": "赛璐璐",
+    "painterly": "厚涂",
+    "cinematic": "写实电影感"
+  },
+  "tier": { "default": "服务默认", "720": "标准 · 720", "1k": "高 · 1K", "2k": "非常高 · 2K" },
+  "format": {
+    "aspect": "画面比例",
+    "automatic": "自动比例",
+    "tier": "分辨率",
+    "dimensions": "{{width}} × {{height}}"
+  },
+  "slot": { "front": "正面", "three_quarter": "斜侧脸", "full_body": "全身" },
+  "serviceState": {
+    "ready": "已就绪",
+    "offline": "离线",
+    "waking": "正在唤醒",
+    "needs_action": "等待授权",
+    "wake_failed": "唤醒失败",
+    "unknown": "尚未探测"
+  },
+  "wake": {
+    "reason": {
+      "quota": "运行额度不足。",
+      "not_signed_in": "请在启动器所在的电脑上登录。",
+      "action_expired": "授权已超时。请重试，打开新的授权页。",
+      "start_error": "启动器没能启动运行时。"
+    }
+  },
+  "stage": {
+    "wake": "唤醒出图服务时",
+    "appearance": "准备主角形象时",
+    "shot": "构思画面时",
+    "portrait": "准备人物参考时",
+    "generate": "生成图片时",
+    "save": "保存图片时"
+  },
+  "illustration": {
+    "composing": "正在构思画面",
+    "waking": "正在唤醒出图服务",
+    "waitingAuth": "等待完成授权",
+    "queued": "插图在排队",
+    "drawing": "正在画插图",
+    "open": "放大查看插图",
+    "altFallback": "插图",
+    "lightboxTitle": "插图",
+    "missing": "图片找不到了",
+    "retryNamed": "重试第 {{turn}} 回合的插图",
+    "retryOpening": "重试开场插图",
+    "dismissNamed": "不要第 {{turn}} 回合的插图",
+    "dismissOpening": "不要开场插图",
+    "retryFormat": "为这张图选择规格",
+    "reroll": "重画",
+    "rerolling": "正在重画",
+    "save": "保存图片",
+    "dismiss": "不要这张图",
+    "resolution": "{{width}} × {{height}} 像素"
+  },
   "start": {
     "heading": "开始故事",
     "intro": "开局前，先告诉故事几件事。留空的项目会用作者给的默认值。",
     "fieldHelp": "留空时用「{{value}}」",
     "submit": "开始故事",
     "opening": "正在打开故事",
-    "back": "返回作品库"
+    "back": "返回作品库",
+    "illustration": {
+      "heading": "插图",
+      "enabled": "本局插图",
+      "textOnly": "本局纯文字",
+      "summary": "{{parts}}",
+      "separator": " · ",
+      "autoOff": "请先在设置里开启「游玩时生成插图」。",
+      "styleLocked": "画风会沿用到本局结束。",
+      "inFrame": "画进插图",
+      "outOfFrame": "用主角视角，不画主角",
+      "appearance": "主角形象",
+      "suggest": "按设定写一个",
+      "suggesting": "正在起草形象"
+    }
   },
   "openingRequest": {
     "pending": "正在为这一局准备人物和开场",

@@ -164,7 +164,7 @@ STRATA_UPDATE_CHECK=0 STRATA_INTERNAL_KEY=<内部 key> strata launch \
   - 日志里没有请求内容；
   - 状态文件的变化；
   - 自检的重试、超时，以及 `load_timeout` 和 `self_test_failed` 两种结果。
-- **CI** 跑网关的 pytest。
+- **`pnpm test:python`** 跑网关的 pytest。这条命令不进 `pnpm test`，因为它要求本机装有 uv。
 
 ## 12. 已知限制
 

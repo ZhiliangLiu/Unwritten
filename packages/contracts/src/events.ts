@@ -21,6 +21,15 @@ export const CoreEventSchema = z.discriminatedUnion('type', [
     requestId: UuidSchema,
     status: TurnRequestStatusSchema,
   }),
+  z.object({
+    type: z.literal('illustration.updated'),
+    routeId: UuidSchema,
+    turnId: UuidSchema,
+    illustrationId: UuidSchema,
+  }),
+  z.object({ type: z.literal('portrait.updated'), workId: UuidSchema }),
+  z.object({ type: z.literal('image.config_changed') }),
+  z.object({ type: z.literal('image.service_state'), serviceId: z.string().min(1) }),
   z.object({ type: z.literal('settings.changed'), appearance: AppearanceSchema }),
 ]);
 export type CoreEvent = z.infer<typeof CoreEventSchema>;

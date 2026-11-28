@@ -34,6 +34,7 @@ plugins/colab-launcher/
 
 ```json
 {
+  "listen": "127.0.0.1",
   "port": 8290,
   "token": "$UNWRITTEN_LAUNCHER_TOKEN",
   "host": "<仓库>/selfhost/colab",
@@ -48,6 +49,8 @@ plugins/colab-launcher/
   }
 }
 ```
+
+- **`listen` 只能是 `127.0.0.1`。** 启动器只给本机的 core 调用，填其他地址时拒绝启动；缺省也是 `127.0.0.1`。
 
 - **三个密钥都可以写成 `$变量名`，** 从环境变量读取，写法同 [LLM 端点 §3](./llm-endpoints.md#3-key-的来源与保护)。`token` 是 core 调用启动器用的令牌，在 Unwritten 设置页生成（[插图与出图服务 §2](./image.md#2-出图服务的配置)）；`service.token` 是出图服务的令牌，和设置页里那个服务的 key 是同一个；`tailscaleAuthKey` 只在第一次部署时用到（[Colab 宿主 §7](./colab-host.md#7-colab-secrets)）。
 - **`gpu` 取 Colab CLI 接受的值**（`T4`、`L4`、`G4`、`H100`、`A100`），按服务的资源下限选（[ComfyUI 插件 §8.1](./comfyui-plugin.md#81-对宿主的约定)）。
@@ -122,7 +125,7 @@ plugins/colab-launcher/
   - 启动器重启后按会话恢复；
   - 只接受 `google.com` 的 `https` 地址；
   - 命令行参数和日志里没有密钥，本地的 `launch.json` 已删除。
-- **一致性测试。** CI 用伪 colab 命令启动启动器，再对着它运行 core 的启动器协议一致性测试（[插图与出图服务 §12.5](./image.md#125-一致性测试)）。
+- **一致性测试。** `pnpm test:python` 用伪 colab 命令启动启动器，再对着它运行 core 的启动器协议一致性测试（[插图与出图服务 §12.5](./image.md#125-一致性测试)）。这条命令不进 `pnpm test`，因为它要求本机装有 uv。
 
 ## 8. 已知限制
 
