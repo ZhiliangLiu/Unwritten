@@ -9,7 +9,7 @@ import type {
 } from '@unwritten/contracts';
 import { Badge } from '../../shared/ui/Badge.tsx';
 import { Button } from '../../shared/ui/Button.tsx';
-import { JournalPortrait } from './JournalPortrait.tsx';
+import { JournalPortrait, JournalPortraitPlaceholder } from './JournalPortrait.tsx';
 import styles from './JournalSubject.module.css';
 
 export const ENTITY_KIND_LABEL_KEYS: Record<EntityKind, string> = {
@@ -70,7 +70,11 @@ export function JournalSubject({
   return (
     <li className={styles.subject}>
       <div className={styles.heading}>
-        {subject.portrait ? <JournalPortrait routeId={routeId} portrait={subject.portrait} alt={subject.name} /> : null}
+        {subject.portrait ? (
+          <JournalPortrait routeId={routeId} portrait={subject.portrait} alt={subject.name} />
+        ) : subject.kind === 'character' ? (
+          <JournalPortraitPlaceholder />
+        ) : null}
         <h3 className={styles.name}>{subject.name}</h3>
         <Badge tone='neutral'>{t(ENTITY_KIND_LABEL_KEYS[subject.kind])}</Badge>
       </div>

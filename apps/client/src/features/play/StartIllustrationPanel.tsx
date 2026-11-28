@@ -1,4 +1,3 @@
-import { Collapsible } from '@base-ui/react/collapsible';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { APPEARANCE_MAX_LENGTH } from '@unwritten/contracts';
@@ -13,6 +12,7 @@ import { useApi } from '../../shared/api/context.tsx';
 import { queryKeys } from '../../shared/api/query.ts';
 import { IMAGE_TIER_LABEL_KEYS } from '../../shared/lib/image-labels.ts';
 import { Button } from '../../shared/ui/Button.tsx';
+import { Disclosure } from '../../shared/ui/Disclosure.tsx';
 import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
 import { GeneratingMarker } from '../../shared/ui/GeneratingMarker.tsx';
 import { PortraitSetEditor } from '../../shared/ui/illustration/PortraitSetEditor.tsx';
@@ -69,131 +69,134 @@ export function StartIllustrationPanel({
 
   return (
     <div className={styles.panel}>
-      <Collapsible.Root>
-        <h3 className={styles.heading}>
-          <Collapsible.Trigger className={styles.trigger}>
+      <Disclosure
+        heading='h3'
+        className={styles.disclosure}
+        panelClassName={styles.body}
+        summary={
+          <>
             <span>{t('play:start.illustration.heading')}</span>
             <span className={styles.summary}>{summaryText(choice, t)}</span>
-          </Collapsible.Trigger>
-        </h3>
-        <Collapsible.Panel className={styles.body}>
-          {offline ? <p className={styles.note}>{t('errors:image_offline')}</p> : null}
-          <div className={styles.group}>
-            <div inert={!info.autoEnabled || undefined}>
-              <RadioGroup
-                label={t('play:start.illustration.heading')}
-                value={choice.enabled ? 'enabled' : 'textOnly'}
-                onValueChange={(value) => setChoice({ enabled: value === 'enabled' })}
-                options={[
-                  { value: 'enabled', label: t('play:start.illustration.enabled') },
-                  { value: 'textOnly', label: t('play:start.illustration.textOnly') },
-                ]}
-              />
-            </div>
-            {!info.autoEnabled ? <p className={styles.note}>{t('play:start.illustration.autoOff')}</p> : null}
-          </div>
-          <div className={styles.group}>
-            <StylePicker
-              value={choice.style}
-              onChange={(style) => setChoice({ style })}
-              authorDefault={info.authorStyle}
-            />
-            <p className={styles.note}>{t('play:start.illustration.styleLocked')}</p>
-            <StylePreview {...previewProps} />
-          </div>
-          <div className={styles.group}>
-            {output.isPending ? <Skeleton variant='lines' count={2} /> : null}
-            {output.error ? <ErrorNotice error={output.error} /> : null}
-            {output.data ? (
-              <>
-                <RadioGroup
-                  label={t('play:format.aspect')}
-                  value={choice.aspectPreference}
-                  onValueChange={(value) => setChoice({ aspectPreference: value as AspectPreference })}
-                  options={[
-                    { value: 'auto', label: t('play:format.automatic') },
-                    ...aspectValues.map((value) => ({ value, label: value })),
-                  ]}
-                  appearance='segmented'
-                />
-                <RadioGroup
-                  label={t('play:format.tier')}
-                  value={choice.resolutionTier}
-                  onValueChange={(value) => setChoice({ resolutionTier: value as ImageTierPreference })}
-                  options={visibleTiers.map((entry) => {
-                    const size = choice.aspectPreference === 'auto' ? undefined : entry.sizes[choice.aspectPreference];
-                    return {
-                      value: entry.tier,
-                      label: `${t(IMAGE_TIER_LABEL_KEYS[entry.tier])} · ${
-                        size ? dimensions(size) : t('settings:output.multipleSizes')
-                      }`,
-                    };
-                  })}
-                  appearance='segmented'
-                />
-                {visibleTiers.length === 1 ? <p className={styles.note}>{t('settings:output.onlyTier')}</p> : null}
-                {!output.data.preferenceAvailable ? (
-                  <p className={styles.note}>{t('settings:output.unavailable')}</p>
-                ) : null}
-                {choice.aspectPreference === 'auto' ? (
-                  <details className={styles.sizes}>
-                    <summary>{t('settings:output.multipleSizes')}</summary>
-                    <ul>
-                      {output.data.tiers.map((entry) => (
-                        <li key={entry.tier}>
-                          <p className={styles.tierName}>{t(IMAGE_TIER_LABEL_KEYS[entry.tier])}</p>
-                          <ul>
-                            {Object.entries(entry.sizes).map(([ratio, size]) => (
-                              <li key={ratio}>
-                                {ratio} · {dimensions(size)}
-                              </li>
-                            ))}
-                          </ul>
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-          <div className={styles.group}>
+          </>
+        }
+      >
+        {offline ? <p className={styles.note}>{t('errors:image_offline')}</p> : null}
+        <div className={styles.group}>
+          <div inert={!info.autoEnabled || undefined}>
             <RadioGroup
-              label={t('play:start.illustration.appearance')}
-              value={choice.protagonistInFrame ? 'inFrame' : 'outOfFrame'}
-              onValueChange={(value) => setChoice({ protagonistInFrame: value === 'inFrame' })}
+              label={t('play:start.illustration.modeLabel')}
+              appearance='segmented'
+              value={choice.enabled ? 'enabled' : 'textOnly'}
+              onValueChange={(value) => setChoice({ enabled: value === 'enabled' })}
               options={[
-                { value: 'inFrame', label: t('play:start.illustration.inFrame') },
-                { value: 'outOfFrame', label: t('play:start.illustration.outOfFrame') },
+                { value: 'enabled', label: t('play:start.illustration.enabled') },
+                { value: 'textOnly', label: t('play:start.illustration.textOnly') },
               ]}
             />
           </div>
-          {choice.protagonistInFrame ? (
-            <div className={styles.group}>
-              <TextArea
-                label={t('play:start.illustration.appearance')}
-                value={choice.protagonistAppearance ?? ''}
-                onValueChange={(value) => setChoice({ protagonistAppearance: sanitizeAppearance(value) })}
+          {!info.autoEnabled ? <p className={styles.note}>{t('play:start.illustration.autoOff')}</p> : null}
+        </div>
+        <div className={styles.group}>
+          <StylePicker
+            value={choice.style}
+            onChange={(style) => setChoice({ style })}
+            authorDefault={info.authorStyle}
+          />
+          <p className={styles.note}>{t('play:start.illustration.styleLocked')}</p>
+          <StylePreview {...previewProps} />
+        </div>
+        <div className={styles.group}>
+          {output.isPending ? <Skeleton variant='lines' count={2} /> : null}
+          {output.error ? <ErrorNotice error={output.error} /> : null}
+          {output.data ? (
+            <>
+              <RadioGroup
+                label={t('play:format.aspect')}
+                value={choice.aspectPreference}
+                onValueChange={(value) => setChoice({ aspectPreference: value as AspectPreference })}
+                options={[
+                  { value: 'auto', label: t('play:format.automatic') },
+                  ...aspectValues.map((value) => ({ value, label: value })),
+                ]}
+                appearance='segmented'
               />
-              <div className={styles.actions}>
-                <Button variant='secondary' busy={suggest.isPending} onClick={() => suggest.mutate()}>
-                  {t('play:start.illustration.suggest')}
-                </Button>
-                {suggest.isPending ? <GeneratingMarker label={t('play:start.illustration.suggesting')} /> : null}
-              </div>
-              <ErrorNotice error={suggest.error} />
-              <PortraitSetEditor
-                workId={workId}
-                scope='pending'
-                target={{ kind: 'protagonist' }}
-                appearance={choice.protagonistAppearance}
-                mode='player'
-                onSnapshot={(setId) => setChoice({ protagonistSnapshotId: setId })}
+              <RadioGroup
+                label={t('play:format.tier')}
+                value={choice.resolutionTier}
+                onValueChange={(value) => setChoice({ resolutionTier: value as ImageTierPreference })}
+                options={visibleTiers.map((entry) => {
+                  const size = choice.aspectPreference === 'auto' ? undefined : entry.sizes[choice.aspectPreference];
+                  return {
+                    value: entry.tier,
+                    label: size
+                      ? `${t(IMAGE_TIER_LABEL_KEYS[entry.tier])} · ${dimensions(size)}`
+                      : t(IMAGE_TIER_LABEL_KEYS[entry.tier]),
+                  };
+                })}
+                appearance='segmented'
               />
-            </div>
+              {visibleTiers.length === 1 ? <p className={styles.note}>{t('settings:output.onlyTier')}</p> : null}
+              {!output.data.preferenceAvailable ? (
+                <p className={styles.note}>{t('settings:output.unavailable')}</p>
+              ) : null}
+              {choice.aspectPreference === 'auto' ? (
+                <Disclosure summary={t('settings:output.multipleSizes')} panelClassName={styles.sizes}>
+                  <ul>
+                    {output.data.tiers.map((entry) => (
+                      <li key={entry.tier}>
+                        <p className={styles.tierName}>{t(IMAGE_TIER_LABEL_KEYS[entry.tier])}</p>
+                        <ul>
+                          {Object.entries(entry.sizes).map(([ratio, size]) => (
+                            <li key={ratio}>
+                              {ratio} · {dimensions(size)}
+                            </li>
+                          ))}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
+                </Disclosure>
+              ) : null}
+            </>
           ) : null}
-        </Collapsible.Panel>
-      </Collapsible.Root>
+        </div>
+        <div className={styles.group}>
+          <RadioGroup
+            label={t('play:start.illustration.protagonistLabel')}
+            appearance='segmented'
+            value={choice.protagonistInFrame ? 'inFrame' : 'outOfFrame'}
+            onValueChange={(value) => setChoice({ protagonistInFrame: value === 'inFrame' })}
+            options={[
+              { value: 'inFrame', label: t('play:start.illustration.inFrame') },
+              { value: 'outOfFrame', label: t('play:start.illustration.outOfFrame') },
+            ]}
+          />
+        </div>
+        {choice.protagonistInFrame ? (
+          <div className={styles.group}>
+            <TextArea
+              label={t('play:start.illustration.appearance')}
+              value={choice.protagonistAppearance ?? ''}
+              onValueChange={(value) => setChoice({ protagonistAppearance: sanitizeAppearance(value) })}
+            />
+            <div className={styles.actions}>
+              <Button variant='secondary' busy={suggest.isPending} onClick={() => suggest.mutate()}>
+                {t('play:start.illustration.suggest')}
+              </Button>
+              {suggest.isPending ? <GeneratingMarker label={t('play:start.illustration.suggesting')} /> : null}
+            </div>
+            <ErrorNotice error={suggest.error} />
+            <PortraitSetEditor
+              workId={workId}
+              scope='pending'
+              target={{ kind: 'protagonist' }}
+              appearance={choice.protagonistAppearance}
+              mode='player'
+              onSnapshot={(setId) => setChoice({ protagonistSnapshotId: setId })}
+            />
+          </div>
+        ) : null}
+      </Disclosure>
     </div>
   );
 }

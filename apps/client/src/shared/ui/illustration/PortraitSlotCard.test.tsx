@@ -55,7 +55,7 @@ describe('PortraitSlotCard', () => {
       task: null,
     });
     await expect.element(screen.getByRole('img', { name: '人物参考 · 正面' })).toBeVisible();
-    await expect.element(screen.getByText('为正面选择图片')).toBeVisible();
+    await expect.element(screen.getByRole('button', { name: '选择图片' })).toBeVisible();
     await screen.unmount();
   });
 
@@ -68,7 +68,7 @@ describe('PortraitSlotCard', () => {
       task: { status: 'failed', error: 'image_invalid_upload' },
     });
     await expect.element(screen.getByText('这张参考图不符合要求。请重新选择图片。')).toBeVisible();
-    await expect.element(screen.getByRole('button', { name: '重试正面参考图' })).toBeVisible();
+    await expect.element(screen.getByRole('button', { name: '重试' })).toBeVisible();
     await screen.unmount();
   });
 

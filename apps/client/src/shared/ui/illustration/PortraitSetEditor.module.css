@@ -11,15 +11,6 @@
   gap: var(--uw-space-3);
 }
 
-.settings {
-  display: grid;
-  gap: var(--uw-space-2);
-}
-
-.summary {
-  cursor: pointer;
-}
-
 .settingsBody {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -10,6 +10,12 @@ import styles from './StylePicker.module.css';
 
 const CUSTOM_VALUE = 'custom';
 
+function sameStyle(left: IllustrationStyle, right: IllustrationStyle): boolean {
+  if (left.kind === 'preset' && right.kind === 'preset') return left.preset === right.preset;
+  if (left.kind === 'custom' && right.kind === 'custom') return left.text === right.text;
+  return false;
+}
+
 export function StylePicker({
   value,
   onChange,
@@ -51,6 +57,7 @@ export function StylePicker({
     <div className={styles.picker}>
       <RadioGroup
         label={t('authoring:style.label')}
+        appearance='segmented'
         value={selected}
         onValueChange={select}
         options={[
@@ -61,7 +68,7 @@ export function StylePicker({
       {showCustom ? (
         <TextField label={t('authoring:style.customLabel')} value={customText} onValueChange={changeCustomText} />
       ) : null}
-      {authorDefault ? (
+      {authorDefault && !sameStyle(value, authorDefault) ? (
         <div className={styles.reset}>
           <Button variant='text' onClick={resetToAuthor}>
             {t('authoring:style.resetToAuthor')}

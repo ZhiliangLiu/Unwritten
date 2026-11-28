@@ -62,6 +62,7 @@
 - 颜色不单独承载信息，状态一律配图标或文字。
 - 播报一律走共享的 `LiveRegion` 组件，不自己手写 `aria-live` 区域。
 - 交互目标不小于 `--uw-size-target-min`。
+- **藏起控件本体、只留自绘外观时，用视觉隐藏，不用 `display: none` 或 `visibility: hidden`。** 后两者会把控件移出无障碍树和 Tab 顺序，键盘和读屏都够不着它，axe 也查不出来。照 `shared/ui/VisuallyHidden.module.css` 那组声明写，父元素设 `position: relative`，焦点环画在外观上（`:has(:focus-visible)`）。判据：测试里 `getByRole` 能按名字找到这个控件，并能用 Tab 聚焦、用键盘选中。
 - 测试里用 `getByRole` 查元素，每个共享组件都跑 axe-core 检查（[a11y §11](../../docs/a11y.md#11-测试)）。
 
 ## 6. 安全

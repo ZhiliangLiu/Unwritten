@@ -92,7 +92,7 @@ describe('IllustrationStyleSection', () => {
   it('选画风直接保存，不走草稿', async () => {
     const { screen, fake, updates, queryClient } = await setup(true);
     await vi.waitFor(() => expect(queryClient.getQueryState(queryKeys.imageConfig)?.status).toBe('success'));
-    await screen.getByText('插图').click();
+    await expect.element(screen.getByRole('heading', { name: '插图' })).toBeVisible();
     await screen.getByText('水彩').click();
     await vi.waitFor(() => expect(updates).toHaveLength(1));
     expect(updates[0]).toEqual({ workId: work.id, style: { kind: 'preset', preset: 'watercolor' } });
@@ -103,7 +103,7 @@ describe('IllustrationStyleSection', () => {
   it('无可访问性违规', async () => {
     const { screen, queryClient } = await setup(true);
     await vi.waitFor(() => expect(queryClient.getQueryState(queryKeys.imageConfig)?.status).toBe('success'));
-    await screen.getByText('插图').click();
+    await expect.element(screen.getByRole('heading', { name: '插图' })).toBeVisible();
     await expectNoAxeViolations(screen.container);
     await screen.unmount();
   });

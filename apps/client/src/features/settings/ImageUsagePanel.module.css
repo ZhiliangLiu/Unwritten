@@ -59,11 +59,3 @@
   font-size: var(--uw-typography-body-font-size);
   line-height: var(--uw-typography-body-line-height);
 }
-
-.privacy {
-  margin: 0;
-  font-family: var(--uw-typography-caption-font-family);
-  font-size: var(--uw-typography-caption-font-size);
-  line-height: var(--uw-typography-caption-line-height);
-  color: var(--uw-color-text-muted);
-}

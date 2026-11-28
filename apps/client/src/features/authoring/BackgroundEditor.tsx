@@ -10,6 +10,7 @@ import { errorCode } from '../../shared/api/errors.ts';
 import { useAutosave } from '../../shared/hooks/useAutosave.ts';
 import { reportSample } from '../../shared/lib/log.ts';
 import { Button } from '../../shared/ui/Button.tsx';
+import { Disclosure } from '../../shared/ui/Disclosure.tsx';
 import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
 import { GeneratingMarker } from '../../shared/ui/GeneratingMarker.tsx';
 import { LiveRegion } from '../../shared/ui/LiveRegion.tsx';
@@ -146,48 +147,44 @@ export function BackgroundEditor({
         onValueChange={(next) => onDraftChange({ ...draft, background: next })}
         minRows={4}
       />
-      <details className={styles.anchors}>
-        <summary className={styles.anchorsSummary}>
-          {filledItems > 0
+      <Disclosure
+        summary={
+          filledItems > 0
             ? t('authoring:anchors.headingFilled', { count: filledItems })
-            : t('authoring:anchors.heading')}
-        </summary>
-        <div className={styles.anchorsBody}>
-          <p className={styles.anchorsHelp}>{t('authoring:anchors.help')}</p>
-          <TextArea
-            label={t('authoring:anchors.narration.label')}
-            placeholder={t('authoring:anchors.narration.placeholder')}
-            value={draft.anchors.narrationDirective}
-            onValueChange={(next) =>
-              onDraftChange({ ...draft, anchors: { ...draft.anchors, narrationDirective: next } })
-            }
-            minRows={2}
-          />
-          <TextArea
-            label={t('authoring:anchors.content.label')}
-            placeholder={t('authoring:anchors.content.placeholder')}
-            value={draft.anchors.contentPolicy}
-            onValueChange={(next) => onDraftChange({ ...draft, anchors: { ...draft.anchors, contentPolicy: next } })}
-            minRows={2}
-          />
-          <TextArea
-            label={t('authoring:anchors.improvisation.label')}
-            placeholder={t('authoring:anchors.improvisation.placeholder')}
-            value={draft.anchors.improvisationScope}
-            onValueChange={(next) =>
-              onDraftChange({ ...draft, anchors: { ...draft.anchors, improvisationScope: next } })
-            }
-            minRows={2}
-          />
-          <p className={styles.settingsIntro}>{t('authoring:settings.intro')}</p>
-          <SettingsSections
-            settings={draft.settings}
-            onChange={(settings) => onDraftChange({ ...draft, settings })}
-            openingTextRef={openingTextRef}
-            work={work}
-          />
-        </div>
-      </details>
+            : t('authoring:anchors.heading')
+        }
+        panelClassName={styles.anchorsBody}
+      >
+        <p className={styles.anchorsHelp}>{t('authoring:anchors.help')}</p>
+        <TextArea
+          label={t('authoring:anchors.narration.label')}
+          placeholder={t('authoring:anchors.narration.placeholder')}
+          value={draft.anchors.narrationDirective}
+          onValueChange={(next) => onDraftChange({ ...draft, anchors: { ...draft.anchors, narrationDirective: next } })}
+          minRows={2}
+        />
+        <TextArea
+          label={t('authoring:anchors.content.label')}
+          placeholder={t('authoring:anchors.content.placeholder')}
+          value={draft.anchors.contentPolicy}
+          onValueChange={(next) => onDraftChange({ ...draft, anchors: { ...draft.anchors, contentPolicy: next } })}
+          minRows={2}
+        />
+        <TextArea
+          label={t('authoring:anchors.improvisation.label')}
+          placeholder={t('authoring:anchors.improvisation.placeholder')}
+          value={draft.anchors.improvisationScope}
+          onValueChange={(next) => onDraftChange({ ...draft, anchors: { ...draft.anchors, improvisationScope: next } })}
+          minRows={2}
+        />
+        <p className={styles.settingsIntro}>{t('authoring:settings.intro')}</p>
+        <SettingsSections
+          settings={draft.settings}
+          onChange={(settings) => onDraftChange({ ...draft, settings })}
+          openingTextRef={openingTextRef}
+          work={work}
+        />
+      </Disclosure>
       <div className={styles.actions}>
         <Button
           variant='primary'

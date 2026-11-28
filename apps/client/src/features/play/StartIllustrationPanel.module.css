@@ -3,28 +3,12 @@
   gap: var(--uw-space-2);
 }
 
-.heading {
-  margin: 0;
-}
-
-.trigger {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--uw-space-2);
-  inline-size: 100%;
-  min-block-size: var(--uw-size-target-min);
-  padding: 0;
-  background: none;
-  border: var(--uw-border-width) solid transparent;
-  color: var(--uw-color-text);
+.disclosure > h3 {
   font-family: var(--uw-typography-section-title-font-family);
   font-size: var(--uw-typography-section-title-font-size);
   font-weight: var(--uw-typography-section-title-font-weight);
   line-height: var(--uw-typography-section-title-line-height);
   letter-spacing: var(--uw-typography-section-title-letter-spacing);
-  text-align: start;
-  cursor: pointer;
 }
 
 .summary {
@@ -68,11 +52,6 @@
   font-family: var(--uw-typography-caption-font-family);
   font-size: var(--uw-typography-caption-font-size);
   line-height: var(--uw-typography-caption-line-height);
-}
-
-.sizes summary {
-  min-block-size: var(--uw-size-target-min);
-  cursor: pointer;
 }
 
 .sizes ul {

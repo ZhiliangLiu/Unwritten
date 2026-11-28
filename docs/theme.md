@@ -125,6 +125,7 @@ DTCG 里没有直接对应的几类值，约定这样写：
 | `--uw-size-control-sm` / `md` / `lg` | 控件高度 |
 | `--uw-size-target-min` | 交互目标的最小尺寸（[a11y §6](./a11y.md#6-尺寸缩放与目标大小)） |
 | `--uw-size-image-max-block` | 插图画框不超过阅读区可见高度的一半（[设计准则 §2](./design-guidelines.md#2-七条准则)） |
+| `--uw-size-portrait-aspect` | 人物参考画框的宽高比（3:4）。空位和有图时画框一样大，三个视角并排时对齐 |
 | `--uw-size-icon-stroke` | 图标线宽，按 Lucide 图标 24 单位的画布计，随图标尺寸等比缩放。比 Lucide 默认的 `2` 细一档，和苹方常规体的笔画相称 |
 | `--uw-size-meter` | 状态栏里进度条和阶段条的粗细 |
 | `--uw-size-toolbar` | 顶部工具行的高度；滚动容器的 `scroll-padding-block-start` 取这个值（[a11y §4](./a11y.md#4-键盘与焦点)） |

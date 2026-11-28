@@ -5,15 +5,6 @@
   border-block-start: var(--uw-border-width) solid var(--uw-color-border);
 }
 
-.heading {
-  margin: 0;
-  font-family: var(--uw-typography-section-title-font-family);
-  font-size: var(--uw-typography-section-title-font-size);
-  font-weight: var(--uw-typography-section-title-font-weight);
-  line-height: var(--uw-typography-section-title-line-height);
-  letter-spacing: var(--uw-typography-section-title-letter-spacing);
-}
-
 .checkbox {
   display: flex;
   align-items: center;

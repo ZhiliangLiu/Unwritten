@@ -212,7 +212,7 @@ describe('PortraitSetEditor', () => {
     await screen.getByRole('option', { name: '1:1' }).click();
     await expect.element(screen.getByRole('combobox', { name: '分辨率' })).toHaveTextContent('非常高 · 2K');
 
-    await screen.getByRole('button', { name: '生成正面参考图' }).click();
+    await screen.getByRole('region', { name: '正面' }).getByRole('button', { name: '生成', exact: true }).click();
     await vi.waitFor(() => expect(generates).toHaveLength(1));
     expect(generates[0]).toMatchObject({
       slot: 'front',

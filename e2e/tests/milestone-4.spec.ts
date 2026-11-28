@@ -166,7 +166,8 @@ test('E01 纯文字、版本升级与确认开启', async ({ page }) => {
     await openLibrary(page, app.url);
     await startFromLibrary(page);
     await page.getByRole('button', { name: /^插图/ }).click();
-    await page.getByRole('radio', { name: '本局纯文字' }).click();
+    await page.getByRole('radiogroup', { name: '正文配图' }).getByText('本局纯文字').click();
+    await expect(page.getByRole('radio', { name: '本局纯文字' })).toBeChecked();
     await expect(page.getByText('本局纯文字').first()).toBeVisible();
     await page.getByRole('button', { name: '开始故事' }).click();
     await expect(page.getByText(FIXTURE_OPENING)).toBeVisible({ timeout: 30_000 });
@@ -790,7 +791,9 @@ test('E04 可见段落、阅读位置与诊断样本', async ({ page }) => {
     app.services.background.shot(shotText({ caption: '这张会失败', aspect: '3:2' }));
     app.services.image!.failNextJob('internal');
     await submitAction(page, '把怀表放回口袋');
-    await expect(page.getByText('重试第 2 回合的插图')).toBeVisible({ timeout: 30_000 });
+    await expect(
+      page.getByRole('group', { name: '第 2 回合的插图' }).getByRole('button', { name: '重试' }),
+    ).toBeVisible({ timeout: 30_000 });
     await waitForArrival(page);
     const secondRoute = await app.api.play.getRoute({
       routeId: new URL(page.url()).pathname.split('/').at(-1)!,
@@ -812,7 +815,7 @@ test('E04 可见段落、阅读位置与诊断样本', async ({ page }) => {
     }, secondAnchor);
 
     const releaseSecond = app.services.image!.holdNextJob();
-    await page.getByRole('button', { name: '重试第 2 回合的插图' }).click();
+    await page.getByRole('group', { name: '第 2 回合的插图' }).getByRole('button', { name: '重试' }).click();
     await expect(page.locator('[data-uw-illustration-frame]').last()).toBeVisible();
     await page.waitForTimeout(250);
     const retryTop = await page.evaluate((id) => {
@@ -891,18 +894,24 @@ test('E05 离线恢复只重试一张，关闭自动出图后旧结果不出现'
       await expect(page.getByText(FIXTURE_TURN_PARAGRAPHS[0]!).last()).toBeVisible({ timeout: 30_000 });
       await expect(page.getByText('出图服务还在准备。请稍后重试。').nth(index)).toBeVisible({ timeout: 30_000 });
     }
-    await expect(page.getByRole('button', { name: '重试第 1 回合的插图' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '重试第 2 回合的插图' })).toBeVisible();
+    await expect(
+      page.getByRole('group', { name: '第 1 回合的插图' }).getByRole('button', { name: '重试' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('group', { name: '第 2 回合的插图' }).getByRole('button', { name: '重试' }),
+    ).toBeVisible();
 
     app.services.image!.setReady(true);
     app.services.background.shot(shotText({ caption: '恢复后重试的图' }));
     const jobsBeforeRetry = imageJobRequests(app.services.image!).length;
-    await page.getByRole('button', { name: '重试第 1 回合的插图' }).click();
+    await page.getByRole('group', { name: '第 1 回合的插图' }).getByRole('button', { name: '重试' }).click();
     await expectImageDecoded(page, '恢复后重试的图');
     await expect
       .poll(() => imageJobRequests(app.services.image!).length, { timeout: 30_000 })
       .toBe(jobsBeforeRetry + 1);
-    await expect(page.getByRole('button', { name: '重试第 2 回合的插图' })).toBeVisible();
+    await expect(
+      page.getByRole('group', { name: '第 2 回合的插图' }).getByRole('button', { name: '重试' }),
+    ).toBeVisible();
 
     const releaseRunning = app.services.image!.holdNextJob();
     app.services.text.enqueue(
@@ -1165,7 +1174,9 @@ test('E07 支持参考的接口走编辑路径，拒绝时正文可继续', asyn
     app.services.openai!.enqueue({ kind: 'error', status: 400, code: 'moderation_blocked' });
     await submitAction(page, '把钥匙递出去');
     await expect(page.getByText('出图服务拒绝了这张图。')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('重试第 2 回合的插图')).toBeVisible();
+    await expect(
+      page.getByRole('group', { name: '第 2 回合的插图' }).getByRole('button', { name: '重试' }),
+    ).toBeVisible();
     expect(app.services.openaiRaw.filter((record) => record.path.includes('/images/edits'))).toHaveLength(2);
 
     app.services.text.enqueue(
@@ -1253,7 +1264,7 @@ test('E08 纯文字开局不启动出图服务', async ({ page }) => {
     await page.goto(app.url);
     await startFromLibrary(page);
     await page.getByRole('button', { name: /^插图/ }).click();
-    await page.getByRole('radiogroup', { name: '插图' }).getByText('本局纯文字').click();
+    await page.getByRole('radiogroup', { name: '正文配图' }).getByText('本局纯文字').click();
     await page.getByRole('button', { name: '开始故事' }).click();
     await expect(page.getByText(FIXTURE_OPENING)).toBeVisible({ timeout: 30_000 });
     expect(app.services.launcher!.startCalls()).toBe(0);

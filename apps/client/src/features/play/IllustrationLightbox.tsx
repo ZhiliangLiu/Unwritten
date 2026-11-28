@@ -7,6 +7,7 @@ import type { IllustrationView } from '@unwritten/contracts';
 import { errorCode } from '../../shared/api/errors.ts';
 import { Button, buttonClassName } from '../../shared/ui/Button.tsx';
 import { IconButton } from '../../shared/ui/IconButton.tsx';
+import { frameAspect } from './illustration-layout.ts';
 import type { IllustrationActions } from './useIllustrationActions.ts';
 import styles from './IllustrationLightbox.module.css';
 
@@ -61,48 +62,52 @@ export function IllustrationLightbox({
               <Dialog.Title className={styles.title}>{t('play:illustration.lightboxTitle')}</Dialog.Title>
               <Dialog.Close render={<IconButton label={t('common:action.close')} icon={X} />} />
             </header>
-            <div className={styles.imageWrap}>
-              <img className={styles.image} src={image.url} alt={caption ?? t('play:illustration.altFallback')} />
-              <span className={styles.dim} aria-hidden='true' />
+            <div className={styles.stage}>
+              <div className={styles.imageWrap} style={{ '--uw-illustration-aspect': frameAspect(illustration) }}>
+                <img className={styles.image} src={image.url} alt={caption ?? t('play:illustration.altFallback')} />
+                <span className={styles.dim} aria-hidden='true' />
+              </div>
             </div>
-            {caption ? <Dialog.Description className={styles.caption}>{caption}</Dialog.Description> : null}
-            {size ? (
-              <p className={styles.resolution}>
-                {t('play:illustration.resolution', { width: size.width, height: size.height })}
-              </p>
-            ) : null}
-            {illustration.error ? <p className={styles.error}>{t(`errors:${illustration.error}`)}</p> : null}
-            {actions.reroll.error ? (
-              <p className={styles.error}>{t(`errors:${errorCode(actions.reroll.error)}`)}</p>
-            ) : null}
-            {actions.dismiss.error ? (
-              <p className={styles.error}>{t(`errors:${errorCode(actions.dismiss.error)}`)}</p>
-            ) : null}
-            <div className={styles.actions}>
-              <Button variant='secondary' busy={rerolling} onClick={() => actions.reroll.mutate(illustration.id)}>
-                {rerolling ? t('play:illustration.rerolling') : t('play:illustration.reroll')}
-              </Button>
-              <a
-                className={`${buttonClassName('secondary')} ${styles.save}`}
-                href={image.url}
-                download={`illustration-${depth}.${extension}`}
-              >
-                {t('play:illustration.save')}
-              </a>
-              <Button
-                variant='danger'
-                busy={actions.dismiss.isPending}
-                onClick={() => {
-                  actions.dismiss.mutate(illustration.id, {
-                    onSuccess: () => {
-                      focusParagraph.current = true;
-                      onOpenChange(false);
-                    },
-                  });
-                }}
-              >
-                {t('play:illustration.dismiss')}
-              </Button>
+            <div className={styles.footer}>
+              {caption ? <Dialog.Description className={styles.caption}>{caption}</Dialog.Description> : null}
+              {size ? (
+                <p className={styles.resolution}>
+                  {t('play:illustration.resolution', { width: size.width, height: size.height })}
+                </p>
+              ) : null}
+              {illustration.error ? <p className={styles.error}>{t(`errors:${illustration.error}`)}</p> : null}
+              {actions.reroll.error ? (
+                <p className={styles.error}>{t(`errors:${errorCode(actions.reroll.error)}`)}</p>
+              ) : null}
+              {actions.dismiss.error ? (
+                <p className={styles.error}>{t(`errors:${errorCode(actions.dismiss.error)}`)}</p>
+              ) : null}
+              <div className={styles.actions}>
+                <Button variant='secondary' busy={rerolling} onClick={() => actions.reroll.mutate(illustration.id)}>
+                  {rerolling ? t('play:illustration.rerolling') : t('play:illustration.reroll')}
+                </Button>
+                <a
+                  className={`${buttonClassName('secondary')} ${styles.save}`}
+                  href={image.url}
+                  download={`illustration-${depth}.${extension}`}
+                >
+                  {t('play:illustration.save')}
+                </a>
+                <Button
+                  variant='danger'
+                  busy={actions.dismiss.isPending}
+                  onClick={() => {
+                    actions.dismiss.mutate(illustration.id, {
+                      onSuccess: () => {
+                        focusParagraph.current = true;
+                        onOpenChange(false);
+                      },
+                    });
+                  }}
+                >
+                  {t('play:illustration.dismiss')}
+                </Button>
+              </div>
             </div>
           </Dialog.Popup>
         </Dialog.Viewport>

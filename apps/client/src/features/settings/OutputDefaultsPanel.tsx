@@ -5,6 +5,7 @@ import { useApi } from '../../shared/api/context.tsx';
 import { queryKeys } from '../../shared/api/query.ts';
 import { IMAGE_TIER_LABEL_KEYS } from '../../shared/lib/image-labels.ts';
 import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
+import { Disclosure } from '../../shared/ui/Disclosure.tsx';
 import { RadioGroup } from '../../shared/ui/RadioGroup.tsx';
 import { Skeleton } from '../../shared/ui/Skeleton.tsx';
 import styles from './OutputDefaultsPanel.module.css';
@@ -74,9 +75,9 @@ export function OutputDefaultsPanel({ disabled }: { disabled: boolean }) {
             const size = aspect === 'auto' ? undefined : entry.sizes[aspect];
             return {
               value: entry.tier,
-              label: `${t(IMAGE_TIER_LABEL_KEYS[entry.tier])} · ${
-                size ? dimensions(size) : t('settings:output.multipleSizes')
-              }`,
+              label: size
+                ? `${t(IMAGE_TIER_LABEL_KEYS[entry.tier])} · ${dimensions(size)}`
+                : t(IMAGE_TIER_LABEL_KEYS[entry.tier]),
             };
           })}
           appearance='segmented'
@@ -85,8 +86,7 @@ export function OutputDefaultsPanel({ disabled }: { disabled: boolean }) {
       {visibleTiers.length === 1 ? <p className={styles.notice}>{t('settings:output.onlyTier')}</p> : null}
       {!view.data.preferenceAvailable ? <p className={styles.notice}>{t('settings:output.unavailable')}</p> : null}
       {aspect === 'auto' ? (
-        <details className={styles.sizes}>
-          <summary>{t('settings:output.multipleSizes')}</summary>
+        <Disclosure summary={t('settings:output.multipleSizes')} panelClassName={styles.sizes}>
           <ul>
             {view.data.tiers.map((entry) => (
               <li key={entry.tier}>
@@ -101,7 +101,7 @@ export function OutputDefaultsPanel({ disabled }: { disabled: boolean }) {
               </li>
             ))}
           </ul>
-        </details>
+        </Disclosure>
       ) : null}
       <ErrorNotice error={set.error} />
     </section>

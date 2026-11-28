@@ -33,11 +33,6 @@
   line-height: var(--uw-typography-caption-line-height);
 }
 
-.sizes summary {
-  min-block-size: var(--uw-size-target-min);
-  cursor: pointer;
-}
-
 .sizes ul {
   display: grid;
   gap: var(--uw-space-1);

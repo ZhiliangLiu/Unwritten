@@ -108,10 +108,8 @@ export function IllustrationFailed({
   const [formatOpen, setFormatOpen] = useState(false);
   const stage = illustration.stage;
   const opensFormat = illustration.error === 'image_output_format_unavailable';
-  const retryLabel =
-    depth === 0 ? t('play:illustration.retryOpening') : t('play:illustration.retryNamed', { turn: depth });
-  const dismissLabel =
-    depth === 0 ? t('play:illustration.dismissOpening') : t('play:illustration.dismissNamed', { turn: depth });
+  const reason = t(`errors:${illustration.error ?? 'unknown'}`);
+  const groupLabel = depth === 0 ? t('play:illustration.opening') : t('play:illustration.named', { turn: depth });
 
   const retry = () => {
     if (opensFormat) {
@@ -128,17 +126,16 @@ export function IllustrationFailed({
   };
 
   return (
-    <div className={styles.failed}>
+    <fieldset className={styles.failed} aria-label={groupLabel}>
       <p className={styles.reason}>
-        {stage ? <span className={styles.stage}>{t(ILLUSTRATION_STAGE_LABEL_KEYS[stage])}</span> : null}
-        <span>{t(`errors:${illustration.error ?? 'unknown'}`)}</span>
+        {stage ? t('play:illustration.failedAt', { stage: t(ILLUSTRATION_STAGE_LABEL_KEYS[stage]), reason }) : reason}
       </p>
       <div className={styles.actions}>
         <Button size='sm' variant='secondary' busy={actions.retry.isPending} onClick={retry}>
-          {retryLabel}
+          {t('common:action.retry')}
         </Button>
         <Button size='sm' variant='text' busy={actions.dismiss.isPending} onClick={dismiss}>
-          {dismissLabel}
+          {t('play:illustration.dismiss')}
         </Button>
       </div>
       {actions.retry.error ? (
@@ -153,6 +150,6 @@ export function IllustrationFailed({
         busy={actions.retry.isPending}
         onConfirm={(format) => actions.retry.mutate({ illustrationId: illustration.id, format })}
       />
-    </div>
+    </fieldset>
   );
 }
