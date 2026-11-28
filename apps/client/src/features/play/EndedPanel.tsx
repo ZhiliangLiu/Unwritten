@@ -17,6 +17,9 @@ export function EndedPanel({ workId }: { workId: string }) {
           <Icon icon={RotateCcw} />
           {t('play:ended.restart')}
         </Link>
+        <Link className={buttonClassName('text')} to='/works/$workId/playthroughs' params={{ workId }}>
+          {t('play:ended.playthroughs')}
+        </Link>
         <Link className={buttonClassName('text')} to='/'>
           {t('play:ended.back')}
         </Link>

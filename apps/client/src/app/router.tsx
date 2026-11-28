@@ -13,6 +13,7 @@ import { LlmLogsPage } from '../features/logs/LlmLogsPage.tsx';
 import { SettingsPage } from '../features/settings/SettingsPage.tsx';
 import { OpeningPendingPage } from '../features/play/OpeningPendingPage.tsx';
 import { PlayPage } from '../features/play/PlayPage.tsx';
+import { PlaythroughsPage } from '../features/play/PlaythroughsPage.tsx';
 import { StartPage } from '../features/play/StartPage.tsx';
 import styles from './app.module.css';
 
@@ -48,6 +49,14 @@ const workStartRoute = createRoute({
     return <StartPage workId={workId} />;
   },
 });
+const workPlaythroughsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/works/$workId/playthroughs',
+  component: function WorkPlaythroughsRoute() {
+    const { workId } = workPlaythroughsRoute.useParams();
+    return <PlaythroughsPage workId={workId} />;
+  },
+});
 const playRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/play/$routeId',
@@ -71,6 +80,7 @@ export const routeTree = rootRoute.addChildren([
   llmLogsRoute,
   worksEditRoute,
   workStartRoute,
+  workPlaythroughsRoute,
   playRoute,
   playthroughRoute,
 ]);

@@ -50,12 +50,14 @@ export function App() {
             if (event.type === 'works.changed') {
               void queryClient.invalidateQueries({ queryKey: queryKeys.works });
               void queryClient.invalidateQueries({ queryKey: queryKeys.work(event.workId) });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.playthroughsAll });
             }
             if (event.type === 'job.updated')
               void queryClient.invalidateQueries({ queryKey: queryKeys.work(event.workId) });
             if (event.type === 'turn_request.updated' || event.type === 'turn.committed') {
               void queryClient.invalidateQueries({ queryKey: queryKeys.route(event.routeId) });
               void queryClient.invalidateQueries({ queryKey: queryKeys.works });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.playthroughsAll });
             }
             if (event.type === 'turn.committed') {
               void queryClient.invalidateQueries({ queryKey: queryKeys.journal(event.routeId) });
@@ -63,6 +65,7 @@ export function App() {
             }
             if (event.type === 'playthrough.updated') {
               void queryClient.invalidateQueries({ queryKey: queryKeys.playthrough(event.playthroughId) });
+              void queryClient.invalidateQueries({ queryKey: queryKeys.playthroughsAll });
             }
             if (event.type === 'illustration.updated') {
               void queryClient.invalidateQueries({ queryKey: queryKeys.route(event.routeId) });

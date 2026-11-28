@@ -32,6 +32,7 @@ import type {
   OutputOptionsView,
   OutputPreferences,
   PlaythroughIdInput,
+  PlaythroughListItem,
   PlaythroughView,
   PlanJobView,
   PortraitAdoptInput,
@@ -222,6 +223,7 @@ export interface PlayService {
   getStartInfo(input: WorkIdInput): StartInfo;
   start(input: StartPlaythroughInput): PlaythroughView;
   getPlaythrough(input: PlaythroughIdInput): PlaythroughView;
+  listPlaythroughs(input: WorkIdInput): PlaythroughListItem[];
   retryOpening(input: RetryOpeningInput): PlaythroughView;
   getStatus(input: RouteIdInput): StatusView;
   recoverInterrupted(): number;

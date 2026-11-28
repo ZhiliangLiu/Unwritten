@@ -284,6 +284,8 @@ describe('createLibraryService', () => {
       expect(summaries.find((summary) => summary.id === otherWorkId)?.routeId).toBe(
         '00000000-0000-4000-8000-000000000023',
       );
+      expect(summaries.find((summary) => summary.id === workId)?.hasMultiplePlaythroughs).toBe(true);
+      expect(summaries.find((summary) => summary.id === otherWorkId)?.hasMultiplePlaythroughs).toBe(false);
     } finally {
       opened.close();
       temp.cleanup();
@@ -298,6 +300,7 @@ describe('createLibraryService', () => {
       const summary = service.list().find((item) => item.id === workId);
       expect(summary?.routeId).toBeNull();
       expect(summary?.hasProgress).toBe(false);
+      expect(summary?.hasMultiplePlaythroughs).toBe(false);
     } finally {
       opened.close();
       temp.cleanup();

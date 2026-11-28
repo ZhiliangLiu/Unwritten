@@ -82,6 +82,9 @@ export function createRouter(services: Services) {
       getPlaythrough: base.play.getPlaythrough.handler(({ input, context }) =>
         context.services.play.getPlaythrough(input),
       ),
+      listPlaythroughs: base.play.listPlaythroughs.handler(({ input, context }) =>
+        context.services.play.listPlaythroughs(input),
+      ),
       retryOpening: base.play.retryOpening.handler(({ input, context }) => context.services.play.retryOpening(input)),
       getStatus: base.play.getStatus.handler(({ input, context }) => context.services.play.getStatus(input)),
       suggestAppearance: base.play.suggestAppearance.handler(({ input, context }) =>

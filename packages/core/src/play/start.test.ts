@@ -2,7 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { and, eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ILLUSTRATION_STYLE, type IllustrationStyle, type StartIllustrationInput } from '@unwritten/contracts';
+import {
+  DEFAULT_ILLUSTRATION_STYLE,
+  type CoreEvent,
+  type IllustrationStyle,
+  type StartIllustrationInput,
+} from '@unwritten/contracts';
 import { createEventBus } from '../events/bus.ts';
 import { appearanceHash } from '../illustration/appearance.ts';
 import { collectGarbage } from '../illustration/gc.ts';
@@ -20,6 +25,7 @@ import {
   facts,
   playthroughs,
   portraitSets,
+  routes,
   stateValues,
   turns,
   workVersions,
@@ -44,10 +50,18 @@ function setup() {
   const opened = openDatabase(join(temp.dir, 'library.db'));
   const seeded = seedLighthouseTown(opened.db);
   const llm = createScriptedLlm();
+  const bus = createEventBus();
+  const events: CoreEvent[] = [];
   const deps = {
     dataDir: temp.dir,
     db: opened.db,
-    bus: createEventBus(),
+    bus: {
+      publish(event: CoreEvent) {
+        events.push(event);
+        bus.publish(event);
+      },
+      subscribe: (signal: AbortSignal) => bus.subscribe(signal),
+    },
     logger: silentLogger(),
     shutdown: new AbortController().signal,
   };
@@ -64,7 +78,7 @@ function setup() {
     } as unknown as IllustrationService,
     onIllustrationQueued: () => {},
   });
-  return { temp, opened, seeded, llm, play };
+  return { temp, opened, seeded, llm, play, events };
 }
 
 describe('play.start 固定人物', () => {
@@ -528,6 +542,111 @@ describe('play.getStartInfo 插图', () => {
       const info = play.getStartInfo({ workId: seeded.workId });
       expect(info.illustration.lastStyle).toEqual({ kind: 'preset', preset: 'watercolor' });
       expect(info.illustration.authorStyle).toEqual(ink);
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+});
+
+describe('play.listPlaythroughs', () => {
+  it('列出当前发布版本上的正式开局，按最近游玩排序并带上主角与进度', () => {
+    const { temp, opened, seeded, play } = setup();
+    try {
+      const firstId = randomUUID();
+      const secondId = randomUUID();
+      const first = play.start({ workId: seeded.workId, playthroughId: firstId, protagonist: { 名字: '阿岚' } });
+      const second = play.start({ workId: seeded.workId, playthroughId: secondId, protagonist: { 名字: '白露' } });
+      opened.db.update(routes).set({ updatedAt: 100 }).where(eq(routes.id, seeded.routeId)).run();
+      opened.db.update(routes).set({ updatedAt: 200 }).where(eq(routes.id, first.routeId!)).run();
+      opened.db.update(routes).set({ updatedAt: 300 }).where(eq(routes.id, second.routeId!)).run();
+      opened.db.update(turns).set({ ending: 1 }).where(eq(turns.id, seeded.headTurnId)).run();
+
+      const list = play.listPlaythroughs({ workId: seeded.workId });
+
+      expect(list.map((item) => item.id)).toEqual([secondId, firstId, seeded.playthroughId]);
+      expect(list[0]).toMatchObject({
+        routeId: second.routeId,
+        updatedAt: 300,
+        protagonistName: '白露',
+        place: '码头',
+        time: '夜里',
+        turnCount: 0,
+        ended: false,
+      });
+      expect(list[1]?.protagonistName).toBe('阿岚');
+      expect(list[2]).toMatchObject({
+        routeId: seeded.routeId,
+        updatedAt: 100,
+        protagonistName: null,
+        place: '灯塔顶',
+        time: '深夜',
+        turnCount: 2,
+        ended: true,
+      });
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('开场还没生成完的开局也列出', () => {
+    const { temp, opened, seeded, play } = setup();
+    try {
+      const pendingId = randomUUID();
+      opened.db.run(
+        sql`insert into playthroughs (id, version_id, kind, protagonist, created_at)
+            values (${pendingId}, ${seeded.versionId}, 'play', ${JSON.stringify({ 名字: '迟到的' })}, 400)`,
+      );
+
+      const list = play.listPlaythroughs({ workId: seeded.workId });
+      const pending = list.find((item) => item.id === pendingId);
+
+      expect(pending).toMatchObject({
+        routeId: null,
+        createdAt: 400,
+        updatedAt: 400,
+        protagonistName: '迟到的',
+        place: null,
+        time: null,
+        turnCount: null,
+        ended: false,
+      });
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+
+  it('不列试玩，也不列旧发布版本上的开局', () => {
+    const { temp, opened, seeded, play } = setup();
+    try {
+      opened.db.run(
+        sql`insert into playthroughs (id, version_id, kind, created_at)
+            values (${randomUUID()}, ${seeded.versionId}, 'trial', ${Date.now()})`,
+      );
+      expect(play.listPlaythroughs({ workId: seeded.workId }).map((item) => item.id)).toEqual([seeded.playthroughId]);
+
+      opened.db.update(works).set({ publishedId: seeded.draftVersionId! }).where(eq(works.id, seeded.workId)).run();
+
+      expect(play.listPlaythroughs({ workId: seeded.workId })).toEqual([]);
+      expect(
+        opened.db.select().from(playthroughs).where(eq(playthroughs.id, seeded.playthroughId)).get(),
+      ).toBeDefined();
+    } finally {
+      opened.close();
+      temp.cleanup();
+    }
+  });
+});
+
+describe('play.start 事件', () => {
+  it('开局成功后发布 works.changed', () => {
+    const { temp, opened, seeded, play, events } = setup();
+    try {
+      const result = play.start({ workId: seeded.workId, playthroughId: randomUUID(), protagonist: { 名字: '阿岚' } });
+      expect(result.routeId).not.toBeNull();
+      expect(events).toContainEqual({ type: 'works.changed', workId: seeded.workId });
     } finally {
       opened.close();
       temp.cleanup();

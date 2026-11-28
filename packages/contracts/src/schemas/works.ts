@@ -35,6 +35,7 @@ export const WorkSummarySchema = z.object({
   label: z.string(),
   status: WorkStatusSchema,
   hasProgress: z.boolean(),
+  hasMultiplePlaythroughs: z.boolean().default(false),
   routeId: UuidSchema.nullable(),
   updatedAt: TimestampSchema,
 });

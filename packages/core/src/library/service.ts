@@ -35,12 +35,14 @@ function summarize(db: Database, row: typeof works.$inferSelect): WorkSummary {
   const background = (draft?.meta as VersionMeta | undefined)?.background ?? '';
   let routeId: string | null = null;
   let hasProgress = false;
+  let hasMultiplePlaythroughs = false;
   if (row.publishedId) {
     const played = db
       .select()
       .from(playthroughs)
       .where(and(eq(playthroughs.versionId, row.publishedId), eq(playthroughs.kind, 'play')))
       .all();
+    hasMultiplePlaythroughs = played.length > 1;
     if (played.length > 0) {
       const route = db
         .select()
@@ -67,6 +69,7 @@ function summarize(db: Database, row: typeof works.$inferSelect): WorkSummary {
     label: workLabel(row.title, background),
     status: row.publishedId ? 'playable' : 'draft',
     hasProgress,
+    hasMultiplePlaythroughs,
     routeId,
     updatedAt: row.updatedAt,
   };

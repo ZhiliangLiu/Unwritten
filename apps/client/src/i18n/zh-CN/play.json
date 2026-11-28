@@ -84,6 +84,24 @@
       "suggesting": "正在起草形象"
     }
   },
+  "playthroughs": {
+    "heading": "所有开局",
+    "intro": "每次开局都留在自己的进度里，可以挑一局继续，也可以开始新的一局。只列出当前发布版本上的开局。",
+    "start": "开始新的开局",
+    "created": "开局于 {{date}}",
+    "turnCount": "第 {{count}} 回合",
+    "updated": "最近游玩：{{time}}",
+    "separator": " · ",
+    "state": {
+      "playing": "进行中",
+      "ended": "已完结",
+      "opening": "开场未完成"
+    },
+    "empty": {
+      "heading": "还没有开局",
+      "description": "从这部作品的开场开始一次新的游玩。"
+    }
+  },
   "openingRequest": {
     "pending": "正在为这一局准备人物和开场",
     "pendingHelp": "主要人物每局都不一样。可以离开这一页，生成完成后从作品库继续。",
@@ -127,8 +145,9 @@
   "options": { "label": "推荐行动", "hint": "提醒：{{text}}" },
   "ended": {
     "heading": "故事到这里结束了",
-    "description": "可以往上重读，也可以从开场重新开始。",
+    "description": "可以往上重读，也可以回到「所有开局」挑一局继续，或从开场重新开始。",
     "restart": "重新开局",
+    "playthroughs": "所有开局",
     "back": "返回作品库"
   },
   "replace": {
