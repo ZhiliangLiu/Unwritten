@@ -154,6 +154,7 @@ export function collectGarbage(deps: {
       const keep =
         row.state === 'draft' ||
         row.scope === 'pending' ||
+        row.scope === 'playthrough' ||
         hasRunningTask(row.task) ||
         referencedIds.has(row.id) ||
         (row.state === 'active' && row.scope === 'work' && row.entityId !== null && entityIds.has(row.entityId));

@@ -5,7 +5,7 @@ import { eq, sql } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { LogEvent, Logger, PerformanceSample } from '../log/logger.ts';
 import type { ImageFileRef, PortraitSlotsStored, PortraitTasks } from '../store/illustration-types.ts';
-import { illustrations, portraitSets, works } from '../store/schema.ts';
+import { illustrations, playthroughs, portraitSets, works } from '../store/schema.ts';
 import { openDatabase, type OpenedDatabase } from '../store/db.ts';
 import { pngBytes } from '../test-support/image-bytes.ts';
 import { seedStory, type SeededStory } from '../test-support/story-fixtures.ts';
@@ -311,7 +311,7 @@ describe('collectGarbage', () => {
     expect(existsSync(path)).toBe(true);
   });
 
-  it('运行中的参考任务在所有范围内都保留该组，任务清掉后回收', async () => {
+  it('运行中的参考任务在所有范围内都保留该组，任务清掉后回收已撤下的组', async () => {
     const fixture = setup();
     const playthroughRef = fileRef(hashOf(121));
     const playthroughSet = insertSet(fixture, {
@@ -362,11 +362,44 @@ describe('collectGarbage', () => {
       logger: fixture.logger,
     });
 
-    expect(setExists(fixture, playthroughSet)).toBe(false);
-    expect(existsSync(playthroughPath)).toBe(false);
+    expect(setExists(fixture, playthroughSet)).toBe(true);
+    expect(existsSync(playthroughPath)).toBe(true);
     expect(setExists(fixture, activeSet)).toBe(false);
     expect(existsSync(activePath)).toBe(false);
-    expect(second.sets).toBe(2);
+    expect(second.sets).toBe(1);
+  });
+
+  it('开局按需生成的基础参考组没有插图引用也随开局保留，删掉开局后回收', async () => {
+    const fixture = setup();
+    const baseRef = fileRef(hashOf(131));
+    const baseSet = insertSet(fixture, {
+      scope: 'playthrough',
+      playthroughId: fixture.seeded.playthroughId,
+      entityId: fixture.seeded.ids.lin ?? null,
+      state: 'active',
+      appearanceHash: hashOf(132),
+      slots: slotsWith(baseRef),
+    });
+    const basePath = writeBlob(fixture, baseRef.hash, oldTime());
+    insertIllustration(fixture, 0, {
+      status: 'dismissed',
+      referenceFiles: [{ setId: baseSet, slot: 'front', file: baseRef }],
+    });
+
+    const kept = await collectGarbage({
+      db: fixture.opened.db,
+      store: fixture.store,
+      now: fixture.now,
+      logger: fixture.logger,
+    });
+    expect(setExists(fixture, baseSet)).toBe(true);
+    expect(existsSync(basePath)).toBe(true);
+    expect(kept.sets).toBe(0);
+
+    fixture.opened.db.delete(playthroughs).where(eq(playthroughs.id, fixture.seeded.playthroughId)).run();
+    await collectGarbage({ db: fixture.opened.db, store: fixture.store, now: fixture.now, logger: fixture.logger });
+    expect(setExists(fixture, baseSet)).toBe(false);
+    expect(existsSync(basePath)).toBe(false);
   });
 
   it('回收无人引用的已撤下参考组和它的文件', async () => {

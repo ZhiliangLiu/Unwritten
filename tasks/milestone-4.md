@@ -3765,6 +3765,7 @@ selfhost/colab/
   2. **删不再需要的参考组。** 参考组保留的条件，满足任一条就留（§9.4「参考组」）：
      - 被开局行引用；
      - `state = 'active'`，并且 `scope = 'work'`，并且 `entity_id` 是现有人物：草稿或发布版本的 `entities` 里有这个 id，或者草稿 `meta.plan.items` 里有 `kind = 'entity'` 且 `id` 等于它的项；
+     - `scope = 'playthrough'`：开局按需生成的基础参考组随开局保留，删除开局时由外键级联删除；
      - `state = 'draft'`，或上一步仍保留的画风预览、主角快照；
      - 被未移除的插图记录的 `reference_files` 或 `attempt_data.referenceFiles` 引用。未移除指 `status` 不是 `dismissed`、`cancelled`。
 
@@ -6761,6 +6762,7 @@ C1 | 称呼=<已知称呼> | 形象=<可见形象> | 主角=<是或否> | 可用
 | D1–D28 | 已确认 | 按推荐项通过；D7 的主角名始终进入 `bannedNames`，D22 统一用 `OutputPreferences` 字段名并以已有 `format` 为重画基准，D28 的 `same_visible_identity` 存储为 `1`。维护者确认。重估：实现中发现与设计文档冲突时，先改文档再改代码。 |
 | 客户端共用组件 | 已确认 | `StylePicker`、`StylePreview`、`PortraitSetEditor`、`PortraitSlotCard` 下沉到 `apps/client/src/shared/ui/illustration/`，由 T22 实现，T23 从共享层导入。理由：`apps/client/AGENTS.md §7` 禁止 feature 之间互相导入 |
 | core 公共接口 | 已确认 | 扩 `services.ts` 的 `ImageService`、`IllustrationService`，`image` 的错误和守卫类型、`story` 的 `StoryTx` 由 `services.ts` re-export；`play` 通过 `IllustrationService` 使用登记、路线插图视图和手记缩略图 |
+| 开局基础参考组的清理 | 已确认 | 收口 review 发现 T15 的保留清单漏了 `scope = 'playthrough'`：唯一引用它的插图被移除后，清理会删掉该组，下一张图要重新付费生成另一张脸，手记缩略图也会消失。改为随开局保留，由外键级联删除。维护者确认。重估：开局里的参考组体量成为问题时。 |
 | §1.3 推迟项 | 待确认 | 候选采用、存档分支、试玩入口由对应功能的任务接入。 |
 
 ### 6.2 波次读数
