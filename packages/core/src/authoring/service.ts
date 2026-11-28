@@ -24,7 +24,7 @@ import { entities, facts, jobs, stateDefs, workVersions, works } from '../store/
 import type { PreviewJobResult, VersionMeta } from '../store/meta.ts';
 import { PUBLIC_SETTING_PLAN_ITEM_ID, previewJobParts, readAnchors } from '../store/meta.ts';
 import { isPlanConfirmed, readPlan, readSettings } from '../store/plan.ts';
-import { pruneNovelFiles } from '../store/novel-file.ts';
+import { discardNovelFile, pruneNovelFiles } from '../store/novel-file.ts';
 import { createCodeBook } from '../story/codebook.ts';
 import { copyAuthorSetting } from '../story/copy.ts';
 import type { OpeningProposal, OpeningProposalContext } from '../story/opening-proposal.ts';
@@ -584,11 +584,17 @@ export function createAuthoringService(deps: CoreDeps & { llm: LlmService }): Au
             })
             .where(eq(jobs.id, job.id))
             .run();
-          return { versionId: publishedId };
+          const novelSourceRemoved =
+            tx
+              .delete(jobs)
+              .where(and(eq(jobs.id, work.id), eq(jobs.kind, 'novel_source')))
+              .run().changes > 0;
+          return { versionId: publishedId, novelSourceRemoved };
         },
         { behavior: 'immediate' },
       );
       if (!adopted) return { routeId: null };
+      if (adopted.novelSourceRemoved) discardNovelFile(deps.dataDir, deps.logger, input.workId, 'authoring');
       deps.bus.publish({ type: 'works.changed', workId: input.workId });
       deps.logger.record({
         level: 'info',

@@ -89,6 +89,9 @@ function fakeServices(): Services {
       get: () => {
         throw new Error('not used');
       },
+      novelChapters: () => {
+        throw new Error('not used');
+      },
       saveDraft: () => {
         throw new Error('not used');
       },

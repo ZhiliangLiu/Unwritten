@@ -200,6 +200,7 @@ export interface LibraryService {
   list(): WorkSummary[];
   create(input: WorkIdInput): WorkDetail;
   get(input: WorkIdInput): WorkDetail;
+  novelChapters(input: WorkIdInput): string[];
   saveDraft(input: SaveDraftInput): SaveDraftOutput;
   setWizardStep(input: SetWizardStepInput): Record<string, never>;
   delete(input: WorkIdInput): Record<string, never>;

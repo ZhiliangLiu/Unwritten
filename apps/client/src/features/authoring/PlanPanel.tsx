@@ -10,7 +10,7 @@ import { ErrorNotice } from '../../shared/ui/ErrorNotice.tsx';
 import { GeneratingMarker } from '../../shared/ui/GeneratingMarker.tsx';
 import { Icon } from '../../shared/ui/Icon.tsx';
 import { LiveRegion } from '../../shared/ui/LiveRegion.tsx';
-import { Select } from '../../shared/ui/Select.tsx';
+import { NovelChapterPicker } from './NovelChapterPicker.tsx';
 import { PlanConflicts } from './PlanConflicts.tsx';
 import { PlanItemCard } from './PlanItemCard.tsx';
 import styles from './PlanPanel.module.css';
@@ -35,8 +35,6 @@ export function PlanPanel({
   onConfirm: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const [chosenChapter, setChosenChapter] = useState<string | null>(null);
-  const [chosenReference, setChosenReference] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [removeTarget, setRemoveTarget] = useState<PlanItem | null>(null);
@@ -49,15 +47,6 @@ export function PlanPanel({
   const running = latest?.status === 'running';
   const novel = work.novelImport;
   const progress = latest?.novelProgress;
-  const chapterValue = chosenChapter ?? String(novel?.chapter ?? 0);
-  const referenceValue = chosenReference ?? String(novel?.referenceChapter ?? 'none');
-  const selectedReference =
-    referenceValue === 'none' || referenceValue === chapterValue ? undefined : Number(referenceValue);
-  const chapterOptions =
-    novel?.chapters.map((title, index) => ({
-      value: String(index),
-      label: title || t('authoring:novel.untitledChapter'),
-    })) ?? [];
   const status = progress
     ? t('authoring:novel.reading', {
         percent: new Intl.NumberFormat(i18n.language, { style: 'percent', roundingMode: 'floor' }).format(
@@ -118,46 +107,9 @@ export function PlanPanel({
 
       {busy ? <GeneratingMarker label={status} /> : null}
       <LiveRegion message={busy ? (progress ? t('authoring:novel.running') : status) : ''} />
-      {novel && novel.chapters.length > 1 && onChooseNovelChapter ? (
+      {novel && novel.chapterCount > 1 && onChooseNovelChapter ? (
         <div className={styles.group}>
-          <Select
-            label={t('authoring:novel.chapter')}
-            value={chapterValue}
-            onValueChange={setChosenChapter}
-            options={chapterOptions}
-            description={t('authoring:novel.chapterHelp')}
-            disabled={busy}
-          />
-          <Select
-            label={t('authoring:novel.reference')}
-            value={selectedReference === undefined ? 'none' : String(selectedReference)}
-            onValueChange={setChosenReference}
-            options={[
-              { value: 'none', label: t('authoring:novel.noReference') },
-              ...chapterOptions.filter((option) => option.value !== chapterValue),
-            ]}
-            description={t('authoring:novel.referenceHelp')}
-            disabled={busy}
-          />
-          <div>
-            <Button
-              variant='secondary'
-              disabled={
-                busy || (Number(chapterValue) === novel.chapter && selectedReference === novel.referenceChapter)
-              }
-              onClick={() => {
-                onChooseNovelChapter(Number(chapterValue), selectedReference);
-                setChosenChapter(null);
-                setChosenReference(null);
-              }}
-            >
-              {t(
-                Number(chapterValue) === novel.chapter
-                  ? 'authoring:novel.useReference'
-                  : 'authoring:novel.changeChapter',
-              )}
-            </Button>
-          </div>
+          <NovelChapterPicker workId={work.id} novel={novel} busy={busy} onChoose={onChooseNovelChapter} />
         </div>
       ) : null}
       {latest?.status === 'failed' ? (

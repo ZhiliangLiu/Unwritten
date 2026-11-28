@@ -7,6 +7,7 @@ export const queryClient = new QueryClient({
 export const queryKeys = {
   works: ['works'] as const,
   work: (workId: string) => ['work', workId] as const,
+  novelChapters: (workId: string) => ['novelChapters', workId] as const,
   route: (routeId: string) => ['route', routeId] as const,
   llm: ['llm'] as const,
   llmLogs: ['llmLogs'] as const,

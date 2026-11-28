@@ -17,10 +17,16 @@ import { appError } from '../errors.ts';
 import type { CoreDeps, LibraryService } from '../services.ts';
 import type { Database } from '../store/db.ts';
 import { insertDraft } from '../store/draft.ts';
-import { removeNovelFile } from '../store/novel-file.ts';
-import { diagnosticFault } from '../log/fault.ts';
+import { discardNovelFile } from '../store/novel-file.ts';
 import { jobs, playthroughs, routes, workVersions, works } from '../store/schema.ts';
-import { planJobParts, previewJobParts, readAnchors, type StoredSettings, type VersionMeta } from '../store/meta.ts';
+import {
+  NovelChaptersSchema,
+  planJobParts,
+  previewJobParts,
+  readAnchors,
+  type StoredSettings,
+  type VersionMeta,
+} from '../store/meta.ts';
 import { planView, readSettings, settingsView } from '../store/plan.ts';
 
 export function workLabel(title: string | null, background: string): string {
@@ -158,15 +164,12 @@ export function createLibraryService(deps: CoreDeps & { onWorkDeleted?: () => vo
       .orderBy(desc(jobs.createdAt), sql`rowid desc`)
       .get();
     const meta = draft.meta as VersionMeta;
-    const novel = !row.publishedId
-      ? deps.db
-          .select({ result: jobs.result })
-          .from(jobs)
-          .where(and(eq(jobs.id, row.id), eq(jobs.kind, 'novel_source')))
-          .get()
-      : null;
-    const chapters = novel?.result && 'chapters' in novel.result ? novel.result.chapters : null;
-    const novelChapter = chapters
+    const novel = deps.db
+      .select({ chapterCount: sql`json_array_length(${jobs.result}, '$.chapters')`.mapWith(Number) })
+      .from(jobs)
+      .where(and(eq(jobs.id, row.id), eq(jobs.kind, 'novel_source')))
+      .get();
+    const novelChapter = novel
       ? deps.db
           .select({
             chapter: sql`json_extract(${jobs.input}, '$.novel.chapter')`.mapWith(Number),
@@ -196,9 +199,9 @@ export function createLibraryService(deps: CoreDeps & { onWorkDeleted?: () => vo
       },
       latestPreviewJob: previewJob ? previewJobView(previewJob) : null,
       latestPlanJob: planJob ? planJobView(planJob) : null,
-      ...(chapters && {
+      ...(novel && {
         novelImport: {
-          chapters: chapters.map((chapter) => chapter.title),
+          chapterCount: novel.chapterCount,
           chapter: novelChapter?.chapter ?? 0,
           ...(typeof novelChapter?.referenceChapter === 'number' && {
             referenceChapter: novelChapter.referenceChapter,
@@ -235,6 +238,15 @@ export function createLibraryService(deps: CoreDeps & { onWorkDeleted?: () => vo
       return getWork(input);
     },
     get: getWork,
+    novelChapters(input) {
+      const row = deps.db
+        .select({ result: jobs.result })
+        .from(jobs)
+        .where(and(eq(jobs.id, input.workId), eq(jobs.kind, 'novel_source')))
+        .get();
+      if (!row) throw appError('not_found', 'novel source not found');
+      return NovelChaptersSchema.parse(row.result).chapters.map((chapter) => chapter.title);
+    },
     saveDraft(input: SaveDraftInput): SaveDraftOutput {
       const result = deps.db.transaction(
         (tx) => {
@@ -316,40 +328,11 @@ export function createLibraryService(deps: CoreDeps & { onWorkDeleted?: () => vo
       return { contentRev: result.contentRev };
     },
     delete(input: WorkIdInput): Record<string, never> {
-      const { changes, hasNovelFile } = deps.db.transaction(
-        (tx) => {
-          const hasNovelFile = Boolean(
-            tx
-              .select({ id: jobs.id })
-              .from(jobs)
-              .where(
-                and(
-                  eq(jobs.id, input.workId),
-                  eq(jobs.kind, 'novel_source'),
-                  sql`json_type(${jobs.input}, '$.encoding') = 'text'`,
-                ),
-              )
-              .get(),
-          );
-          const changes = tx.delete(works).where(eq(works.id, input.workId)).run().changes;
-          return { changes, hasNovelFile };
-        },
-        { behavior: 'immediate' },
-      );
+      const changes = deps.db.transaction((tx) => tx.delete(works).where(eq(works.id, input.workId)).run().changes, {
+        behavior: 'immediate',
+      });
       if (changes === 0) return {};
-      if (hasNovelFile) {
-        try {
-          removeNovelFile(deps.dataDir, input.workId);
-        } catch (error) {
-          deps.logger.record({
-            level: 'warn',
-            module: 'library',
-            event: 'novel.file.remove_failed',
-            workId: input.workId,
-            data: { code: diagnosticFault(error).systemCode ?? 'internal' },
-          });
-        }
-      }
+      discardNovelFile(deps.dataDir, deps.logger, input.workId, 'library');
       deps.bus.publish({ type: 'works.changed', workId: input.workId });
       deps.logger.record({ level: 'info', module: 'library', event: 'work.deleted', workId: input.workId });
       deps.onWorkDeleted?.();

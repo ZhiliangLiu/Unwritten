@@ -251,6 +251,7 @@ test('从 TXT 直接得到开场预览，换章后采用新开场', async ({ pag
     await expect(page.getByRole('button', { name: '采用开场并存入作品库' })).toBeEnabled();
 
     app.server.enqueue(
+      { kind: 'text', text: JSON.stringify({ notes: '邮差到达码头，潮水正在退。', queries: [] }) },
       proposePlanStep(),
       previewStep({ prose: '邮差在码头等着退潮。', options: ['朝灯塔走', '留在码头'] }),
     );

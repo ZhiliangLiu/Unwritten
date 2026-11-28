@@ -11,10 +11,12 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { UuidSchema } from '@unwritten/contracts';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull } from 'drizzle-orm';
 import { appError } from '../errors.ts';
+import { diagnosticFault } from '../log/fault.ts';
+import type { Logger } from '../log/logger.ts';
 import type { Database } from './db.ts';
-import { jobs } from './schema.ts';
+import { jobs, works } from './schema.ts';
 
 const novelDirectory = (dataDir: string) => join(dataDir, 'novels');
 
@@ -61,7 +63,29 @@ export function removeNovelFile(dataDir: string, workId: string): void {
   rmSync(novelFilePath(dataDir, workId), { force: true });
 }
 
+export function discardNovelFile(dataDir: string, logger: Logger, workId: string, module: string): void {
+  try {
+    removeNovelFile(dataDir, workId);
+  } catch (error) {
+    logger.record({
+      level: 'warn',
+      module,
+      event: 'novel.file.remove_failed',
+      workId,
+      data: { code: diagnosticFault(error).systemCode ?? 'internal' },
+    });
+  }
+}
+
 export function pruneNovelFiles(db: Database, dataDir: string): void {
+  db.delete(jobs)
+    .where(
+      and(
+        eq(jobs.kind, 'novel_source'),
+        inArray(jobs.workId, db.select({ id: works.id }).from(works).where(isNotNull(works.publishedId))),
+      ),
+    )
+    .run();
   const directory = novelDirectory(dataDir);
   if (!existsSync(directory)) return;
   const owned = new Set(

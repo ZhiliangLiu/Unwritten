@@ -7,6 +7,7 @@ import { initTestI18n } from '../test/i18n.ts';
 import { Badge } from './Badge.tsx';
 import { Button } from './Button.tsx';
 import { Card } from './Card.tsx';
+import { Combobox } from './Combobox.tsx';
 import { ConfirmDialog } from './ConfirmDialog.tsx';
 import { EmptyState } from './EmptyState.tsx';
 import { ErrorNotice } from './ErrorNotice.tsx';
@@ -63,6 +64,12 @@ describe('无可访问性违规', () => {
 
   it('NumberField', async () => {
     await expectAccessible(<NumberField label='思考预算' value={null} onValueChange={() => {}} />);
+  });
+
+  it('Combobox', async () => {
+    await expectAccessible(
+      <Combobox label='原作起点' value='0' onValueChange={() => {}} options={[{ value: '0', label: '第一章 归港' }]} />,
+    );
   });
 
   it('Select', async () => {
