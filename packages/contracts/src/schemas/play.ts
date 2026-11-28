@@ -110,6 +110,18 @@ export const PlaythroughViewSchema = z.object({
   opening: OpeningRequestViewSchema.nullable(),
 });
 
+export const PlaythroughListItemSchema = z.object({
+  id: UuidSchema,
+  routeId: UuidSchema.nullable(),
+  createdAt: TimestampSchema,
+  updatedAt: TimestampSchema,
+  protagonistName: z.string().nullable(),
+  place: z.string().nullable(),
+  time: z.string().nullable(),
+  turnCount: z.number().int().nonnegative().nullable(),
+  ended: z.boolean(),
+});
+
 export const PlaythroughIdInputSchema = z.object({ playthroughId: UuidSchema });
 
 export const RetryOpeningInputSchema = z.object({ requestId: UuidSchema });
@@ -182,6 +194,7 @@ export type StartInfo = z.infer<typeof StartInfoSchema>;
 export type StartPlaythroughInput = z.infer<typeof StartPlaythroughInputSchema>;
 export type OpeningRequestView = z.infer<typeof OpeningRequestViewSchema>;
 export type PlaythroughView = z.infer<typeof PlaythroughViewSchema>;
+export type PlaythroughListItem = z.infer<typeof PlaythroughListItemSchema>;
 export type PlaythroughIdInput = z.infer<typeof PlaythroughIdInputSchema>;
 export type RetryOpeningInput = z.infer<typeof RetryOpeningInputSchema>;
 export type StatusHistoryEntry = z.infer<typeof StatusHistoryEntrySchema>;

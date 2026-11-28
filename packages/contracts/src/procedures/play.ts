@@ -1,6 +1,8 @@
 import { oc } from '@orpc/contract';
+import { z } from 'zod';
 import {
   PlaythroughIdInputSchema,
+  PlaythroughListItemSchema,
   PlaythroughViewSchema,
   RetryInputSchema,
   RetryOpeningInputSchema,
@@ -24,6 +26,7 @@ export const playContract = {
   getStartInfo: oc.input(WorkIdInputSchema).output(StartInfoSchema),
   start: oc.input(StartPlaythroughInputSchema).output(PlaythroughViewSchema),
   getPlaythrough: oc.input(PlaythroughIdInputSchema).output(PlaythroughViewSchema),
+  listPlaythroughs: oc.input(WorkIdInputSchema).output(z.array(PlaythroughListItemSchema)),
   retryOpening: oc.input(RetryOpeningInputSchema).output(PlaythroughViewSchema),
   getStatus: oc.input(RouteIdInputSchema).output(StatusViewSchema),
   suggestAppearance: oc.input(SuggestAppearanceInputSchema).output(SuggestAppearanceOutputSchema),

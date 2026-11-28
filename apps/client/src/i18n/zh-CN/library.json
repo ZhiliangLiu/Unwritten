@@ -11,6 +11,7 @@
     "resume": "继续游玩",
     "updated": "更新于 {{time}}",
     "viewDraft": "查看创作稿",
+    "playthroughs": "所有开局",
     "restart": "重新开局",
     "more": "《{{title}}》的更多操作",
     "delete": "删除作品"

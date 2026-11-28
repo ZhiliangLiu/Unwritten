@@ -25,5 +25,7 @@ export const queryKeys = {
     ['portrait', workId, 'draft', scope, target, appearance] as const,
   portraitSet: (workId: string, setId: string) => ['portrait', workId, 'set', setId] as const,
   playthrough: (playthroughId: string) => ['playthrough', playthroughId] as const,
+  playthroughs: (workId: string) => ['playthroughs', workId] as const,
+  playthroughsAll: ['playthroughs'] as const,
   status: (routeId: string) => ['status', routeId] as const,
 };

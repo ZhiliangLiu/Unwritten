@@ -202,6 +202,9 @@ function fakeServices(overrides: Partial<Services> = {}): Services {
       getPlaythrough: () => {
         throw new Error('not used');
       },
+      listPlaythroughs: () => {
+        throw new Error('not used');
+      },
       retryOpening: () => {
         throw new Error('not used');
       },

@@ -16,6 +16,7 @@ function summary(overrides: Partial<WorkSummary>): WorkSummary {
     label: '一段背景',
     status: 'draft',
     hasProgress: false,
+    hasMultiplePlaythroughs: false,
     routeId: null,
     updatedAt: Date.now(),
     ...overrides,
@@ -46,7 +47,9 @@ async function renderLibrary(list: WorkSummary[]) {
   const fake = createFakeApi({
     'works.list': () => list,
     'works.create': () => detail(),
+    'works.get': () => detail(),
     'works.delete': () => ({}),
+    'play.listPlaythroughs': () => [],
   });
   const screen = await renderRoute('/', { api: fake.api });
   await expect.element(screen.getByRole('heading', { name: '作品库' })).toBeVisible();
@@ -117,6 +120,21 @@ describe('LibraryPage', () => {
     await screen.unmount();
   });
 
+  it('有多次开局时主入口指向所有开局', async () => {
+    const work = summary({
+      title: '灯塔夜班',
+      status: 'playable',
+      hasProgress: true,
+      hasMultiplePlaythroughs: true,
+      routeId: crypto.randomUUID(),
+    });
+    const { screen } = await renderLibrary([work]);
+    const link = screen.getByRole('link', { name: '所有开局' });
+    await expect.element(link).toBeVisible();
+    await expect.element(link).toHaveAttribute('href', `/works/${work.id}/playthroughs`);
+    await screen.unmount();
+  });
+
   it('可玩但没开过局的作品指向开局页', async () => {
     const work = summary({ title: '灯塔夜班', status: 'playable' });
     const { screen } = await renderLibrary([work]);
@@ -134,6 +152,17 @@ describe('LibraryPage', () => {
     await expect.element(restart).toBeVisible();
     await restart.click();
     await vi.waitFor(() => expect(screen.router.state.location.pathname).toBe(`/works/${work.id}/start`));
+    await screen.unmount();
+  });
+
+  it('更多操作里有所有开局', async () => {
+    const work = summary({ title: '灯塔夜班', status: 'playable', routeId: crypto.randomUUID() });
+    const { screen } = await renderLibrary([work]);
+    await screen.getByRole('button', { name: '《灯塔夜班》的更多操作' }).click();
+    const all = screen.getByRole('menuitem', { name: '所有开局' });
+    await expect.element(all).toBeVisible();
+    await all.click();
+    await vi.waitFor(() => expect(screen.router.state.location.pathname).toBe(`/works/${work.id}/playthroughs`));
     await screen.unmount();
   });
 

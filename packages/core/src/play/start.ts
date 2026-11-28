@@ -458,6 +458,7 @@ export function startPlaythrough(
       data: { mode: outcome.mode, fields: outcome.filled },
     });
   }
+  deps.bus.publish({ type: 'works.changed', workId: outcome.workId });
   if (outcome.enqueue) {
     deps.bus.publish({
       type: 'playthrough.updated',

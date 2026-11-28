@@ -16,11 +16,14 @@ export function WorkCard({ work, onDelete }: { work: WorkSummary; onDelete: () =
   const title = (work.title ?? work.label) || t('library:card.untitled');
   const playable = work.status === 'playable';
   const routeId = playable ? work.routeId : null;
+  const showsPlaythroughs = playable && work.hasMultiplePlaythroughs;
   const entryLabel = !playable
     ? t('library:card.edit')
-    : routeId === null || !work.hasProgress
-      ? t('library:card.play')
-      : t('library:card.resume');
+    : showsPlaythroughs
+      ? t('library:card.playthroughs')
+      : routeId === null || !work.hasProgress
+        ? t('library:card.play')
+        : t('library:card.resume');
 
   return (
     <Card as='article'>
@@ -42,6 +45,15 @@ export function WorkCard({ work, onDelete }: { work: WorkSummary; onDelete: () =
             <Link className={buttonClassName('secondary')} to='/works/$workId/edit' params={{ workId: work.id }}>
               {entryLabel}
             </Link>
+          ) : showsPlaythroughs ? (
+            <Link
+              className={buttonClassName('secondary')}
+              to='/works/$workId/playthroughs'
+              params={{ workId: work.id }}
+            >
+              <Icon icon={Play} size='sm' />
+              {entryLabel}
+            </Link>
           ) : routeId !== null ? (
             <Link className={buttonClassName('secondary')} to='/play/$routeId' params={{ routeId }}>
               <Icon icon={Play} size='sm' />
@@ -61,6 +73,10 @@ export function WorkCard({ work, onDelete }: { work: WorkSummary; onDelete: () =
                     {
                       label: t('library:card.viewDraft'),
                       onSelect: () => void navigate({ to: '/works/$workId/edit', params: { workId: work.id } }),
+                    },
+                    {
+                      label: t('library:card.playthroughs'),
+                      onSelect: () => void navigate({ to: '/works/$workId/playthroughs', params: { workId: work.id } }),
                     },
                     {
                       label: t('library:card.restart'),

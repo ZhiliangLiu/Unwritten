@@ -4,6 +4,7 @@ import PQueue from 'p-queue';
 import type {
   IllustrationView,
   PlaythroughIdInput,
+  PlaythroughListItem,
   PlaythroughView,
   RetryInput,
   RetryOpeningInput,
@@ -142,6 +143,60 @@ export function createPlayService(
       pending: pending ? requestView(pending) : null,
       ended: chain.at(-1)?.ending === 1,
     };
+  };
+
+  const listPlaythroughs = (input: WorkIdInput): PlaythroughListItem[] => {
+    const work = deps.db.select().from(works).where(eq(works.id, input.workId)).get();
+    if (!work) throw appError('not_found', 'work not found');
+    if (!work.publishedId) throw appError('not_published', 'work is not published');
+    const version = deps.db.select().from(workVersions).where(eq(workVersions.id, work.publishedId)).get();
+    if (!version) throw appError('not_found', 'version not found');
+    const played = deps.db
+      .select()
+      .from(playthroughs)
+      .where(and(eq(playthroughs.versionId, version.id), eq(playthroughs.kind, 'play')))
+      .all();
+    if (played.length === 0) return [];
+    const routeRows = deps.db
+      .select()
+      .from(routes)
+      .where(
+        inArray(
+          routes.playthroughId,
+          played.map((playthrough) => playthrough.id),
+        ),
+      )
+      .orderBy(desc(routes.updatedAt))
+      .all();
+    const headIds = routeRows.map((route) => route.headTurnId);
+    const heads = headIds.length > 0 ? deps.db.select().from(turns).where(inArray(turns.id, headIds)).all() : [];
+    const headById = new Map(heads.map((turn) => [turn.id, turn]));
+    const latestRoute = new Map<string, typeof routes.$inferSelect>();
+    for (const route of routeRows) {
+      if (!latestRoute.has(route.playthroughId)) latestRoute.set(route.playthroughId, route);
+    }
+    const settings = readSettings(version.meta as VersionMeta);
+    const nameField = settings.protagonist.fields.find((field) => field.isName);
+    return played
+      .map((playthrough) => {
+        const route = latestRoute.get(playthrough.id) ?? null;
+        const head = route ? (headById.get(route.headTurnId) ?? null) : null;
+        const values = (playthrough.protagonist ?? {}) as Record<string, unknown>;
+        const storedValue = nameField ? values[nameField.name] : undefined;
+        const storedName = typeof storedValue === 'string' ? storedValue.trim() : '';
+        return {
+          id: playthrough.id,
+          routeId: route?.id ?? null,
+          createdAt: playthrough.createdAt,
+          updatedAt: route?.updatedAt ?? playthrough.createdAt,
+          protagonistName: storedName || null,
+          place: head?.scene.place.trim() || null,
+          time: head?.scene.time.trim() || null,
+          turnCount: head?.depth ?? null,
+          ended: head?.ending === 1,
+        };
+      })
+      .sort((left, right) => right.updatedAt - left.updatedAt);
   };
 
   const saveFailure = (
@@ -706,13 +761,13 @@ export function createPlayService(
     },
     start(input: StartPlaythroughInput): PlaythroughView {
       const result = startPlaythrough(deps, input);
-
       if (result.enqueue) openingJobs.enqueue(result.enqueue);
       return result.view;
     },
     getPlaythrough(input: PlaythroughIdInput): PlaythroughView {
       return playthroughView(deps.db, input.playthroughId);
     },
+    listPlaythroughs,
     retryOpening(input: RetryOpeningInput): PlaythroughView {
       return openingJobs.retry(input);
     },
