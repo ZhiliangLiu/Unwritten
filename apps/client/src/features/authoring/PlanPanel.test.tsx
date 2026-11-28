@@ -166,7 +166,9 @@ describe('PlanPanel', () => {
 
   it('请求进行中时显示生成标记', async () => {
     const screen = await render(<PlanPanel work={workDetail([summaryItem])} {...noopProps()} busy />);
-    await expect.element(screen.getByText('正在生成故事方案')).toBeVisible();
+    const markers = screen.getByText('正在生成故事方案');
+    expect(markers.elements()).toHaveLength(2);
+    await expect.element(markers.first()).toBeVisible();
     await screen.unmount();
   });
 

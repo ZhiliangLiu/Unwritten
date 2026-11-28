@@ -3,6 +3,8 @@
   "internal": "本机应用处理这项操作时出错。请重试。若反复出现，请记下诊断编号。",
   "background_required": "故事背景为空。请先填写背景，再生成预览。",
   "background_too_long": "故事背景超过长度上限。请缩短后再保存。",
+  "novel_invalid_text": "请选择内容非空、使用 UTF-8 或 GB18030 编码的 TXT 小说。",
+  "novel_too_large": "小说文件不能超过 64 MiB。",
   "action_too_long": "行动超过长度上限。请缩短后再发送。",
   "core_unreachable": "无法连接本机应用。请确认应用仍在运行，再重试。",
   "client_runtime": "当前页面运行出错。请重试打开此页面。",

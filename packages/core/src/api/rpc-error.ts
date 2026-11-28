@@ -9,6 +9,9 @@ import type { Logger } from '../log/logger.ts';
 function inputError(procedure: string | undefined, validation: ValidationError | undefined): ErrorCode {
   for (const issue of validation?.issues ?? []) {
     if (!('code' in issue) || issue.code !== 'too_big') continue;
+    if (procedure === 'works.importNovel' && (issue.path?.[0] === 'file' || issue.path?.[0] === 'totalBytes')) {
+      return 'novel_too_large';
+    }
     if (procedure === 'works.saveDraft' && issue.path?.[0] === 'background') return 'background_too_long';
     if (procedure === 'play.submitAction' && issue.path?.[0] === 'action' && issue.path[1] === 'text') {
       return 'action_too_long';

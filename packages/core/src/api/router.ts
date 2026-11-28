@@ -41,6 +41,9 @@ export function createRouter(services: Services) {
     works: {
       list: base.works.list.handler(({ context }) => context.services.library.list()),
       create: base.works.create.handler(({ input, context }) => context.services.library.create(input)),
+      importNovel: base.works.importNovel.handler(({ input, context }) =>
+        context.services.authoring.importNovel(input),
+      ),
       get: base.works.get.handler(({ input, context }) => context.services.library.get(input)),
       saveDraft: base.works.saveDraft.handler(({ input, context }) => context.services.library.saveDraft(input)),
       generatePreview: base.works.generatePreview.handler(({ input, context }) =>

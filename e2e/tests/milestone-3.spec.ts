@@ -226,6 +226,64 @@ test('只写一句背景一路点完', async ({ page }) => {
   }
 });
 
+test('从 TXT 直接得到开场预览，换章后采用新开场', async ({ page }) => {
+  const app = await startApp();
+  try {
+    app.server.enqueue(
+      { kind: 'text', text: JSON.stringify({ notes: '邮差到达码头，镇子夜间通电。', queries: [] }) },
+      proposePlanStep(),
+      previewStep(DEFAULT_PREVIEW),
+    );
+    await page.goto(app.url);
+    const chooser = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: '导入小说' }).click();
+    await (
+      await chooser
+    ).setFiles({
+      name: '归港.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('第一章 归港\n邮差站在码头。\n第二章 失灯\n灯塔的灯熄灭了。'),
+    });
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toContainText('创作模型');
+    await dialog.getByRole('button', { name: '导入小说' }).click();
+    await expect(page.getByText('船靠岸的时候，整座镇子黑着。')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('button', { name: '采用开场并存入作品库' })).toBeEnabled();
+
+    app.server.enqueue(
+      proposePlanStep(),
+      previewStep({ prose: '邮差在码头等着退潮。', options: ['朝灯塔走', '留在码头'] }),
+    );
+    await page.getByRole('button', { name: '方案', exact: true }).click();
+    await page.getByRole('combobox', { name: '补充参考章' }).click();
+    await page.getByRole('option', { name: '第二章 失灯' }).click();
+    await page.getByRole('button', { name: '按参考章重新生成' }).click();
+    await expect(page.getByText('邮差在码头等着退潮。')).toBeVisible({ timeout: 20_000 });
+
+    app.server.enqueue(
+      { kind: 'text', text: JSON.stringify({ notes: '灯塔刚熄灭，邮差已经到达码头。', queries: [] }) },
+      proposePlanStep({
+        summary: [
+          { key: 'identity', text: '灯塔镇的邮差', from: 'ai' },
+          { key: 'situation', text: '灯塔突然熄灭', from: 'ai' },
+        ],
+      }),
+      previewStep({ prose: '你抬头时，灯塔忽然暗了。', options: ['走向灯塔', '去找船长'] }),
+    );
+    await page.getByRole('button', { name: '方案', exact: true }).click();
+    await page.getByRole('combobox', { name: '原作起点' }).click();
+    await page.getByRole('option', { name: '第二章 失灯' }).click();
+    await page.getByRole('button', { name: '从所选章节生成' }).click();
+    await expect(page.getByText('你抬头时，灯塔忽然暗了。')).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: '采用开场并存入作品库' }).click();
+    await expect(page.getByRole('heading', { name: '已存入作品库' })).toBeVisible();
+    await page.getByRole('link', { name: '开始故事' }).click();
+    await expect(page.getByText('你抬头时，灯塔忽然暗了。')).toBeVisible();
+  } finally {
+    await stopApp(app);
+  }
+});
+
 test('秘密默认折叠，状态栏显示数字和进度条', async ({ page }) => {
   const app = await startApp();
   try {

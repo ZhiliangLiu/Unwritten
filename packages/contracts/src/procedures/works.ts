@@ -8,6 +8,7 @@ import {
   ConfirmPlanInputSchema,
   GeneratePlanInputSchema,
   GeneratePreviewInputSchema,
+  ImportNovelInputSchema,
   PreviewJobViewSchema,
   RemovePlanItemInputSchema,
   SaveDraftInputSchema,
@@ -24,6 +25,7 @@ import { SetIllustrationStyleInputSchema } from '../schemas/illustration.ts';
 export const worksContract = {
   list: oc.output(z.array(WorkSummarySchema)),
   create: oc.input(WorkIdInputSchema).output(WorkDetailSchema),
+  importNovel: oc.input(ImportNovelInputSchema).output(WorkIdInputSchema),
   get: oc.input(WorkIdInputSchema).output(WorkDetailSchema),
   saveDraft: oc.input(SaveDraftInputSchema).output(SaveDraftOutputSchema),
   generatePreview: oc.input(GeneratePreviewInputSchema).output(PreviewJobViewSchema),

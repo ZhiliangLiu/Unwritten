@@ -60,6 +60,7 @@ export const OpeningInitialStateSchema = z.object({
 
 export const VersionMetaSchema = z.object({
   background: z.string(),
+  novelBackground: z.boolean().optional(),
   anchors: WorkAnchorsSchema.optional(),
   settings: StoredSettingsSchema.optional(),
   plan: StoredPlanSchema.optional(),
@@ -94,18 +95,57 @@ export const PreviewJobResultSchema = z.object({
   adoption: z.object({ versionId: z.string(), routeId: z.string().nullable() }).nullable(),
 });
 
+export const NovelFileSchema = z.object({
+  name: z.string().min(1),
+  size: z.number().int().positive(),
+  encoding: z.enum(['utf-8', 'gb18030']),
+});
+
+const NovelInlineSchema = z.object({ name: z.string().min(1), text: z.string().min(1) });
+const novelChapters = {
+  chapters: z.array(z.object({ title: z.string(), start: z.number().int().nonnegative() })).min(1),
+};
+
+export const NovelSourceSchema = z.union([
+  NovelFileSchema.extend(novelChapters),
+  NovelInlineSchema.extend(novelChapters),
+]);
+
+export const NovelAnalysisSchema = z.object({
+  notes: z.string().trim().min(1).max(5_000),
+  queries: z
+    .array(
+      z.object({
+        question: z.string().trim().min(1).max(160),
+        terms: z.array(z.string().trim().min(2).max(30)).min(1).max(6),
+      }),
+    )
+    .max(6),
+});
+
+export const NovelCheckpointSchema = NovelAnalysisSchema.extend({
+  evidence: z.string().optional(),
+});
+
 export const PlanJobInputSchema = z.object({
   contentRev: z.number().int().nonnegative(),
   background: z.string(),
   anchors: WorkAnchorsSchema.optional(),
   settings: WorkSettingsSchema,
   protectedItems: z.array(PlanItemSchema),
+  novel: z
+    .object({
+      chapter: z.number().int().nonnegative(),
+      referenceChapter: z.number().int().nonnegative().optional(),
+    })
+    .optional(),
 });
 export const PlanJobResultSchema = z.object({
   items: z.array(PlanItemSchema),
   conflicts: z.array(PlanConflictSchema),
   language: LanguageTagSchema,
   stale: z.boolean(),
+  novelCheckpoint: NovelCheckpointSchema.optional(),
 });
 
 export const TurnRequestLogSchema = z.array(
@@ -129,12 +169,16 @@ export type OpeningInitialState = z.infer<typeof OpeningInitialStateSchema>;
 export type VersionMeta = z.infer<typeof VersionMetaSchema>;
 export type PreviewJobInput = z.infer<typeof PreviewJobInputSchema>;
 export type PreviewJobResult = z.infer<typeof PreviewJobResultSchema>;
+export type NovelSource = z.infer<typeof NovelSourceSchema>;
+export type NovelFile = z.infer<typeof NovelFileSchema>;
+type NovelSourceInput = NovelFile | z.infer<typeof NovelInlineSchema>;
+export type NovelCheckpoint = z.infer<typeof NovelCheckpointSchema>;
 export type PlanJobInput = z.infer<typeof PlanJobInputSchema>;
 export type PlanJobResult = z.infer<typeof PlanJobResultSchema>;
 export type TurnRequestLog = z.infer<typeof TurnRequestLogSchema>;
 
-export type JobInput = PreviewJobInput | PlanJobInput;
-export type JobResult = PreviewJobResult | PlanJobResult;
+export type JobInput = PreviewJobInput | PlanJobInput | NovelSourceInput;
+export type JobResult = PreviewJobResult | PlanJobResult | NovelCheckpoint | Pick<NovelSource, 'chapters'>;
 
 export function previewJobParts(row: { kind: string; input: JobInput; result: JobResult | null }): {
   input: PreviewJobInput;
@@ -147,9 +191,16 @@ export function previewJobParts(row: { kind: string; input: JobInput; result: Jo
 export function planJobParts(row: { kind: string; input: JobInput; result: JobResult | null }): {
   input: PlanJobInput;
   result: PlanJobResult | null;
+  checkpoint: NovelCheckpoint | null;
 } {
   if (row.kind !== 'plan') throw new Error('job kind mismatch');
-  return { input: row.input as PlanJobInput, result: row.result as PlanJobResult | null };
+  const result = row.result && 'items' in row.result ? row.result : null;
+  const checkpoint = row.result && 'queries' in row.result ? row.result : result?.novelCheckpoint;
+  return {
+    input: row.input as PlanJobInput,
+    result,
+    checkpoint: NovelCheckpointSchema.safeParse(checkpoint).data ?? null,
+  };
 }
 
 export function readAnchors(source: { anchors?: WorkAnchors }): WorkAnchors {

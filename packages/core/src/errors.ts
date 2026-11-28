@@ -6,6 +6,8 @@ const HTTP_STATUS: Record<ErrorCode, number> = {
   internal: 500,
   background_required: 400,
   background_too_long: 400,
+  novel_invalid_text: 400,
+  novel_too_large: 413,
   action_too_long: 400,
   core_unreachable: 503,
   client_runtime: 500,

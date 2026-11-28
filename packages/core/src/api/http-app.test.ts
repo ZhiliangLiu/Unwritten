@@ -156,6 +156,9 @@ function fakeServices(overrides: Partial<Services> = {}): Services {
       pruneCalls: () => 0,
     },
     authoring: {
+      importNovel: () => {
+        throw new Error('not used');
+      },
       generatePreview: () => {
         throw new Error('not used');
       },

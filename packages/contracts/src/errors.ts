@@ -6,6 +6,8 @@ export const ERROR_CODES = [
   'internal',
   'background_required',
   'background_too_long',
+  'novel_invalid_text',
+  'novel_too_large',
   'action_too_long',
   'core_unreachable',
   'client_runtime',
