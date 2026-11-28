@@ -10,7 +10,13 @@ import { RadioGroup } from '../../shared/ui/RadioGroup.tsx';
 import { Skeleton } from '../../shared/ui/Skeleton.tsx';
 import styles from './OutputDefaultsPanel.module.css';
 
-export function OutputDefaultsPanel({ disabled }: { disabled: boolean }) {
+export function OutputDefaultsPanel({
+  disabled,
+  capabilitiesKnown,
+}: {
+  disabled: boolean;
+  capabilitiesKnown: boolean;
+}) {
   const { t } = useTranslation();
   const api = useApi();
   const queryClient = useQueryClient();
@@ -24,10 +30,19 @@ export function OutputDefaultsPanel({ disabled }: { disabled: boolean }) {
   const dimensions = (size: ImageSize): string =>
     t('play:format.dimensions', { width: size.width, height: size.height });
 
+  if (!capabilitiesKnown) {
+    return (
+      <section className={styles.panel}>
+        <h4 className={styles.heading}>{t('settings:output.heading')}</h4>
+        <p className={styles.notice}>{t('settings:output.probeFirst')}</p>
+      </section>
+    );
+  }
+
   if (view.isPending) {
     return (
       <section className={styles.panel}>
-        <h3 className={styles.heading}>{t('settings:output.heading')}</h3>
+        <h4 className={styles.heading}>{t('settings:output.heading')}</h4>
         <Skeleton variant='lines' count={2} />
       </section>
     );
@@ -36,7 +51,7 @@ export function OutputDefaultsPanel({ disabled }: { disabled: boolean }) {
   if (!view.data) {
     return (
       <section className={styles.panel}>
-        <h3 className={styles.heading}>{t('settings:output.heading')}</h3>
+        <h4 className={styles.heading}>{t('settings:output.heading')}</h4>
         <ErrorNotice error={view.error ?? set.error} />
       </section>
     );
@@ -53,7 +68,7 @@ export function OutputDefaultsPanel({ disabled }: { disabled: boolean }) {
 
   return (
     <section className={styles.panel}>
-      <h3 className={styles.heading}>{t('settings:output.heading')}</h3>
+      <h4 className={styles.heading}>{t('settings:output.heading')}</h4>
       <div className={styles.options} inert={disabled || undefined}>
         <RadioGroup
           label={t('play:format.aspect')}

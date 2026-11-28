@@ -101,6 +101,7 @@ function service(overrides: Partial<ImageServiceView> = {}): ImageServiceView {
       model: null,
     },
     lastSuccessAt: Date.now() - 120_000,
+    capabilitiesAt: null,
     state: 'ready',
     action: null,
     wakeFailure: null,
@@ -120,6 +121,7 @@ function cloudService(): ImageServiceView {
     capabilities: OPENAI_CAPABILITIES,
     probe: null,
     lastSuccessAt: null,
+    capabilitiesAt: null,
     state: 'unknown',
   });
 }
@@ -154,7 +156,7 @@ async function chooseOption(trigger: HTMLButtonElement, optionText: string): Pro
 }
 
 function cardByName(container: Element, name: string): HTMLElement | null {
-  const heading = Array.from(container.querySelectorAll('h3')).find((element) => element.textContent?.trim() === name);
+  const heading = Array.from(container.querySelectorAll('h4')).find((element) => element.textContent?.trim() === name);
   return (heading?.closest('section') as HTMLElement | null) ?? null;
 }
 
@@ -164,6 +166,16 @@ function buttonIn(container: Element, label: string): HTMLButtonElement {
   );
   if (!button) throw new Error(`button not found: ${label}`);
   return button;
+}
+
+async function chooseMenuItem(card: Element, serviceName: string, label: string): Promise<void> {
+  card.querySelector<HTMLButtonElement>(`button[aria-label="出图服务「${serviceName}」的更多操作"]`)!.click();
+  await waitFor(() =>
+    Array.from(document.querySelectorAll('[role="menuitem"]')).some((item) => item.textContent?.trim() === label),
+  );
+  Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+    .find((item) => item.textContent?.trim() === label)!
+    .click();
 }
 
 function inputByLabel(container: Element, label: string): HTMLInputElement | null {
@@ -188,8 +200,7 @@ function cacheContains(queryClient: QueryClient, token: string): boolean {
   return queries.includes(token) || mutations.includes(token);
 }
 
-async function openSettings() {
-  const baseConfig = imageConfig([service(), cloudService()], LOCAL_ID);
+async function openSettings(baseConfig: ImageConfigView = imageConfig([service(), cloudService()], LOCAL_ID)) {
   const fake = createFakeApi({
     'settings.get': () => ({ ...DEFAULT_APPEARANCE }),
     'settings.update': (input) => input,
@@ -273,7 +284,9 @@ describe('ImageServiceSection', () => {
     );
     expect(paidButtons).toHaveLength(1);
     expect(cardByName(container, '云图')!.contains(paidButtons[0]!)).toBe(true);
-    expect(cardByName(container, '本机出图')!.textContent).toContain('最多使用 4 张参考图');
+    expect(cardByName(container, '本机出图')!.textContent).toContain('最多 4 张');
+    expect(cardByName(container, '本机出图')!.textContent).toContain('用于出图');
+    expect(cardByName(container, '云图')!.textContent).not.toContain('用于出图');
     await unmount();
   });
 
@@ -345,7 +358,7 @@ describe('ImageServiceSection', () => {
     const { container, fake, unmount } = await openSettings();
     await waitFor(() => cardByName(container, '本机出图') !== null);
     const card = cardByName(container, '本机出图')!;
-    buttonIn(card, '编辑').click();
+    await chooseMenuItem(card, '本机出图', '编辑');
     await waitFor(() =>
       Array.from(card.querySelectorAll('button')).some((button) => button.textContent?.trim() === '保存出图服务'),
     );
@@ -362,7 +375,7 @@ describe('ImageServiceSection', () => {
     const { container, fake, getByRole, unmount } = await openSettings();
     await waitFor(() => cardByName(container, '云图') !== null);
     const card = cardByName(container, '云图')!;
-    buttonIn(card, '编辑').click();
+    await chooseMenuItem(card, '云图', '编辑');
     await waitFor(() =>
       Array.from(card.querySelectorAll('button')).some((button) => button.textContent?.trim() === '兼容设置'),
     );
@@ -392,7 +405,7 @@ describe('ImageServiceSection', () => {
     const { container, fake, unmount } = await openSettings();
     await waitFor(() => cardByName(container, '本机出图') !== null);
     const card = cardByName(container, '本机出图')!;
-    buttonIn(card, '编辑').click();
+    await chooseMenuItem(card, '本机出图', '编辑');
     await waitFor(() =>
       Array.from(card.querySelectorAll('button')).some((button) => button.textContent?.trim() === '保留已保存的 key'),
     );
@@ -419,7 +432,7 @@ describe('ImageServiceSection', () => {
     const { container, fake, unmount } = await openSettings();
     await waitFor(() => cardByName(container, '本机出图') !== null);
     const card = cardByName(container, '本机出图')!;
-    buttonIn(card, '编辑').click();
+    await chooseMenuItem(card, '本机出图', '编辑');
     await waitFor(() =>
       Array.from(card.querySelectorAll('button')).some((button) => button.textContent?.trim() === '生成令牌'),
     );
@@ -447,7 +460,7 @@ describe('ImageServiceSection', () => {
   it('删除选中的服务时说明会停止出图', async () => {
     const { container, fake, unmount } = await openSettings();
     await waitFor(() => cardByName(container, '本机出图') !== null);
-    buttonIn(cardByName(container, '本机出图')!, '删除出图服务').click();
+    await chooseMenuItem(cardByName(container, '本机出图')!, '本机出图', '删除出图服务');
     await waitFor(() => document.querySelector('[role="alertdialog"]') !== null);
     const dialog = document.querySelector('[role="alertdialog"]')!;
     expect(dialog.textContent).toContain('删除正在使用的「本机出图」后，新的插图将停止生成。');
@@ -456,6 +469,58 @@ describe('ImageServiceSection', () => {
     expect(
       (fake.calls.find((call) => call.path === 'image.services.remove')!.input as { serviceId: string }).serviceId,
     ).toBe(LOCAL_ID);
+    await unmount();
+  });
+
+  it('用于出图的下拉切换服务', async () => {
+    const { container, fake, unmount } = await openSettings();
+    await waitFor(() => cardByName(container, '本机出图') !== null);
+    await chooseOption(buttonIn(container, '本机出图'), '云图');
+    await waitFor(() => fake.calls.some((call) => call.path === 'image.select'));
+    expect((fake.calls.find((call) => call.path === 'image.select')!.input as { serviceId: string }).serviceId).toBe(
+      CLOUD_ID,
+    );
+    await unmount();
+  });
+
+  it('不出图时不显示默认出图规格', async () => {
+    const { container, unmount } = await openSettings(imageConfig([service(), cloudService()], null));
+    await waitFor(() => cardByName(container, '本机出图') !== null);
+    expect(buttonIn(container, '不出图')).toBeDefined();
+    expect(container.textContent).not.toContain('默认出图规格');
+    expect(container.textContent).not.toContain('自动比例');
+    await unmount();
+  });
+
+  it('选中服务的能力还未知时，默认规格提示先测试连接', async () => {
+    const unknown = service({ capabilities: null, capabilitiesAt: null, probe: null });
+    const { container, unmount } = await openSettings(imageConfig([unknown], LOCAL_ID));
+    await waitFor(() => container.textContent?.includes('默认出图规格') ?? false);
+    expect(container.textContent).toContain('测试连接后，这里会列出这个服务支持的比例和分辨率。');
+    expect(container.textContent).not.toContain('自动比例');
+    await unmount();
+  });
+
+  it('能力来自较早的探测时注明来源', async () => {
+    const remembered = service({ probe: null, capabilitiesAt: Date.now() - 3_600_000 });
+    const { container, unmount } = await openSettings(imageConfig([remembered], LOCAL_ID));
+    await waitFor(() => cardByName(container, '本机出图') !== null);
+    const card = cardByName(container, '本机出图')!;
+    expect(card.textContent).toContain('最多 4 张');
+    expect(card.textContent).toContain('的探测。测试连接可以刷新。');
+    await unmount();
+  });
+
+  it('测试连接后重新读取服务列表和默认规格', async () => {
+    const { container, fake, unmount } = await openSettings();
+    await waitFor(() => cardByName(container, '本机出图') !== null);
+    const listCalls = () => fake.calls.filter((call) => call.path === 'image.services.list').length;
+    const outputCalls = () => fake.calls.filter((call) => call.path === 'image.outputPreferences.get').length;
+    const listsBefore = listCalls();
+    const outputsBefore = outputCalls();
+    buttonIn(cardByName(container, '本机出图')!, '测试连接').click();
+    await waitFor(() => listCalls() > listsBefore && outputCalls() > outputsBefore);
+    expect(cardByName(container, '本机出图')!.textContent).toContain('已连接，服务就绪。');
     await unmount();
   });
 

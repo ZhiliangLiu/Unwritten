@@ -14,6 +14,7 @@ import { newImageServiceId } from '../providers/ids.ts';
 import { keyStatus } from '../providers/keys.ts';
 import type { ImageServiceEntry } from '../providers/schema.ts';
 import type { ProbeRecord } from './capability-cache.ts';
+import type { KnownCapabilities } from './known-capabilities.ts';
 import { openAiCapabilities, resolveOpenAiOptions, type ResolvedOpenAiImageOptions } from './openai-capabilities.ts';
 
 export interface ImageWakeView {
@@ -38,11 +39,14 @@ export function serviceView(
   entry: ImageServiceEntry,
   env: NodeJS.ProcessEnv,
   probe: ProbeRecord | null,
+  known: KnownCapabilities | null,
   wake: ImageWakeView,
   lastSuccessAt: number | null,
 ): ImageServiceView {
-  const capabilities: ImageCapabilities | null =
-    entry.protocol === 'openai-images' ? openAiCapabilities(openAiOptions(entry)) : (probe?.capabilities ?? null);
+  const openai = entry.protocol === 'openai-images';
+  const capabilities: ImageCapabilities | null = openai
+    ? openAiCapabilities(openAiOptions(entry))
+    : (known?.capabilities ?? null);
   return {
     id: entry.id,
     name: entry.name,
@@ -54,6 +58,7 @@ export function serviceView(
     launcher: entry.launcher ? { baseUrl: entry.launcher.baseUrl, key: keyStatus(entry.launcher.apiKey, env) } : null,
     idleMinutes: entry.idleMinutes ?? IMAGE_IDLE_MINUTES,
     capabilities,
+    capabilitiesAt: openai ? null : (known?.at ?? null),
     probe: probe
       ? {
           at: probe.at,

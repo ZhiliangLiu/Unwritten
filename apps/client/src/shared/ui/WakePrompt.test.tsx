@@ -29,6 +29,7 @@ function service(overrides: Partial<ImageServiceView> = {}): ImageServiceView {
     capabilities: null,
     probe: null,
     lastSuccessAt: null,
+    capabilitiesAt: null,
     state: 'ready',
     action: null,
     wakeFailure: null,

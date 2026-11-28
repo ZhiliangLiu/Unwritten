@@ -60,9 +60,10 @@
 - **`protocol` 只有两个取值：** `unwritten-image`（§3）和 `openai-images`（§4）。
 - **key 规则全部照搬。** `apiKey` 的三种写法、只返回 `hasKey` 和 `keySource`、编辑时留空就保留、「移除 key」、地址保存后不能改、明文 http 访问非本机地址时警告，都同 [LLM 端点 §3](./llm-endpoints.md#3-key-的来源与保护)。服务的 id 格式是 `image-<名称简写>-<6 位十六进制>`，取法同自定义端点。
 - **令牌由设置页生成，** 规则见[插件 §3.2](./plugins.md#32-鉴权)。用户先复制令牌到服务那一侧，再填服务地址。保存前，令牌和表单草稿随页面关闭而丢弃。重新开始时，用新令牌替换服务侧的令牌。保存后 core 把它写进服务的 `apiKey`。
-- **`image.service` 是用于出图的服务。** 为空时停止出图，开局页收起插图设置。已有图片照常显示和保存，作者仍可从本机录入人物参考。删除正在使用的服务时，确认框写明效果，删除后把它清空。
+- **`image.service` 是用于出图的服务。** 添加第一个服务时，core 把它设为用于出图；已经有服务时，添加不改变选择，「不出图」也是用户可以保留的选择。为空时停止出图，开局页收起插图设置。已有图片照常显示和保存，作者仍可从本机录入人物参考。删除正在使用的服务时，确认框写明效果，删除后把它清空。
 - **按需启动是可选项。** 只有 `unwritten-image` 服务能配 `launcher` 和 `idleMinutes`。`launcher` 是启动器的地址和 key，key 的规则同服务的 `apiKey`；`idleMinutes` 默认 `IMAGE_IDLE_MINUTES`（30），取 5 到 720 之间的整数。规则见 §12。
 - **能力从哪来。** `unwritten-image` 服务的能力由服务自己报告（§3.2），配置里不写。`openai-images` 服务没法自报，能力写在 `capabilities` 里；添加服务时按模型 id 预填（§4.3），用户可以改。
+- **设置页沿用最近一次读到的能力。** 每次 `/v1/info` 读到能力，core 就把它和读取时间写进 `image_service_capabilities`（§9.2），删除服务时一并删除。这份记录只是方便设置页，写入或删除失败时只记诊断事件，探测结果和服务配置照常。设置页的服务卡片和默认出图规格用这份能力，所以重启 core 之后、或者服务暂时连不上时，默认规格仍然可选；卡片注明能力来自哪一次探测。出图前的能力仍按 §5.1 现读，不用这份记录，免得服务换了工作流后按过期的能力发请求。
 - **`openai-images` 的兼容设置。** `capabilities` 里还可以写 `outputFormat`、`responseFormat`、`referenceTransport` 和 `disableWatermark`，省略时分别按 `webp`、`omit`、`edits`、`false` 处理。它们改变 §4.1 的请求形状，用来接只兼容 OpenAI 图像接口一部分的服务。
 - **「游玩时生成插图」默认关闭。** 首次开启前，设置页列明实际使用的 `background` 和出图服务、各自接收的内容，并提示一张插图可能先生成多张参考图。确认关联的服务 id、`openai-images` 模型 id 和 `background` 的实际端点与模型，存入 `app_settings`。任一项变化后，设置页恢复关闭，重新确认后生效。每局仍可选择纯文字，生效规则见 §7.1。
 
@@ -73,8 +74,8 @@
 | 添加服务 | 选协议，填名称、地址、key。`unwritten-image` 可以点「生成令牌」；`openai-images` 另填模型 id，确认预填的能力，必要时在「兼容设置」里改输出格式、响应格式、参考图传输方式和是否关闭服务水印 |
 | 测试连接 | `unwritten-image` 读取 `/v1/info`，显示实现名、模型、能力和就绪状态。`openai-images` 读取 `{baseUrl}/models`，成功后显示「连接成功」，出图能力由实际生成验证 |
 | 生成测试图 | `openai-images` 用固定的测试提示词画一张图。用户先确认可能产生费用，成功后显示「已成功出图」 |
-| 状态 | 显示最近一次的连接结果和时间，未就绪时显示原因。成功出过图时，显示最近一次出图时间 |
-| 默认出图规格 | 正文插图的比例默认为「自动」，也可固定。分辨率可选「高 · 720」「很高 · 1K」「非常高 · 2K」，优先预填 1K。当前服务只有一档时显示该档及原因。显示各档的实际宽×高，大尺寸可能更慢或更贵 |
+| 状态 | 显示最近一次的连接结果和时间，未就绪时显示原因。成功出过图时，显示最近一次出图时间。能力来自较早的探测时，注明探测时间 |
+| 默认出图规格 | 选了用于出图的服务才显示。服务的能力还未知时，只提示先测试连接。正文插图的比例默认为「自动」，也可固定。分辨率可选「高 · 720」「很高 · 1K」「非常高 · 2K」，优先预填 1K。当前服务只有一档时显示该档及原因。显示各档的实际宽×高，大尺寸可能更慢或更贵 |
 | 按需启动 | `unwritten-image` 服务可以填启动器地址、点「生成令牌」生成启动器令牌、设空闲多少分钟后关闭服务。「测试启动器」读取启动器的信息和当前状态。见 §12 |
 | 隐私说明 | `background` 服务接收可用的正文片段、人物形象和镜头约束。出图服务接收由此写成的提示词和每次选中的参考图片，可能包括本机导入的图片。手动补齐视角或生成主角预览时，在操作处提示涉及的内容与接收方 |
 
@@ -288,7 +289,7 @@ OpenAI 图像接口的参考图按 core 的单张 `IMAGE_MAX_BYTES` 限制筛选
 
 - `selectedServiceId()`：当前选中的服务 id，没选或服务已删除时为空。
 - `activeTarget()`：已经确认并生效的自动出图接收方；没有确认时为空。
-- `capabilities(serviceId)`：该服务当前的能力。`unwritten-image` 服务取最近一次 `/v1/info` 的结果，`openai-images` 服务取配置。
+- `capabilities(serviceId)`：该服务当前的能力。`unwritten-image` 服务取本次运行中最近一次 `/v1/info` 的结果，还没读到或最近一次没读到时为空；`openai-images` 服务取配置。设置页用的已存能力（§2）不经过这个入口。
 - `prepareGeneration(serviceId, input)`：在写镜头描述或调用出图前取得服务当前能力。离线快速失败、按需唤醒和接收方守卫都在这里决定。
 - `assertFormat(capabilities, format)`：检查已确定的规格是否仍可用。
 - `generate(input)`：`input` 包含 `prompt`、`negativePrompt`、`references`、`aspect`、`size`（可省略的实际宽高）、`quality`、`seed`、`signal`、`ref`（调用记录的引用，§11）。返回图片字节、类型、宽高、实际用的 seed（没有时为空）、服务 id 和模型。
@@ -512,6 +513,12 @@ CREATE UNIQUE INDEX portrait_sets_active_work
 CREATE UNIQUE INDEX portrait_sets_playthrough_identity
   ON portrait_sets (playthrough_id, entity_id, ifnull(appearance_fact_id, ''))
   WHERE scope = 'playthrough';
+
+image_service_capabilities (
+  service_id      TEXT PRIMARY KEY,   -- providers.json 里的服务 id
+  capabilities    JSON NOT NULL,      -- 最近一次 /v1/info 报告的能力
+  probed_at       INTEGER NOT NULL    -- 读到这份能力的时间
+)
 ```
 
 - 一个回合最多一张插图，所以 `turn_id` 唯一。作品按人物和对应形象选择一组已采用的参考。开局按人物和可见身份起点只登记一组基础参考。并发请求共用同一组和正在生成的正面。core 在写入事务里核对开局和作品归属，以及人物与可见身份起点是否属于该开局的投影范围。

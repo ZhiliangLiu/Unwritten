@@ -15,7 +15,7 @@ export function Disclosure({
 }: {
   summary: ReactNode;
   children: ReactNode;
-  heading?: 'h3' | 'h4';
+  heading?: 'h3' | 'h4' | 'h5';
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   className?: string;

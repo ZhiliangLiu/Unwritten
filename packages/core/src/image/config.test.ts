@@ -45,25 +45,25 @@ describe('validateBaseUrl', () => {
 describe('serviceView', () => {
   it('返回 key 状态而不返回 key 原文', () => {
     const entry = createEntry(createInput());
-    const view = serviceView(entry, {}, null, UNKNOWN_WAKE_VIEW, null);
+    const view = serviceView(entry, {}, null, null, UNKNOWN_WAKE_VIEW, null);
     expect(view.key).toEqual({ hasKey: true, source: 'file', envVar: null });
     expect(JSON.stringify(view)).not.toContain('test-token-0123456789abcdef0123456789abcdef');
   });
 
   it('$ENV 写法报告环境变量来源', () => {
     const entry = createEntry(createInput({ apiKey: '$TEST_IMAGE_KEY' }));
-    const view = serviceView(entry, { TEST_IMAGE_KEY: 'secret' }, null, UNKNOWN_WAKE_VIEW, null);
+    const view = serviceView(entry, { TEST_IMAGE_KEY: 'secret' }, null, null, UNKNOWN_WAKE_VIEW, null);
     expect(view.key).toEqual({ hasKey: true, source: 'env', envVar: 'TEST_IMAGE_KEY' });
   });
 
   it('没有 launcher 时 idleMinutes 用默认值', () => {
     const entry = createEntry(createInput({ idleMinutes: 90 }));
-    expect(serviceView(entry, {}, null, UNKNOWN_WAKE_VIEW, null).idleMinutes).toBe(30);
+    expect(serviceView(entry, {}, null, null, UNKNOWN_WAKE_VIEW, null).idleMinutes).toBe(30);
   });
 
   it('openai-images 的能力从配置预填', () => {
     const entry = createEntry(createInput({ protocol: 'openai-images', model: 'gpt-image-2' }));
-    const view = serviceView(entry, {}, null, UNKNOWN_WAKE_VIEW, 1234);
+    const view = serviceView(entry, {}, null, null, UNKNOWN_WAKE_VIEW, 1234);
     expect(view.capabilities?.maxReferences).toBe(16);
     expect(view.capabilities?.aspects).toEqual(['1:1', '3:2', '2:3', '3:4', '4:3', '16:9', '9:16']);
     expect(view.openai).toEqual({
@@ -75,9 +75,10 @@ describe('serviceView', () => {
       disableWatermark: false,
     });
     expect(view.lastSuccessAt).toBe(1234);
+    expect(view.capabilitiesAt).toBeNull();
   });
 
-  it('unwritten-image 的能力取探测缓存', () => {
+  it('unwritten-image 的能力取最近一次读到的能力，并带上读到的时间', () => {
     const entry = createEntry(createInput());
     const cache = createCapabilityCache();
     const capabilities = {
@@ -98,8 +99,9 @@ describe('serviceView', () => {
       model: null,
       capabilities,
     });
-    const view = serviceView(entry, {}, cache.get(entry.id), UNKNOWN_WAKE_VIEW, null);
+    const view = serviceView(entry, {}, cache.get(entry.id), { capabilities, at: 10 }, UNKNOWN_WAKE_VIEW, null);
     expect(view.capabilities).toEqual(capabilities);
+    expect(view.capabilitiesAt).toBe(10);
     expect(view.openai).toBeNull();
     expect(view.probe?.implementation).toEqual({ name: '伪服务', version: '1' });
   });

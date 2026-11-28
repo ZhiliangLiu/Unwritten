@@ -52,6 +52,7 @@ function config(withService: boolean): ImageConfigView {
             capabilities: null,
             probe: null,
             lastSuccessAt: null,
+            capabilitiesAt: null,
             state: 'ready',
             action: null,
             wakeFailure: null,
